@@ -1,4 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function AuthGate({ children }: { children: ReactNode }) {
@@ -60,6 +61,9 @@ export default function AuthGate({ children }: { children: ReactNode }) {
           </label>
           {(formError || error) && <p role="alert" style={{ color: '#b91c1c', margin: 0 }}>{formError || error}</p>}
           <button type="submit" disabled={submitting} style={buttonStyle}>{submitting ? 'Đang đăng nhập...' : 'Đăng nhập'}</button>
+          <p style={{ margin: 0, textAlign: 'center', fontSize: '14px' }}>
+            Chưa có xưởng? <Link to="/register" style={{ color: '#1d4ed8', fontWeight: 700 }}>Đăng ký xưởng mới</Link>
+          </p>
         </form>
       </main>
     );

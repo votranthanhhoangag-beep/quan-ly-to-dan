@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import CategoryManager from './components/CategoryManager';
 import { ContractsManager } from './components/ContractsManager';
@@ -17,8 +18,18 @@ import { getVehicleExpiryWarnings } from './utils/vehicleExpiry';
 import { AuthProvider, useAuth, type Permission, type UserRole } from './context/AuthContext';
 import AuthGate from './components/AuthGate';
 import AuditLogView from './components/AuditLogView';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import Unauthorized from './pages/Unauthorized';
+import Register from './pages/Register';
 
 type MenuItem = { id: string; label: string; permission: Permission };
+
+const routeByTab: Record<string, string> = {
+  dashboard: '/dashboard',
+  contracts: '/ho-so-dan',
+  expenses: '/phieu-chi',
+  userManagement: '/quan-ly-user'
+};
 
 interface SpeechRecognitionResultLike {
   0?: { transcript: string };
@@ -316,16 +327,17 @@ function FrameReceiptDashboard({
   );
 }
 
-function AppContent() {
+function AppContent({ initialTab }: { initialTab: string }) {
   const { isDataLoaded, dataLoadError, retryDataLoad } = useApp();
   const { user, hasPermission, signOut } = useAuth();
+  const navigate = useNavigate();
   const [syncNotice, setSyncNotice] = useState<{ status: string; message: string } | null>(
     () => navigator.onLine ? null : {
       status: 'offline',
       message: 'Mất kết nối mạng. Dữ liệu mới sẽ được lưu trên thiết bị và đồng bộ lại khi có mạng.'
     }
   );
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [selectedTab, setSelectedTab] = useState<string>(initialTab);
   const [inventoryInitialTab, setInventoryInitialTab] = useState<'NK_KHUNG' | 'KS_INCOMPLETE' | 'FRAME_STOCK'>('FRAME_STOCK');
   const [frameReceiptContractId, setFrameReceiptContractId] = useState<string | number | null>(null);
   const [depositEditContractId, setDepositEditContractId] = useState<string | number | null>(null);
@@ -344,15 +356,20 @@ function AppContent() {
     { id: 'vehicles', label: '🚛 Quản Lý Xe & KM', permission: 'view_vehicles' },
     { id: 'tax', label: '📊 Doanh Thu và Chi Phí', permission: 'view_revenue' },
     { id: 'systemSettings', label: '⚙️ Cấu Hình Hệ Thống', permission: 'manage_settings' },
+    { id: 'userManagement', label: '👥 Quản Lý Người Dùng', permission: 'manage_settings' },
     { id: 'auditLogs', label: '🧾 Lịch Sử Thao Tác', permission: 'view_audit_logs' }
   ];
   const visibleMenuItems = menuItems.filter(item => hasPermission(item.permission));
+  const activeTab = visibleMenuItems.some(item => item.id === selectedTab)
+    ? selectedTab
+    : visibleMenuItems[0]?.id || 'auditLogs';
 
-  useEffect(() => {
-    if (!visibleMenuItems.some(item => item.id === activeTab)) {
-      setActiveTab(visibleMenuItems[0]?.id || 'auditLogs');
-    }
-  }, [activeTab, visibleMenuItems]);
+  const navigateToTab = (tabId: string) => {
+    if (tabId === 'inventory') setInventoryInitialTab('FRAME_STOCK');
+    setSelectedTab(tabId);
+    const route = routeByTab[tabId];
+    if (route) navigate(route);
+  };
 
   useEffect(() => {
     let dismissTimer: number | undefined;
@@ -459,10 +476,7 @@ function AppContent() {
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => {
-                    if (item.id === 'inventory') setInventoryInitialTab('FRAME_STOCK');
-                    setActiveTab(item.id);
-                  }}
+                  onClick={() => navigateToTab(item.id)}
                   style={{
                     width: '100%',
                     textAlign: 'left',
@@ -510,8 +524,8 @@ function AppContent() {
                 <VoiceCommandControl
                   menuItems={visibleMenuItems}
                   onNavigate={tabId => {
+                    navigateToTab(tabId);
                     if (tabId === 'inventory') setInventoryInitialTab('NK_KHUNG');
-                    setActiveTab(tabId);
                   }}
                 />
               </div>
@@ -523,14 +537,14 @@ function AppContent() {
                 </div>
                 <FrameReceiptDashboard onOpenInventory={() => {
                   setInventoryInitialTab('KS_INCOMPLETE');
-                  setActiveTab('inventory');
+                  setSelectedTab('inventory');
                 }} onRequestDeposit={contractId => {
                   setDepositEditContractId(contractId);
-                  setActiveTab('contracts');
+                  setSelectedTab('contracts');
                 }} onReceiveMissingFrames={contractId => {
                   setFrameReceiptContractId(contractId);
                   setInventoryInitialTab('NK_KHUNG');
-                  setActiveTab('inventory');
+                  setSelectedTab('inventory');
                 }} />
               </div>
             )}
@@ -563,6 +577,12 @@ function AppContent() {
             {activeTab === 'tax' && <TaxExpenseManager />}
 
             {activeTab === 'systemSettings' && <SystemSettingsView />}
+            {activeTab === 'userManagement' && (
+              <section role="status" style={{ padding: '24px', border: '1px solid #e2e8f0', borderRadius: '10px', backgroundColor: '#fff' }}>
+                <h2 style={{ marginTop: 0 }}>Quản lý người dùng</h2>
+                <p style={{ marginBottom: 0, color: '#475569' }}>Màn hình quản lý người dùng chưa được triển khai.</p>
+              </section>
+            )}
             {activeTab === 'auditLogs' && hasPermission('view_audit_logs') && <AuditLogView />}
 
           </div>
@@ -572,15 +592,43 @@ function AppContent() {
   );
 }
 
-export default function App() {
+function RoutedAppContent({ initialTab }: { initialTab: string }) {
+  const { pathname } = useLocation();
+  return <AppContent key={pathname} initialTab={initialTab} />;
+}
+
+function AuthenticatedApp() {
   return (
     <AuthProvider>
       <AuthGate>
         <AppProvider>
-          <AppContent />
+          <Routes>
+            <Route path="/unauthorized" element={<Unauthorized />} />
+            <Route element={<ProtectedRoute />}>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<RoutedAppContent initialTab="dashboard" />} />
+              <Route path="/ho-so-dan" element={<RoutedAppContent initialTab="contracts" />} />
+              <Route path="/phieu-chi" element={<RoutedAppContent initialTab="expenses" />} />
+              <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+                <Route path="/quan-ly-user" element={<RoutedAppContent initialTab="userManagement" />} />
+              </Route>
+            </Route>
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
         </AppProvider>
       </AuthGate>
     </AuthProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/register" element={<Register />} />
+        <Route path="/*" element={<AuthenticatedApp />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
