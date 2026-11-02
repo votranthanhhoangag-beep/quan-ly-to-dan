@@ -92,6 +92,7 @@ const flushPendingSaves = async () => {
       if (!sheetName) break;
       const items = currentPending[sheetName];
       if (!items) continue;
+      emitSyncStatus('syncing', `Đang đồng bộ dữ liệu ${sheetName}...`);
       try {
         await sendSheetSnapshot(sheetName, items);
         const latestPending = readPendingSaves();
@@ -101,6 +102,10 @@ const flushPendingSaves = async () => {
         }
       } catch (error) {
         console.error(`Không thể đồng bộ dữ liệu (${sheetName}):`, error);
+        const detail = error instanceof DOMException && error.name === 'TimeoutError'
+          ? `Hết thời gian chờ đồng bộ dữ liệu ${sheetName}. Dữ liệu vẫn được giữ trên thiết bị và sẽ tự thử lại.`
+          : `Không thể đồng bộ dữ liệu ${sheetName}. Dữ liệu vẫn được giữ trên thiết bị và sẽ tự thử lại.`;
+        emitSyncStatus('error', detail);
         schedulePendingSaveRetry();
         return;
       }

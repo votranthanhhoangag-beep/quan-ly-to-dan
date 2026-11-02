@@ -36,7 +36,8 @@ export default function AuditLogView() {
           .from('audit_logs')
           .select('id, event_id, actor_user_id, username, role, action_type, module_name, description, target_id, created_at')
           .order('created_at', { ascending: false })
-          .limit(1000);
+          .limit(1000)
+          .abortSignal(AbortSignal.timeout(8000));
         if (!active) return;
         if (error) {
           console.error('Không thể tải nhật ký từ Supabase:', error);

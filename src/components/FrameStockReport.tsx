@@ -3,6 +3,8 @@ import { useApp } from '../context/AppContext';
 import { getFrameStockRows } from '../utils/frameStock';
 import FrameCompanyReturnManager from './FrameCompanyReturnManager';
 
+const PAGE_SIZE = 30;
+
 const currentMonth = () => {
   const date = new Date();
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -15,10 +17,16 @@ export default function FrameStockReport() {
   const { products = [], contracts = [], slips = [] } = useApp();
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [activeTab, setActiveTab] = useState<'stock' | 'company-return'>('stock');
+  const [page, setPage] = useState(1);
   const rows = useMemo(
     () => getFrameStockRows(products, contracts, slips, selectedMonth),
     [products, contracts, selectedMonth, slips]
   );
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const pageRows = rows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const firstRowNumber = rows.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const lastRowNumber = Math.min(currentPage * PAGE_SIZE, rows.length);
   const totals = rows.reduce((result, row) => ({
     opening: result.opening + row.opening,
     inbound: result.inbound + row.inbound,
@@ -70,7 +78,10 @@ export default function FrameStockReport() {
             type="month"
             value={selectedMonth}
             onChange={event => {
-              if (event.target.value) setSelectedMonth(event.target.value);
+              if (event.target.value) {
+                setSelectedMonth(event.target.value);
+                setPage(1);
+              }
             }}
             style={{ padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
           />
@@ -107,7 +118,7 @@ export default function FrameStockReport() {
             </tr>
           </thead>
           <tbody>
-            {rows.map(row => (
+            {pageRows.map(row => (
               <tr key={row.productCode} style={{ borderBottom: '1px solid #e2e8f0' }}>
                 <td style={{ padding: '10px 9px', whiteSpace: 'nowrap' }}>{row.productCode}</td>
                 <td style={{ padding: '10px 9px' }}>{row.productName || '—'}</td>
@@ -134,6 +145,37 @@ export default function FrameStockReport() {
           <p style={{ padding: '18px', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '8px' }}>
             Không có dữ liệu nhập, xuất hoặc tồn khung sơn trong kỳ báo cáo.
           </p>
+        )}
+        {rows.length > 0 && (
+          <nav
+            aria-label="Phân trang báo cáo tồn kho Khung Sơn"
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap', padding: '12px 4px' }}
+          >
+            <span style={{ color: '#475569', fontSize: '13px' }}>
+              Hiển thị {firstRowNumber}-{lastRowNumber} / {rows.length} mặt hàng
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                style={{ padding: '7px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', background: currentPage === 1 ? '#f1f5f9' : '#fff', color: '#334155', cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
+              >
+                Trang trước
+              </button>
+              <span aria-live="polite" style={{ color: '#334155', fontSize: '13px' }}>
+                Trang {currentPage} / {pageCount}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage(currentPage + 1)}
+                disabled={currentPage === pageCount}
+                style={{ padding: '7px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', background: currentPage === pageCount ? '#f1f5f9' : '#fff', color: '#334155', cursor: currentPage === pageCount ? 'not-allowed' : 'pointer' }}
+              >
+                Trang sau
+              </button>
+            </div>
+          </nav>
         )}
       </div>
       </section>}

@@ -72,6 +72,7 @@ const loadProfile = async (session: Session): Promise<AuthenticatedUser> => {
     .from('user_profiles')
     .select('username, role')
     .eq('user_id', session.user.id)
+    .abortSignal(AbortSignal.timeout(8000))
     .single();
   if (error) throw new Error(`Không thể tải vai trò tài khoản: ${error.message}`);
   if (!data || !['admin', 'ke_toan', 'kho_to_dan'].includes(data.role)) {
