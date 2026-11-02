@@ -251,7 +251,7 @@ update public.audit_logs as audit_log
 set organization_id = profile.organization_id
 from public.user_profiles as profile
 where audit_log.organization_id is null
-  and audit_log.actor_user_id = profile.user_id;
+  and audit_log.actor_user_id::uuid = profile.user_id;
 
 update public.audit_logs
 set organization_id = '00000000-0000-4000-8000-000000000001'
@@ -348,110 +348,3 @@ begin
   ) on conflict (event_id) do nothing;
 end;
 $$;
-
-revoke all on function public.write_audit_log(uuid, uuid, text, text, text, text) from public, anon, authenticated;
-grant execute on function public.write_audit_log(uuid, uuid, text, text, text, text) to authenticated;
-
-create or replace function public.handle_new_user()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  initial_username text;
-begin
-  initial_username := coalesce(
-    nullif(trim(new.raw_user_meta_data->>'username'), ''),
-    split_part(new.email, '@', 1)
-  );
-
-  insert into public.user_profiles (
-    user_id,
-    username,
-    role,
-    email,
-    auth_created_at,
-    account_status
-  ) values (
-    new.id,
-    initial_username,
-    'kho_to_dan',
-    new.email,
-    new.created_at,
-    'active'
-  )
-  on conflict (user_id) do update
-  set
-    email = excluded.email,
-    auth_created_at = excluded.auth_created_at;
-
-  return new;
-end;
-$$;
-
-revoke all on function public.handle_new_user() from public, anon, authenticated;
-
-create or replace function public.register_new_tenant(
-  p_tenant_name text,
-  p_user_id uuid,
-  p_email text
-)
-returns uuid
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  new_organization_id uuid;
-  profile_organization_id uuid;
-begin
-  if (select auth.uid()) is distinct from p_user_id then
-    raise exception 'Authenticated user does not match the registration account.';
-  end if;
-
-  if nullif(trim(p_tenant_name), '') is null or length(trim(p_tenant_name)) > 120 then
-    raise exception 'Organization name must contain 1 to 120 characters.';
-  end if;
-
-  if not exists (
-    select 1
-    from auth.users
-    where id = p_user_id
-      and lower(email) = lower(trim(p_email))
-  ) then
-    raise exception 'Registration email does not match the authenticated account.';
-  end if;
-
-  select organization_id
-  into profile_organization_id
-  from public.user_profiles
-  where user_id = p_user_id
-  for update;
-
-  if not found then
-    raise exception 'User profile has not been created.';
-  end if;
-  if profile_organization_id is not null then
-    raise exception 'This account is already assigned to an organization.';
-  end if;
-
-  new_organization_id := gen_random_uuid();
-  insert into public.organizations (id, name, slug)
-  values (
-    new_organization_id,
-    trim(p_tenant_name),
-    'tenant-' || replace(new_organization_id::text, '-', '')
-  );
-
-  update public.user_profiles
-  set organization_id = new_organization_id,
-      role = 'admin'
-  where user_id = p_user_id;
-
-  return new_organization_id;
-end;
-$$;
-
-revoke all on function public.register_new_tenant(text, uuid, text) from public, anon, authenticated;
-grant execute on function public.register_new_tenant(text, uuid, text) to authenticated;
