@@ -152,7 +152,7 @@ const isCatalogItem = (item: CategoryItem | null | undefined): item is CategoryI
 
 export const ExpenseForm = () => {
   const { hasPermission } = useAuth();
-  const { expenses = [], products, materials, expensesCat, otherExpensesCat, addExpense, updateExpense, deleteExpense } = useApp();
+  const { expenses = [], materials, expensesCat, otherExpensesCat, addExpense, updateExpense, deleteExpense } = useApp();
   const safeExpenses = (Array.isArray(expenses) ? expenses : []).filter(
     (expense): expense is ExpenseItem => expense !== null && typeof expense === 'object'
   );
@@ -179,7 +179,6 @@ export const ExpenseForm = () => {
   const todayDate = getTodayDateString();
   const minimumPaymentDate = todayDate;
   const catalogOptions = useMemo<ExpenseCatalogOption[]>(() => [
-    ...(Array.isArray(products) ? products : []).filter(isCatalogItem).map(item => ({ ...item, type: 'Sản phẩm' as const })),
     ...(Array.isArray(materials) ? materials : []).filter(isCatalogItem).map(item => ({ ...item, type: 'Nguyên liệu' as const })),
     ...(Array.isArray(expensesCat) ? expensesCat : []).filter(isCatalogItem).map(item => ({ ...item, type: 'Khoản chi' as const })),
     ...(Array.isArray(otherExpensesCat) ? otherExpensesCat : []).filter(isCatalogItem).map(item => ({ ...item, type: 'Khoản chi' as const }))
@@ -187,7 +186,7 @@ export const ExpenseForm = () => {
     first.name.localeCompare(second.name, 'vi', { sensitivity: 'base', numeric: true }) ||
     first.code.localeCompare(second.code, 'vi', { sensitivity: 'base', numeric: true }) ||
     first.type.localeCompare(second.type, 'vi', { sensitivity: 'base' })
-  ), [products, materials, expensesCat, otherExpensesCat]);
+  ), [materials, expensesCat, otherExpensesCat]);
 
   const subtotal = items.reduce((sum, item) =>
     sum + (Number(item.quantity) || 0) * (parseAmount(item.unitPrice) || 0), 0);
@@ -424,7 +423,7 @@ export const ExpenseForm = () => {
       <header>
         <h2 style={{ margin: '0 0 5px', color: '#0f172a', fontSize: '21px' }}>{editingExpenseId !== null ? '✏️ Sửa Phiếu Chi' : '💸 Thêm Khoản Chi Phí Mới'}</h2>
         <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>
-          Lập một phiếu cho nhiều mặt hàng, vật tư hoặc khoản chi và theo dõi thanh toán.
+          Lập phiếu cho nguyên liệu hoặc khoản chi và theo dõi thanh toán.
         </p>
       </header>
 
@@ -467,8 +466,8 @@ export const ExpenseForm = () => {
         <section style={{ ...cardStyle, padding: 0, overflow: 'hidden' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', padding: '15px 16px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
             <div>
-              <h3 style={{ margin: '0 0 3px', color: '#1e293b', fontSize: '15px' }}>2. Chi Tiết Hàng Hóa / Khoản Chi</h3>
-              <small style={{ color: '#64748b' }}>Có thể thêm nhiều mặt hàng trong cùng một phiếu chi.</small>
+              <h3 style={{ margin: '0 0 3px', color: '#1e293b', fontSize: '15px' }}>2. Chi Tiết Khoản Chi</h3>
+              <small style={{ color: '#64748b' }}>Chọn nguyên liệu hoặc khoản chi; danh mục sản phẩm không áp dụng cho phiếu chi.</small>
             </div>
             <button type="button" onClick={addItem} style={{ padding: '8px 12px', border: 0, borderRadius: '6px', backgroundColor: '#059669', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
               + Thêm dòng
@@ -496,7 +495,7 @@ export const ExpenseForm = () => {
                 <div key={item.id} style={{ border: '1px solid #cbd5e1', borderRadius: '8px', padding: '12px', backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <span style={{ fontWeight: 'bold', fontSize: '13px', color: '#1e293b' }}>
-                      #{index + 1}. Mặt hàng / Khoản chi
+                      #{index + 1}. Nguyên liệu / Khoản chi
                     </span>
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <button
@@ -519,7 +518,7 @@ export const ExpenseForm = () => {
                   {/* Ô TÊN MẶT HÀNG - CO GIÃN 100% CHIỀU RỘNG MÀN HÌNH */}
                   <div style={{ marginBottom: '10px', position: 'relative' }}>
                     <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#475569', marginBottom: '4px' }}>
-                      Tên mặt hàng / Vật tư / Khoản chi:
+                      Tên nguyên liệu / Khoản chi:
                     </label>
                     <input
                       role="combobox"
@@ -662,7 +661,7 @@ export const ExpenseForm = () => {
             <table style={{ width: '100%', minWidth: '900px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '13px' }} className="min-w-[950px] w-full">
               <thead>
                 <tr style={{ backgroundColor: '#f1f5f9', color: '#475569', textAlign: 'left' }}>
-                  <th style={{ width: '240px', padding: '10px 12px' }}>Tên Mặt Hàng / Vật Tư / Khoản Chi</th>
+                  <th style={{ width: '240px', padding: '10px 12px' }}>Tên Nguyên Liệu / Khoản Chi</th>
                   <th style={{ width: '105px', padding: '10px 12px', textAlign: 'right' }}>Số Lượng</th>
                   <th style={{ width: '100px', padding: '10px 12px', textAlign: 'center' }}>ĐVT</th>
                   <th style={{ width: '140px', padding: '10px 12px', textAlign: 'right' }}>Đơn Giá</th>
@@ -691,7 +690,7 @@ export const ExpenseForm = () => {
                       <td style={{ padding: '8px 12px' }}>
                         <div style={{ position: 'relative' }}>
                           <input
-                            aria-label={`Tên mặt hàng dòng ${index + 1}`}
+                            aria-label={`Tên nguyên liệu hoặc khoản chi dòng ${index + 1}`}
                             role="combobox"
                             aria-autocomplete="list"
                             aria-expanded={Boolean(item.isEditing && item.isSuggestionOpen)}
@@ -708,7 +707,7 @@ export const ExpenseForm = () => {
                             onBlur={() => updateItem(item.id, { isSuggestionOpen: false })}
                             disabled={!item.isEditing}
                             required={item.isEditing}
-                            placeholder="Gõ để tìm sản phẩm, nguyên liệu hoặc khoản chi"
+                            placeholder="Gõ để tìm nguyên liệu hoặc khoản chi"
                             style={{ ...inputStyle, maxWidth: '240px', backgroundColor: item.isEditing ? '#fff' : '#f8fafc' }}
                           />
                           {item.isEditing && item.isSuggestionOpen && (
