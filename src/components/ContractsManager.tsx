@@ -229,6 +229,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     `contracts-${activeTab === 'SUB' ? 'sub' : 'parent'}`
   );
   const [listTab, setListTab] = useState<'PARENT_LIST' | 'SUB_LIST'>(isWarehouseUser ? 'SUB_LIST' : 'PARENT_LIST');
+  const [contractViewMode, setContractViewMode] = useState<'AUTO' | 'CARD' | 'TABLE'>('AUTO');
   const [editingId, setEditingId] = useState<string | number | null>(null);
   const [depositTrackingProductFilter, setDepositTrackingProductFilter] = useState('');
   const [depositTrackingSubContractFilter, setDepositTrackingSubContractFilter] = useState('');
@@ -2356,18 +2357,160 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
               🧺 HĐ TỔ ĐAN ({filteredSubContracts.length})
             </button>
           </div>
-          <input type="text" placeholder="Tìm theo Mã hàng / HĐ..." value={searchKeyword} onChange={e => setSearchKeyword(e.target.value)} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '240px' }} />
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'inline-flex', border: '1px solid #cbd5e1', borderRadius: '6px', overflow: 'hidden', backgroundColor: '#f1f5f9' }}>
+              <button
+                type="button"
+                onClick={() => setContractViewMode(prev => prev === 'CARD' ? 'TABLE' : prev === 'TABLE' ? 'AUTO' : 'CARD')}
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  border: 'none',
+                  backgroundColor: contractViewMode === 'CARD' ? '#2563eb' : contractViewMode === 'TABLE' ? '#7c3aed' : '#e2e8f0',
+                  color: contractViewMode === 'AUTO' ? '#334155' : '#fff',
+                  cursor: 'pointer'
+                }}
+                title="Bấm để đổi giữa Xem dạng Thẻ (vừa màn hình điện thoại) và Xem dạng Bảng"
+              >
+                {contractViewMode === 'CARD' ? '📱 Đang xem: Thẻ' : contractViewMode === 'TABLE' ? '📊 Đang xem: Bảng' : '📱 Chế độ Thẻ (Co giãn)'}
+              </button>
+            </div>
+            <input type="text" placeholder="Tìm theo Mã hàng / HĐ..." value={searchKeyword} onChange={e => setSearchKeyword(e.target.value)} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '200px' }} />
+          </div>
         </div>
 
         {listTab === 'PARENT_LIST' && !isWarehouseUser && (
-          <div
-            className="block touch-pan-x select-none overflow-x-auto w-full"
-            role="region"
-            aria-label="Danh sách hợp đồng công ty, cuộn ngang để xem đầy đủ"
-            tabIndex={0}
-            style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '8px', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.08)' }}
-          >
-          <table className="min-w-[950px] w-full min-w-[1000px]" style={{ minWidth: '1500px', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+          <>
+            {/* GIAO DIỆN DẠNG THẺ (CARD) - TỰ ĐỘNG VỪA KHÍT 100% MÀN HÌNH ĐIỆN THOẠI */}
+            <div className={contractViewMode === 'TABLE' ? 'hidden' : contractViewMode === 'CARD' ? 'grid grid-cols-1 md:grid-cols-2 gap-3' : 'grid grid-cols-1 md:grid-cols-2 gap-3 md:hidden'}>
+              {filteredParentContracts.map((item: any) => {
+                const tAmt = Number(item.totalAmount) || (Number(item.quantity) * Number(item.unitPrice)) || 0;
+                const depAmt = Number(item.requiredDeposit) || 0;
+                const remAmt = Math.max(0, tAmt - depAmt);
+                const targetQty = Number(item.quantity) || 0;
+                const receivedQty = getParentReceivedTotal(item);
+                const isQuantityComplete = targetQty > 0 && receivedQty >= targetQty;
+                const isPaymentComplete = remAmt <= 0;
+                const isContractComplete = isQuantityComplete && isPaymentComplete;
+                const dueDate = String(item.dueDate || '').slice(0, 10);
+                const dueMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dueDate);
+                const dueLabel = dueMatch ? `${dueMatch[3]}/${dueMatch[2]}/${dueMatch[1]}` : '—';
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const parsedDueDate = dueMatch
+                  ? new Date(Number(dueMatch[1]), Number(dueMatch[2]) - 1, Number(dueMatch[3]))
+                  : null;
+                const daysUntilDue = parsedDueDate
+                  ? Math.ceil((parsedDueDate.getTime() - today.getTime()) / 86400000)
+                  : null;
+                const isOverdue = !isQuantityComplete && daysUntilDue !== null && daysUntilDue < 0;
+                const isNearDue = !isQuantityComplete && daysUntilDue !== null && daysUntilDue >= 0 && daysUntilDue <= 3;
+
+                return (
+                  <div key={item.id} style={{ background: '#fff', borderRadius: '10px', border: '1px solid #cbd5e1', padding: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px', marginBottom: '8px' }}>
+                      <div>
+                        <span style={{ fontSize: '15px', fontWeight: 'bold', color: '#7c3aed' }}>{item.productCode}</span>
+                        <span style={{ marginLeft: '8px', fontSize: '13px', fontWeight: 'bold', color: '#1e40af' }}>{item.contractNo}</span>
+                        <div style={{ fontSize: '13px', color: '#334155', marginTop: '2px', fontWeight: 600 }}>🏢 {item.companyName}</div>
+                      </div>
+                      <span style={{
+                        display: 'inline-block',
+                        padding: '4px 8px',
+                        borderRadius: '999px',
+                        backgroundColor: isContractComplete ? '#dcfce7' : '#ffedd5',
+                        color: isContractComplete ? '#15803d' : '#c2410c',
+                        fontSize: '11px',
+                        fontWeight: 800,
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {isContractComplete ? 'Đã hoàn thành' : 'Chưa hoàn thành'}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px', fontSize: '12px', marginBottom: '10px' }}>
+                      <div style={{ background: '#f8fafc', padding: '6px', borderRadius: '6px' }}>
+                        <span style={{ color: '#64748b' }}>SL Hợp Đồng:</span>
+                        <div style={{ fontWeight: 'bold', color: '#0f172a' }}>{targetQty.toLocaleString()} {getUnitFromProductCode(String(item.productCode || '')) || item.unit || 'Bộ'}</div>
+                      </div>
+                      <div style={{ background: '#f8fafc', padding: '6px', borderRadius: '6px' }}>
+                        <span style={{ color: '#64748b' }}>Đã Nhận / Giao:</span>
+                        <div style={{ fontWeight: 'bold', color: isQuantityComplete ? '#15803d' : '#c2410c' }}>
+                          {receivedQty.toLocaleString()} / {targetQty.toLocaleString()} ({targetQty > 0 ? `${Math.min(100, Math.round(receivedQty / targetQty * 100))}%` : '—'})
+                        </div>
+                      </div>
+                      <div style={{ background: '#f8fafc', padding: '6px', borderRadius: '6px' }}>
+                        <span style={{ color: '#64748b' }}>Thành Tiền:</span>
+                        <div style={{ fontWeight: 'bold', color: '#15803d' }}>{tAmt > 0 ? `${formatCurrency(tAmt)} đ` : '—'}</div>
+                      </div>
+                      <div style={{ background: '#f8fafc', padding: '6px', borderRadius: '6px' }}>
+                        <span style={{ color: '#64748b' }}>Còn Lại:</span>
+                        <div style={{ fontWeight: '800', color: remAmt > 0 ? '#b91c1c' : '#15803d' }}>{formatCurrency(remAmt)} đ</div>
+                      </div>
+                      <div style={{ background: '#f8fafc', padding: '6px', borderRadius: '6px' }}>
+                        <span style={{ color: '#64748b' }}>Tiền Cọc:</span>
+                        <div style={{ fontWeight: 'bold', color: depAmt > 0 ? '#15803d' : '#64748b' }}>{depAmt > 0 ? `${formatCurrency(depAmt)} đ` : '—'}</div>
+                      </div>
+                      <div style={{ background: '#f8fafc', padding: '6px', borderRadius: '6px' }}>
+                        <span style={{ color: '#64748b' }}>Hạn Giao:</span>
+                        <div style={{ fontWeight: isOverdue || isNearDue ? 800 : 600, color: isOverdue ? '#b91c1c' : isNearDue ? '#c2410c' : '#334155' }}>
+                          {dueLabel}
+                          {(isOverdue || isNearDue) && (
+                            <span style={{ display: 'block', fontSize: '10px' }}>
+                              {isOverdue ? `(Trễ ${Math.abs(daysUntilDue || 0)}d)` : `(Còn ${daysUntilDue}d)`}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '6px', borderTop: '1px solid #f1f5f9', paddingTop: '8px' }}>
+                      <button
+                        type="button"
+                        style={{ flex: 1, padding: '7px 4px', borderRadius: '6px', backgroundColor: '#0284c7', color: '#fff', border: 'none', fontWeight: 'bold', fontSize: '11px', cursor: 'pointer' }}
+                        onClick={() => {
+                          const phone = String(item.zalo || item.phone || '').replace(/\D/g, '');
+                          if (!phone) {
+                            alert('Hợp đồng chưa có số điện thoại/Zalo của công ty.');
+                            return;
+                          }
+                          window.open(`https://zalo.me/${phone}`, '_blank', 'noopener,noreferrer');
+                        }}
+                      >
+                        📲 Zalo
+                      </button>
+                      <button
+                        type="button"
+                        style={{ flex: 1, padding: '7px 4px', borderRadius: '6px', backgroundColor: '#2563eb', color: '#fff', border: 'none', fontWeight: 'bold', fontSize: '11px', cursor: 'pointer' }}
+                        onClick={() => handleEdit(item)}
+                      >
+                        ✏️ Sửa
+                      </button>
+                      {hasPermission('delete_contracts') && (
+                        <button
+                          type="button"
+                          style={{ flex: 1, padding: '7px 4px', borderRadius: '6px', backgroundColor: '#dc2626', color: '#fff', border: 'none', fontWeight: 'bold', fontSize: '11px', cursor: 'pointer' }}
+                          onClick={() => handleDelete(item)}
+                        >
+                          🗑️ Xóa
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* GIAO DIỆN DẠNG BẢNG (TABLE) - DÀNH CHO MÁY TÍNH HOẶC KHI BẬT DẠNG BẢNG */}
+            <div
+              className={contractViewMode === 'CARD' ? 'hidden' : contractViewMode === 'TABLE' ? 'block erp-table-scroll w-full' : 'hidden md:block erp-table-scroll w-full'}
+              role="region"
+              aria-label="Danh sách hợp đồng công ty, cuộn ngang để xem đầy đủ"
+              tabIndex={0}
+              style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '8px', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.08)' }}
+            >
+          <table className="w-full text-xs text-left" style={{ minWidth: '1100px', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ backgroundColor: '#eff6ff', borderBottom: '2px solid #93c5fd' }}>
                   <th style={{ padding: '10px' }}>Mã Hàng</th>
@@ -2487,11 +2630,185 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
               </tbody>
             </table>
           </div>
+        </>
         )}
 
         {listTab === 'SUB_LIST' && (
-          <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto' }}>
-  <table style={{ width: '100%', minWidth: isWarehouseUser ? '750px' : '1050px', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }} className="min-w-[950px] w-full">
+          <>
+            {/* GIAO DIỆN DẠNG THẺ (CARD) - TỰ ĐỘNG VỪA KHÍT 100% MÀN HÌNH ĐIỆN THOẠI */}
+            <div className={contractViewMode === 'TABLE' ? 'hidden' : contractViewMode === 'CARD' ? 'grid grid-cols-1 md:grid-cols-2 gap-3' : 'grid grid-cols-1 md:grid-cols-2 gap-3 md:hidden'}>
+              {filteredSubContracts.map((item: any) => {
+                const grossIssued = getFrameReceiptTotal(item);
+                const returnedFrames = getReturnedFrameTotal(item);
+                const itemRec = Math.max(0, grossIssued - returnedFrames);
+                const itemTarget = Number(item.quantity) || 0;
+                const itemRemain = Math.max(0, itemTarget - itemRec);
+                const issueComplete = itemTarget > 0 && itemRec >= itemTarget;
+                const depositLogs = Array.isArray(item.depositLogs) ? item.depositLogs : [];
+                const laterDeposits = depositLogs.reduce(
+                  (sum: number, log: DepositLog) => sum + (Number(log.amount) || 0),
+                  0
+                );
+                const depositReceived = item.initialRequiredDeposit !== undefined
+                  ? (Number(item.initialRequiredDeposit) || 0) + laterDeposits
+                  : Math.max(Number(item.requiredDeposit) || 0, laterDeposits);
+                const completionRatio = itemTarget > 0
+                  ? Math.min(1, itemRec / itemTarget)
+                  : 0;
+                const contractTotal = Number(item.totalAmount) > 0
+                  ? Number(item.totalAmount)
+                  : itemTarget * (Number(item.unitPrice) || 0);
+                const issuedMaterialTotal = (Array.isArray(item.accompanyingMaterials)
+                  ? item.accompanyingMaterials
+                  : []).reduce((sum: number, material: AccompanyingMaterial) => {
+                  const quantity = Number(material.quantity) || 0;
+                  const unitPrice = Number(material.unitPrice) || 0;
+                  const amount = Number(material.amount) > 0
+                    ? Number(material.amount)
+                    : quantity * unitPrice;
+                  return sum + amount;
+                }, 0);
+                const remainingPayment = Math.max(
+                  0,
+                  contractTotal * completionRatio -
+                    depositReceived -
+                    issuedMaterialTotal * completionRatio
+                );
+                const paymentComplete = issueComplete && remainingPayment <= 0;
+                const dueDate = String(item.dueDate || '').slice(0, 10);
+                const dueMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dueDate);
+                const dueLabel = dueMatch ? `${dueMatch[3]}/${dueMatch[2]}/${dueMatch[1]}` : '—';
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const parsedDueDate = dueMatch
+                  ? new Date(Number(dueMatch[1]), Number(dueMatch[2]) - 1, Number(dueMatch[3]))
+                  : null;
+                const daysUntilDue = parsedDueDate
+                  ? Math.ceil((parsedDueDate.getTime() - today.getTime()) / 86400000)
+                  : null;
+                const isKnittingComplete = issueComplete;
+                const deadlineWarning = !isKnittingComplete && daysUntilDue !== null && daysUntilDue <= 3;
+
+                return (
+                  <div key={item.id} style={{ background: '#fff', borderRadius: '10px', border: '1px solid #d8b4fe', padding: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #f3e8ff', paddingBottom: '8px', marginBottom: '8px' }}>
+                      <div>
+                        <span style={{ fontSize: '15px', fontWeight: 'bold', color: '#7c3aed' }}>{item.productCode}</span>
+                        {item.parentContractNo && <span style={{ marginLeft: '6px', fontSize: '12px', fontWeight: 'bold', color: '#1e40af' }}>({item.parentContractNo})</span>}
+                        <div style={{ fontSize: '13px', color: '#6b21a8', marginTop: '2px', fontWeight: 700 }}>🧺 Tổ: {item.craftGroupLeader}</div>
+                      </div>
+                      {!isWarehouseUser && (
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '4px 8px',
+                          borderRadius: '999px',
+                          backgroundColor: paymentComplete ? '#dcfce7' : '#ffedd5',
+                          color: paymentComplete ? '#15803d' : '#c2410c',
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {paymentComplete ? 'Đã thanh toán đủ' : 'Chưa thanh toán đủ'}
+                        </span>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px', fontSize: '12px', marginBottom: '10px' }}>
+                      <div style={{ background: '#faf5ff', padding: '6px', borderRadius: '6px' }}>
+                        <span style={{ color: '#64748b' }}>SL Hợp Đồng:</span>
+                        <div style={{ fontWeight: 'bold', color: '#b45309' }}>{itemTarget.toLocaleString()}</div>
+                      </div>
+                      <div style={{ background: '#faf5ff', padding: '6px', borderRadius: '6px' }}>
+                        <span style={{ color: '#64748b' }}>Đang ở tổ / Khung phát:</span>
+                        <div style={{ fontWeight: 'bold', color: issueComplete ? '#15803d' : '#c2410c' }}>
+                          {itemRec.toLocaleString()} / {grossIssued.toLocaleString()}
+                        </div>
+                      </div>
+                      <div style={{ background: '#faf5ff', padding: '6px', borderRadius: '6px' }}>
+                        <span style={{ color: '#64748b' }}>Còn lại:</span>
+                        <div style={{ fontWeight: 'bold', color: '#2563eb' }}>{itemRemain.toLocaleString()}</div>
+                      </div>
+                      <div style={{ background: '#faf5ff', padding: '6px', borderRadius: '6px' }}>
+                        <span style={{ color: '#64748b' }}>Hạn Đan:</span>
+                        <div style={{ fontWeight: deadlineWarning ? 800 : 600, color: deadlineWarning ? '#b91c1c' : '#334155' }}>
+                          {dueLabel}
+                        </div>
+                      </div>
+                      {!isWarehouseUser && (
+                        <>
+                          <div style={{ background: '#faf5ff', padding: '6px', borderRadius: '6px' }}>
+                            <span style={{ color: '#64748b' }}>Tiền Cọc:</span>
+                            <div style={{ fontWeight: 'bold', color: depositReceived > 0 ? '#15803d' : '#64748b' }}>
+                              {depositReceived > 0 ? `${formatCurrency(depositReceived)} đ` : '—'}
+                            </div>
+                          </div>
+                          <div style={{ background: '#faf5ff', padding: '6px', borderRadius: '6px' }}>
+                            <span style={{ color: '#64748b' }}>Còn lại thanh toán:</span>
+                            <div style={{ fontWeight: '800', color: remainingPayment > 0 ? '#b91c1c' : '#15803d' }}>
+                              {formatCurrency(remainingPayment)} đ
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {!isWarehouseUser && (
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', borderTop: '1px solid #f3e8ff', paddingTop: '8px' }}>
+                        <button
+                          type="button"
+                          style={{ flex: 1, minWidth: '70px', padding: '7px 4px', borderRadius: '6px', backgroundColor: '#0284c7', color: '#fff', border: 'none', fontWeight: 'bold', fontSize: '11px', cursor: 'pointer' }}
+                          onClick={() => handleOpenSubContractSlip(item)}
+                        >
+                          📲 Zalo
+                        </button>
+                        <button
+                          type="button"
+                          style={{ flex: 1, minWidth: '55px', padding: '7px 4px', borderRadius: '6px', backgroundColor: '#2563eb', color: '#fff', border: 'none', fontWeight: 'bold', fontSize: '11px', cursor: 'pointer' }}
+                          onClick={() => handleEdit(item)}
+                        >
+                          ✏️ Sửa
+                        </button>
+                        {hasPermission('delete_contracts') && (
+                          <button
+                            type="button"
+                            style={{ flex: 1, minWidth: '55px', padding: '7px 4px', borderRadius: '6px', backgroundColor: '#dc2626', color: '#fff', border: 'none', fontWeight: 'bold', fontSize: '11px', cursor: 'pointer' }}
+                            onClick={() => handleDelete(item)}
+                          >
+                            🗑️ Xóa
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveTab('FRAME_MGMT');
+                            openFrameExportModal(item);
+                          }}
+                          disabled={itemTarget > 0 && itemRec >= itemTarget}
+                          style={{
+                            width: '100%',
+                            marginTop: '4px',
+                            padding: '7px 6px',
+                            border: 0,
+                            borderRadius: '6px',
+                            backgroundColor: itemTarget > 0 && itemRec >= itemTarget ? '#e2e8f0' : '#0284c7',
+                            color: itemTarget > 0 && itemRec >= itemTarget ? '#94a3b8' : '#fff',
+                            fontWeight: 700,
+                            fontSize: '11px',
+                            cursor: itemTarget > 0 && itemRec >= itemTarget ? 'not-allowed' : 'pointer'
+                          }}
+                        >
+                          📦 Xuất Khung Tiếp Theo
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* GIAO DIỆN DẠNG BẢNG (TABLE) */}
+            <div className={contractViewMode === 'CARD' ? 'hidden' : contractViewMode === 'TABLE' ? 'block erp-table-scroll w-full shadow-sm rounded-lg border border-gray-200' : 'hidden md:block erp-table-scroll w-full shadow-sm rounded-lg border border-gray-200'} style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+  <table style={{ width: '100%', minWidth: isWarehouseUser ? '750px' : '1050px', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }} className="w-full">
               <thead>
                 <tr style={{ backgroundColor: '#faf5ff', borderBottom: '2px solid #d8b4fe' }}>
                   <th style={{ padding: '10px' }}>Mã Hàng</th>
@@ -2665,6 +2982,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
               </tbody>
             </table>
           </div>
+        </>
         )}
       </div>
     </div>
