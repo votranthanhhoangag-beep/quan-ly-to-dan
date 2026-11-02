@@ -24,10 +24,10 @@ const roleDescriptions: Record<UserRole, string> = {
   kho_to_dan: 'Quản lý xuất nhập hàng đan, giao nhận khung sơn, báo cáo NXT kho & vật tư.'
 };
 
-const statusLabels: Record<ManagedUser['account_status'], { label: string; className: string }> = {
-  active: { label: 'Hoạt động', className: 'bg-green-50 text-green-700 ring-green-600/20' },
-  pending_verification: { label: 'Chờ xác thực', className: 'bg-amber-50 text-amber-700 ring-amber-600/20' },
-  suspended: { label: 'Tạm khóa', className: 'bg-red-50 text-red-700 ring-red-600/20' }
+const statusLabels: Record<ManagedUser['account_status'], { label: string; bg: string; color: string }> = {
+  active: { label: 'Hoạt động', bg: '#dcfce7', color: '#15803d' },
+  pending_verification: { label: 'Chờ xác thực', bg: '#fef3c7', color: '#b45309' },
+  suspended: { label: 'Tạm khóa', bg: '#fee2e2', color: '#b91c1c' }
 };
 
 const formatCreatedAt = (value: string) => {
@@ -65,14 +65,38 @@ export default function UserManagementView() {
     setError('');
     try {
       if (!supabase) throw new Error('Supabase chưa được cấu hình.');
+
+      let profiles: ManagedUser[] = [];
       const { data, error: queryError } = await supabase
         .from('user_profiles')
-        .select('user_id, email, username, role, auth_created_at, account_status')
-        .order('created_at', { ascending: false })
-        .abortSignal(AbortSignal.timeout(8000));
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      if (queryError) throw queryError;
-      const profiles = (data || []) as ManagedUser[];
+      if (queryError) {
+        // Fallback nếu câu query bị lỗi do thiếu cột
+        const { data: basicData, error: basicError } = await supabase
+          .from('user_profiles')
+          .select('user_id, username, role');
+        if (basicError) throw basicError;
+        profiles = (basicData || []).map((p: any) => ({
+          user_id: p.user_id,
+          username: p.username || '',
+          email: p.username || '—',
+          role: p.role || 'kho_to_dan',
+          auth_created_at: null,
+          account_status: 'active'
+        }));
+      } else {
+        profiles = (data || []).map((p: any) => ({
+          user_id: p.user_id,
+          username: p.username || '',
+          email: p.email || p.username || '—',
+          role: p.role || 'kho_to_dan',
+          auth_created_at: p.auth_created_at || p.created_at || null,
+          account_status: p.account_status || 'active'
+        }));
+      }
+
       setUsers(profiles);
       setDraftRoles(Object.fromEntries(profiles.map(profile => [profile.user_id, profile.role])));
     } catch (loadError) {
@@ -129,8 +153,7 @@ export default function UserManagementView() {
           user_id: authData.user.id,
           username: newUsername.trim(),
           role: newRole,
-          email: newEmail.trim(),
-          account_status: 'active'
+          email: newEmail.trim()
         });
       }
 
@@ -168,21 +191,17 @@ export default function UserManagementView() {
     setNotice('');
     try {
       if (!supabase) throw new Error('Supabase chưa được cấu hình.');
-      const { data, error: updateError } = await supabase
+      const { error: updateError } = await supabase
         .from('user_profiles')
         .update({ role })
-        .eq('user_id', target.user_id)
-        .select('user_id, email, username, role, auth_created_at, account_status')
-        .single();
+        .eq('user_id', target.user_id);
 
       if (updateError) throw updateError;
-      if (!data) throw new Error('Supabase không trả về hồ sơ đã cập nhật.');
 
-      const updatedProfile = data as ManagedUser;
       setUsers(current => current.map(profile =>
-        profile.user_id === target.user_id ? updatedProfile : profile
+        profile.user_id === target.user_id ? { ...profile, role } : profile
       ));
-      setDraftRoles(current => ({ ...current, [target.user_id]: updatedProfile.role }));
+      setDraftRoles(current => ({ ...current, [target.user_id]: role }));
       setNotice(`Đã cập nhật vai trò của ${target.email || target.username} thành ${roleLabels[role]}.`);
     } catch (saveError) {
       console.error('Không thể cập nhật vai trò người dùng:', saveError);
@@ -194,27 +213,27 @@ export default function UserManagementView() {
 
   if (!isAdmin) {
     return (
-      <section role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm font-medium text-red-800">
+      <div style={{ padding: '20px', borderRadius: '10px', backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', fontSize: '14px', fontWeight: 600 }}>
         Bạn không có quyền quản lý người dùng. Chỉ có Quản trị viên (Admin) mới có quyền truy cập màn hình này.
-      </section>
+      </div>
     );
   }
 
   return (
-    <section className="grid w-full gap-5">
-      <header className="flex flex-wrap items-end justify-between gap-3">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Quản lý người dùng & Phân quyền</h1>
-          <p className="mt-1 text-sm text-slate-600">Tạo tài khoản phụ (Kế toán, Thủ kho/Tổ trưởng) và phân quyền truy cập hệ thống.</p>
+          <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 'bold', color: '#0f172a' }}>👥 Quản Lý Người Dùng & Phân Quyền</h1>
+          <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>Tạo tài khoản phụ (Kế toán, Thủ kho/Tổ trưởng) và phân quyền truy cập hệ thống.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button
             type="button"
             onClick={() => {
               setCreateError('');
               setIsCreateModalOpen(true);
             }}
-            className="inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-blue-700 cursor-pointer"
+            style={{ padding: '9px 16px', borderRadius: '8px', backgroundColor: '#2563eb', color: '#fff', border: 'none', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             ➕ Tạo người dùng mới
           </button>
@@ -222,86 +241,95 @@ export default function UserManagementView() {
             type="button"
             onClick={() => void loadUsers()}
             disabled={loading}
-            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+            style={{ padding: '9px 14px', borderRadius: '8px', backgroundColor: '#fff', color: '#334155', border: '1px solid #cbd5e1', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
           >
             {loading ? 'Đang tải...' : '🔄 Làm mới'}
           </button>
         </div>
-      </header>
+      </div>
 
       {/* TÓM TẮT QUYỀN HẠN CÁC VAI TRÒ */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
         {(Object.keys(roleLabels) as UserRole[]).map(r => (
-          <div key={r} className="p-3 bg-white rounded-lg border border-slate-200 shadow-xs">
-            <div className="font-bold text-sm text-blue-700">{roleLabels[r]}</div>
-            <div className="text-xs text-slate-600 mt-1">{roleDescriptions[r]}</div>
+          <div key={r} style={{ padding: '14px', backgroundColor: '#fff', borderRadius: '10px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+            <div style={{ fontWeight: 'bold', fontSize: '14px', color: '#1e40af' }}>{roleLabels[r]}</div>
+            <div style={{ fontSize: '12px', color: '#475569', marginTop: '4px', lineHeight: 1.4 }}>{roleDescriptions[r]}</div>
           </div>
         ))}
       </div>
 
-      {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>}
-      {notice && <p role="status" className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">{notice}</p>}
-
-      {/* DANH SÁCH NGƯỜI DÙNG */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-3 sm:px-5">
-          <h2 className="text-base font-bold text-slate-900">Danh sách tài khoản ({users.length})</h2>
-          <span className="text-xs text-slate-500">Bấm "Lưu vai trò" sau khi đổi quyền của tài khoản</span>
+      {error && (
+        <div style={{ padding: '12px 16px', borderRadius: '8px', backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>⚠️ {error}</span>
+          <span style={{ fontSize: '11px', color: '#b91c1c' }}>(Hãy dán đoạn lệnh SQL vào Tab Supabase đang mở để sửa triệt để)</span>
         </div>
-        <div className="block touch-pan-x overflow-x-auto w-full erp-table-scroll">
-          <table className="w-full text-left text-sm divide-y divide-slate-200" style={{ minWidth: '750px' }}>
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
-              <tr>
-                <th scope="col" className="px-4 py-3 font-semibold">Email</th>
-                <th scope="col" className="px-4 py-3 font-semibold">Tên hiển thị</th>
-                <th scope="col" className="px-4 py-3 font-semibold">Vai trò / Phân quyền</th>
-                <th scope="col" className="px-4 py-3 font-semibold">Ngày tạo</th>
-                <th scope="col" className="px-4 py-3 font-semibold">Trạng thái</th>
-                <th scope="col" className="px-4 py-3 text-right font-semibold">Thao tác</th>
+      )}
+      {notice && (
+        <div style={{ padding: '12px 16px', borderRadius: '8px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', color: '#15803d', fontSize: '13px', fontWeight: 600 }}>
+          {notice}
+        </div>
+      )}
+
+      {/* DANH SÁCH TÀI KHOẢN */}
+      <div style={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
+          <h2 style={{ margin: 0, fontSize: '15px', fontWeight: 'bold', color: '#0f172a' }}>Danh sách tài khoản ({users.length})</h2>
+          <span style={{ fontSize: '12px', color: '#64748b' }}>Bấm "Lưu vai trò" sau khi đổi quyền</span>
+        </div>
+
+        <div style={{ overflowX: 'auto', width: '100%' }}>
+          <table style={{ width: '100%', minWidth: '700px', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '1px solid #cbd5e1', color: '#475569' }}>
+                <th style={{ padding: '10px 14px', fontWeight: 600 }}>Email</th>
+                <th style={{ padding: '10px 14px', fontWeight: 600 }}>Tên hiển thị</th>
+                <th style={{ padding: '10px 14px', fontWeight: 600 }}>Vai trò / Phân quyền</th>
+                <th style={{ padding: '10px 14px', fontWeight: 600 }}>Ngày tạo</th>
+                <th style={{ padding: '10px 14px', fontWeight: 600 }}>Trạng thái</th>
+                <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 600 }}>Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody>
               {loading ? (
-                <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-500">Đang tải danh sách tài khoản...</td></tr>
+                <tr><td colSpan={6} style={{ padding: '30px', textAlign: 'center', color: '#64748b' }}>Đang tải danh sách tài khoản...</td></tr>
               ) : users.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-500">Chưa có hồ sơ người dùng nào trong cơ sở dữ liệu.</td></tr>
+                <tr><td colSpan={6} style={{ padding: '30px', textAlign: 'center', color: '#64748b' }}>Chưa có hồ sơ người dùng nào trong cơ sở dữ liệu. Bấm "➕ Tạo người dùng mới" để bắt đầu!</td></tr>
               ) : users.map(profile => {
                 const status = statusLabels[profile.account_status] || statusLabels.active;
                 const isSelf = profile.user_id === user?.id;
                 const roleChanged = draftRoles[profile.user_id] !== profile.role;
                 return (
-                  <tr key={profile.user_id} className="align-middle hover:bg-slate-50/70">
-                    <td className="max-w-64 break-all px-4 py-3 font-medium text-slate-800">{profile.email || '—'}</td>
-                    <td className="px-4 py-3 text-slate-700 font-semibold">{profile.username}</td>
-                    <td className="px-4 py-3">
+                  <tr key={profile.user_id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '10px 14px', fontWeight: 600, color: '#0f172a' }}>{profile.email || '—'}</td>
+                    <td style={{ padding: '10px 14px', color: '#334155' }}>{profile.username}</td>
+                    <td style={{ padding: '10px 14px' }}>
                       <select
-                        aria-label={`Vai trò của ${profile.email || profile.username}`}
                         value={draftRoles[profile.user_id] || profile.role}
                         disabled={isSelf || savingUserId === profile.user_id}
                         onChange={event => setDraftRoles(current => ({
                           ...current,
                           [profile.user_id]: event.target.value as UserRole
                         }))}
-                        className="min-h-9 rounded-lg border border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:bg-slate-100 disabled:text-slate-500"
+                        style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', backgroundColor: isSelf ? '#f1f5f9' : '#fff', fontWeight: 600 }}
                       >
                         {(Object.keys(roleLabels) as UserRole[]).map(role => (
                           <option key={role} value={role}>{roleLabels[role]}</option>
                         ))}
                       </select>
-                      {isSelf && <span className="ml-2 text-xs font-bold text-blue-600">(Đang đăng nhập)</span>}
+                      {isSelf && <span style={{ marginLeft: '8px', fontSize: '11px', fontWeight: 'bold', color: '#2563eb' }}>(Đang đăng nhập)</span>}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-slate-600">{profile.auth_created_at ? formatCreatedAt(profile.auth_created_at) : '—'}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${status.className}`}>
+                    <td style={{ padding: '10px 14px', color: '#64748b' }}>{profile.auth_created_at ? formatCreatedAt(profile.auth_created_at) : '—'}</td>
+                    <td style={{ padding: '10px 14px' }}>
+                      <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 'bold', backgroundColor: status.bg, color: status.color }}>
                         {status.label}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td style={{ padding: '10px 14px', textAlign: 'right' }}>
                       <button
                         type="button"
                         onClick={() => void saveRole(profile)}
                         disabled={!roleChanged || isSelf || savingUserId === profile.user_id}
-                        className="min-h-8 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                        style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', backgroundColor: roleChanged && !isSelf ? '#2563eb' : '#e2e8f0', color: roleChanged && !isSelf ? '#fff' : '#94a3b8', fontSize: '12px', fontWeight: 'bold', cursor: roleChanged && !isSelf ? 'pointer' : 'not-allowed' }}
                       >
                         {savingUserId === profile.user_id ? 'Đang lưu...' : 'Lưu vai trò'}
                       </button>
@@ -403,6 +431,6 @@ export default function UserManagementView() {
           </div>
         </div>
       )}
-    </section>
+    </div>
   );
 }
