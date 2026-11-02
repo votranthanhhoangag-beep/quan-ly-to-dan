@@ -3,15 +3,17 @@ import { supabase } from './supabaseClient';
 const DATA_CACHE_PREFIX = 'erp_sheet_cache:';
 const PENDING_DATA_STORES_KEY = 'erp_pending_supabase_data_stores';
 const LEGACY_PENDING_SHEETS_KEY = 'erp_pending_sheet_saves';
-export const DEFAULT_ORGANIZATION_ID = '00000000-0000-4000-8000-000000000001';
 const PENDING_KEY_SEPARATOR = '::';
+const LEGACY_QUEUE_KEY = '__legacy__';
+const PREVIOUS_DEFAULT_ORGANIZATION_ID = '00000000-0000-4000-8000-000000000001';
 
 type PendingDataStores = Record<string, unknown[]>;
 
-const getScopedStoreKey = (organizationId: string, key: string) =>
-  `${organizationId}${PENDING_KEY_SEPARATOR}${key}`;
-const getCacheKey = (organizationId: string, key: string) =>
-  `${DATA_CACHE_PREFIX}${organizationId}:${key}`;
+const getScopedStoreKey = (userId: string, key: string) =>
+  `${userId}${PENDING_KEY_SEPARATOR}${key}`;
+const getCacheKey = (userId: string, key: string) =>
+  `${DATA_CACHE_PREFIX}${userId}:${key}`;
+let activeUserId: string | null = null;
 
 const emitSyncStatus = (status: 'offline' | 'error', message: string) => {
   window.dispatchEvent(new CustomEvent('erp:sync-status', { detail: { status, message } }));
@@ -41,7 +43,7 @@ const readPendingDataStores = (): PendingDataStores => {
       return [
         key.includes(PENDING_KEY_SEPARATOR)
           ? key
-          : getScopedStoreKey(DEFAULT_ORGANIZATION_ID, key),
+          : getScopedStoreKey(LEGACY_QUEUE_KEY, key),
         value
       ];
     }));
@@ -51,39 +53,33 @@ const readPendingDataStores = (): PendingDataStores => {
   }
 };
 
-const writePendingDataStores = (pending: PendingDataStores) => {
+const writePendingDataStores = (pending: PendingDataStores): boolean => {
   try {
     if (Object.keys(pending).length === 0) {
       window.localStorage.removeItem(PENDING_DATA_STORES_KEY);
     } else {
       window.localStorage.setItem(PENDING_DATA_STORES_KEY, JSON.stringify(pending));
     }
+    return true;
   } catch (error) {
     console.error('Không thể lưu hàng đợi dữ liệu Supabase:', error);
     emitSyncStatus('error', 'Không thể lưu hàng đợi đồng bộ trên thiết bị. Hãy sao chép dữ liệu quan trọng trước khi tải lại trang.');
+    return false;
   }
 };
 
-const cacheDataStore = (organizationId: string, key: string, items: unknown[]) => {
+const cacheDataStore = (userId: string, key: string, items: unknown[]) => {
   try {
-    window.localStorage.setItem(getCacheKey(organizationId, key), JSON.stringify(items));
+    window.localStorage.setItem(getCacheKey(userId, key), JSON.stringify(items));
   } catch (error) {
     console.error(`Không thể lưu cache dữ liệu (${key}):`, error);
     emitSyncStatus('error', 'Không thể lưu bản cache trên thiết bị. Vui lòng kiểm tra dung lượng lưu trữ.');
   }
 };
 
-const readCachedDataStore = (organizationId: string, key: string): unknown[] | null => {
+const readCachedDataStore = (userId: string, key: string): unknown[] | null => {
   try {
-    const cacheKey = getCacheKey(organizationId, key);
-    let stored = window.localStorage.getItem(cacheKey);
-    if (stored === null && organizationId === DEFAULT_ORGANIZATION_ID) {
-      stored = window.localStorage.getItem(`${DATA_CACHE_PREFIX}${key}`);
-      if (stored !== null) {
-        window.localStorage.setItem(cacheKey, stored);
-        window.localStorage.removeItem(`${DATA_CACHE_PREFIX}${key}`);
-      }
-    }
+    const stored = window.localStorage.getItem(getCacheKey(userId, key));
     if (stored === null) return null;
     const value: unknown = JSON.parse(stored);
     if (!Array.isArray(value)) {
@@ -96,9 +92,9 @@ const readCachedDataStore = (organizationId: string, key: string): unknown[] | n
   }
 };
 
-export const getCachedDataStore = (key: string, organizationId: string): unknown[] | null =>
-  readPendingDataStores()[getScopedStoreKey(organizationId, key)] ??
-  readCachedDataStore(organizationId, key);
+export const getCachedDataStore = (key: string, userId: string): unknown[] | null =>
+  readPendingDataStores()[getScopedStoreKey(userId, key)] ??
+  readCachedDataStore(userId, key);
 
 const isNetworkError = (error: unknown) =>
   error instanceof TypeError ||
@@ -112,39 +108,57 @@ const getSupabaseClient = () => {
   return supabase;
 };
 
-const migrateLegacyPendingSaves = () => {
+const migrateLegacyPendingSaves = (userId: string) => {
   try {
-    const stored = window.localStorage.getItem(LEGACY_PENDING_SHEETS_KEY);
-    if (!stored) return;
-    const parsed: unknown = JSON.parse(stored);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new Error('Hàng đợi đồng bộ cũ không đúng định dạng.');
+    const pending = readPendingDataStores();
+    const legacyQueue = window.localStorage.getItem(LEGACY_PENDING_SHEETS_KEY);
+    if (legacyQueue) {
+      const parsed: unknown = JSON.parse(legacyQueue);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('Hàng đợi đồng bộ cũ không đúng định dạng.');
+      }
+      Object.entries(parsed).forEach(([key, value]) => {
+        if (!Array.isArray(value)) throw new Error(`Dữ liệu đang chờ đồng bộ (${key}) không đúng định dạng.`);
+        const scopedKey = getScopedStoreKey(userId, key);
+        if (pending[scopedKey] === undefined) pending[scopedKey] = value;
+      });
     }
 
-    const pending = readPendingDataStores();
-    Object.entries(parsed).forEach(([key, value]) => {
-      if (!Array.isArray(value)) throw new Error(`Dữ liệu đang chờ đồng bộ (${key}) không đúng định dạng.`);
-      const scopedKey = getScopedStoreKey(DEFAULT_ORGANIZATION_ID, key);
-      if (pending[scopedKey] === undefined) pending[scopedKey] = value;
+    Object.entries(pending).forEach(([scopedKey, value]) => {
+      const separatorIndex = scopedKey.indexOf(PENDING_KEY_SEPARATOR);
+      const scope = scopedKey.slice(0, separatorIndex);
+      const key = scopedKey.slice(separatorIndex + PENDING_KEY_SEPARATOR.length);
+      if (scope === LEGACY_QUEUE_KEY || scope === PREVIOUS_DEFAULT_ORGANIZATION_ID) {
+        const userScopedKey = getScopedStoreKey(userId, key);
+        if (pending[userScopedKey] === undefined) pending[userScopedKey] = value;
+        delete pending[scopedKey];
+      }
     });
-    window.localStorage.setItem(PENDING_DATA_STORES_KEY, JSON.stringify(pending));
-    window.localStorage.removeItem(LEGACY_PENDING_SHEETS_KEY);
+    if (writePendingDataStores(pending) && legacyQueue) {
+      window.localStorage.removeItem(LEGACY_PENDING_SHEETS_KEY);
+    }
   } catch (error) {
     console.error('Không thể chuyển hàng đợi Google Sheets cũ sang Supabase:', error);
     emitSyncStatus('error', 'Không thể chuyển dữ liệu đang chờ đồng bộ trên thiết bị sang Supabase.');
   }
 };
 
-const upsertDataStore = async (key: string, organizationId: string, items: unknown[]) => {
+export const activateDataStoreUser = (userId: string) => {
+  activeUserId = userId;
+  migrateLegacyPendingSaves(userId);
+  if (navigator.onLine) void flushPendingDataStores(userId);
+};
+
+const upsertDataStore = async (key: string, userId: string, items: unknown[]) => {
   const client = getSupabaseClient();
   const { error } = await client
     .from('app_data_stores')
     .upsert({
-      organization_id: organizationId,
+      user_id: userId,
       key,
       data: items,
       updated_at: new Date().toISOString()
-    }, { onConflict: 'organization_id,key' });
+    }, { onConflict: 'user_id,key' });
   if (error) throw error;
 };
 
@@ -160,29 +174,33 @@ const emitOfflineNotice = (message: string) => {
 };
 
 const scheduleRetry = () => {
-  if (retryTimer !== undefined || !navigator.onLine) return;
+  if (retryTimer !== undefined || !navigator.onLine || !activeUserId) return;
   retryTimer = window.setTimeout(() => {
     retryTimer = undefined;
-    void flushPendingDataStores();
+    if (activeUserId) void flushPendingDataStores(activeUserId);
     retryDelay = Math.min(retryDelay * 2, 30000);
   }, retryDelay);
 };
 
-const flushPendingDataStores = async () => {
+const flushPendingDataStores = async (userId: string) => {
   if (flushPromise) return flushPromise;
-  if (!navigator.onLine || Object.keys(readPendingDataStores()).length === 0) return;
+  if (!navigator.onLine) return;
+  const currentUserPending = Object.entries(readPendingDataStores())
+    .filter(([scopedKey]) => scopedKey.startsWith(`${userId}${PENDING_KEY_SEPARATOR}`));
+  if (currentUserPending.length === 0) return;
 
   flushPromise = (async () => {
     const pending = readPendingDataStores();
-    const entries = Object.entries(pending);
+    const entries = Object.entries(pending)
+      .filter(([scopedKey]) => scopedKey.startsWith(`${userId}${PENDING_KEY_SEPARATOR}`));
     const results = await Promise.allSettled(entries.map(([scopedKey, items]) => {
       const separatorIndex = scopedKey.indexOf(PENDING_KEY_SEPARATOR);
       if (separatorIndex < 0) {
         return Promise.reject(new Error(`Khóa hàng đợi đồng bộ không hợp lệ: ${scopedKey}`));
       }
-      const organizationId = scopedKey.slice(0, separatorIndex);
+      const scopedUserId = scopedKey.slice(0, separatorIndex);
       const key = scopedKey.slice(separatorIndex + PENDING_KEY_SEPARATOR.length);
-      return upsertDataStore(key, organizationId, items);
+      return upsertDataStore(key, scopedUserId, items);
     }));
     const latestPending = readPendingDataStores();
     let hasFailures = false;
@@ -204,7 +222,7 @@ const flushPendingDataStores = async () => {
 
     writePendingDataStores(latestPending);
     if (hasFailures) scheduleRetry();
-    else if (Object.keys(latestPending).length > 0) scheduleRetry();
+    else if (latestPendingKeysForUser(latestPending, userId).length > 0) scheduleRetry();
     else retryDelay = 1000;
   })().finally(() => {
     flushPromise = null;
@@ -213,23 +231,24 @@ const flushPendingDataStores = async () => {
   return flushPromise;
 };
 
+const latestPendingKeysForUser = (pending: PendingDataStores, userId: string) =>
+  Object.keys(pending).filter(key => key.startsWith(`${userId}${PENDING_KEY_SEPARATOR}`));
+
 if (typeof window !== 'undefined') {
-  migrateLegacyPendingSaves();
   window.addEventListener('online', () => {
     offlineNoticeShown = false;
     retryDelay = 1000;
-    void flushPendingDataStores();
+    if (activeUserId) void flushPendingDataStores(activeUserId);
   });
   window.addEventListener('offline', () => {
     offlineNoticeShown = false;
     emitOfflineNotice('Mất kết nối mạng. Dữ liệu đang dùng bản lưu trên thiết bị; thay đổi sẽ đồng bộ khi có mạng.');
   });
-  if (navigator.onLine && Object.keys(readPendingDataStores()).length > 0) scheduleRetry();
 }
 
-export async function fetchDataStore(key: string, organizationId: string): Promise<unknown[]> {
+export async function fetchDataStore(key: string, userId: string): Promise<unknown[]> {
   if (!navigator.onLine) {
-    const cachedData = getCachedDataStore(key, organizationId);
+    const cachedData = getCachedDataStore(key, userId);
     if (cachedData !== null) {
       emitOfflineNotice('Mất kết nối mạng. Đang hiển thị dữ liệu đã lưu trên thiết bị.');
       return cachedData;
@@ -242,13 +261,13 @@ export async function fetchDataStore(key: string, organizationId: string): Promi
     const { data, error } = await client
       .from('app_data_stores')
       .select('data')
-      .eq('organization_id', organizationId)
+      .eq('user_id', userId)
       .eq('key', key)
       .single();
 
     if (error) {
       if (!isMissingDataStore(error)) throw error;
-      cacheDataStore(organizationId, key, []);
+      cacheDataStore(userId, key, []);
       return [];
     }
 
@@ -256,11 +275,11 @@ export async function fetchDataStore(key: string, organizationId: string): Promi
       throw new Error(`Dữ liệu Supabase (${key}) không đúng định dạng mảng.`);
     }
 
-    cacheDataStore(organizationId, key, data.data);
+    cacheDataStore(userId, key, data.data);
     return data.data;
   } catch (error) {
     if (!navigator.onLine) {
-      const cachedData = getCachedDataStore(key, organizationId);
+      const cachedData = getCachedDataStore(key, userId);
       if (cachedData !== null) {
         emitOfflineNotice('Mất kết nối mạng. Đang hiển thị dữ liệu đã lưu trên thiết bị.');
         return cachedData;
@@ -275,9 +294,9 @@ export async function fetchDataStore(key: string, organizationId: string): Promi
   }
 }
 
-export async function saveDataStore(key: string, organizationId: string, items: unknown[]): Promise<void> {
-  cacheDataStore(organizationId, key, items);
-  const scopedKey = getScopedStoreKey(organizationId, key);
+export async function saveDataStore(key: string, userId: string, items: unknown[]): Promise<void> {
+  cacheDataStore(userId, key, items);
+  const scopedKey = getScopedStoreKey(userId, key);
 
   if (!navigator.onLine) {
     const pending = readPendingDataStores();
@@ -288,7 +307,7 @@ export async function saveDataStore(key: string, organizationId: string, items: 
   }
 
   try {
-    await upsertDataStore(key, organizationId, items);
+    await upsertDataStore(key, userId, items);
     const pending = readPendingDataStores();
     if (JSON.stringify(pending[scopedKey]) === JSON.stringify(items)) {
       delete pending[scopedKey];

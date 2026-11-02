@@ -139,7 +139,6 @@ export default function UserManagementView() {
     setIsCreating(true);
     setCreateError('');
     try {
-      if (!user?.organizationId) throw new Error('Không xác định được công ty đang đăng nhập.');
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
       if (!supabaseUrl || !supabaseAnonKey) throw new Error('Chưa cấu hình Supabase URL/Key.');
@@ -169,8 +168,7 @@ export default function UserManagementView() {
         user_id: authData.user.id,
         username: newUsername.trim(),
         role: newRole,
-        email: newEmail.trim(),
-        organization_id: user.organizationId
+        email: newEmail.trim()
       });
       if (profileError) throw profileError;
 
