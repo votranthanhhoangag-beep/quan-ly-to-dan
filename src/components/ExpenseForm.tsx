@@ -475,7 +475,7 @@ export const ExpenseForm = () => {
             </button>
           </div>
           {/* GIAO DIỆN NHẬP DÒNG TRÊN MOBILE - TỰ CO GIÃN 100% CHIỀU RỘNG MÀN HÌNH */}
-          <div className="block md:hidden space-y-3 p-3">
+          <div className="expense-items-mobile space-y-3 p-3">
             {items.map((item, index) => {
               const lineTotal = (Number(item.quantity) || 0) * (parseAmount(item.unitPrice) || 0);
               const query = item.name.trim().toLowerCase();
@@ -658,11 +658,11 @@ export const ExpenseForm = () => {
           </div>
 
           {/* GIAO DIỆN BẢNG DÀNH CHO MÁY TÍNH */}
-          <div className="hidden md:block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto' }}>
+          <div className="expense-items-desktop touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', minWidth: '900px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '13px' }} className="min-w-[950px] w-full">
               <thead>
                 <tr style={{ backgroundColor: '#f1f5f9', color: '#475569', textAlign: 'left' }}>
-                  <th style={{ width: '210px', padding: '10px 12px' }}>Tên Mặt Hàng / Vật Tư / Khoản Chi</th>
+                  <th style={{ width: '240px', padding: '10px 12px' }}>Tên Mặt Hàng / Vật Tư / Khoản Chi</th>
                   <th style={{ width: '105px', padding: '10px 12px', textAlign: 'right' }}>Số Lượng</th>
                   <th style={{ width: '100px', padding: '10px 12px', textAlign: 'center' }}>ĐVT</th>
                   <th style={{ width: '140px', padding: '10px 12px', textAlign: 'right' }}>Đơn Giá</th>
@@ -709,7 +709,7 @@ export const ExpenseForm = () => {
                             disabled={!item.isEditing}
                             required={item.isEditing}
                             placeholder="Gõ để tìm sản phẩm, nguyên liệu hoặc khoản chi"
-                            style={{ ...inputStyle, backgroundColor: item.isEditing ? '#fff' : '#f8fafc' }}
+                            style={{ ...inputStyle, maxWidth: '240px', backgroundColor: item.isEditing ? '#fff' : '#f8fafc' }}
                           />
                           {item.isEditing && item.isSuggestionOpen && (
                             <div

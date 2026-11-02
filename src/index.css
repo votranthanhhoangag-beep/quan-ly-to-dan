@@ -47,6 +47,14 @@ body,
   box-shadow: 2px 0 3px rgb(15 23 42 / 8%);
 }
 
+.expense-items-mobile {
+  display: none;
+}
+
+.expense-items-desktop {
+  display: block;
+}
+
 main input,
 main select,
 main textarea {
@@ -317,6 +325,14 @@ main textarea {
     padding: 12px !important;
   }
 
+  .expense-items-mobile {
+    display: block;
+  }
+
+  .expense-items-desktop {
+    display: none;
+  }
+
   .erp-content-shell div[style*="grid-template-columns"] {
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)) !important;
   }
@@ -366,20 +382,6 @@ main textarea {
     width: max-content !important;
     min-width: max(950px, 100%) !important;
     max-width: none !important;
-  }
-
-  .erp-content-shell div:has(> table) > table thead tr > :first-child {
-    position: sticky;
-    left: 0;
-    z-index: 3;
-    background-color: #f1f5f9 !important;
-  }
-
-  .erp-content-shell div:has(> table) > table tbody tr > :first-child {
-    position: sticky;
-    left: 0;
-    z-index: 2;
-    background-color: #fff !important;
   }
 
   .erp-content-shell .erp-table-scroll > table {
@@ -554,27 +556,13 @@ main textarea {
     font-size: 11px !important;
     line-height: 1.2 !important;
     white-space: normal !important;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
     word-break: normal;
     vertical-align: middle;
   }
 
   .erp-content-shell table th {
     text-align: center;
-  }
-
-  .erp-content-shell table thead tr > :first-child {
-    position: sticky;
-    left: 0;
-    z-index: 3;
-    background-color: #f1f5f9 !important;
-  }
-
-  .erp-content-shell table tbody tr > :first-child {
-    position: sticky;
-    left: 0;
-    z-index: 2;
-    background-color: #fff !important;
   }
 
   .erp-content-shell table td:has(button) {
