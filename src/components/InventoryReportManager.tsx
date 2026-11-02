@@ -1591,8 +1591,8 @@ const handleSaveTransaction = (e: React.FormEvent) => {
         {activeTab === 'FRAME_STOCK' && <FrameStockReport />}
 
         {activeTab === 'KS_INCOMPLETE' && (
-          <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #fecaca', marginBottom: '16px' }}>
-            <table style={{ minWidth: '900px',  width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }} className="min-w-[950px] w-full">
+          <div className="w-full overflow-x-auto shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ borderRadius: '8px', border: '1px solid #fecaca', marginBottom: '16px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }} className="w-full min-w-max">
               <thead>
                 <tr style={{ backgroundColor: '#fef2f2', borderBottom: '2px solid #fecaca' }}>
                   <th style={{ padding: '10px' }}>Số HĐ CTY</th>
@@ -1639,26 +1639,26 @@ const handleSaveTransaction = (e: React.FormEvent) => {
           </div>
         )}
 
-        <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ display: activeTab === 'KS_INCOMPLETE' || activeTab === 'FRAME_STOCK' ? 'none' : undefined, overflowX: 'auto', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-          <table style={{ minWidth: '900px',  width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }} className="min-w-[950px] w-full">
+        <div className="w-full overflow-x-auto shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ display: activeTab === 'KS_INCOMPLETE' || activeTab === 'FRAME_STOCK' ? 'none' : undefined, borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }} className="w-full min-w-max">
             <thead>
               <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
-                <th style={{ padding: '10px' }}>Số Phiếu</th>
-                <th style={{ padding: '10px' }}>Ngày Nhận</th>
-                <th style={{ padding: '10px' }}>Mã Hợp Đồng</th>
-                <th style={{ padding: '10px' }}>Mã & Tên Hàng</th>
-                <th style={{ padding: '10px', textAlign: 'right' }}>Số Lượng</th>
-                <th style={{ padding: '10px' }}>Nguyên Phụ Liệu Kèm Theo</th>
-                <th style={{ padding: '10px' }}>Đơn Vị Tính</th>
-                <th style={{ padding: '10px' }}>Đối Tác / Tổ Đan</th>
-                <th style={{ padding: '10px' }}>Ghi Chú</th>
-                <th style={{ padding: '10px', textAlign: 'center' }}>Thao Tác</th>
+              <th style={{ padding: '8px' }}>Số Phiếu</th>
+              <th style={{ padding: '8px' }}>Ngày Nhận</th>
+              <th style={{ padding: '8px' }}>Mã Hợp Đồng</th>
+              <th style={{ padding: '8px' }}>Mã & Tên Hàng</th>
+              <th style={{ padding: '8px', textAlign: 'right' }}>Số Lượng</th>
+              <th style={{ padding: '8px' }}>Nguyên Phụ Liệu Kèm Theo</th>
+              <th style={{ padding: '8px' }}>ĐVT</th>
+              <th style={{ padding: '8px' }}>Đối Tác / Tổ Đan</th>
+              <th style={{ padding: '8px' }}>Ghi Chú</th>
+              <th style={{ padding: '8px', textAlign: 'center' }}>Thao Tác</th>
               </tr>
             </thead>
             <tbody>
               {filteredLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={10} style={{ padding: '20px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>
+                  <td colSpan={10} style={{ padding: '16px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>
                     Chưa có phiếu kho nào phát sinh!
                   </td>
                 </tr>
@@ -1669,28 +1669,28 @@ const handleSaveTransaction = (e: React.FormEvent) => {
                   const isReturnSlipReceipt = Boolean(item.sourceReturnSlipId);
                   return (
                     <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                      <td style={{ padding: '10px', fontWeight: 'bold', color: isKhung ? '#0284c7' : isNK ? '#16a34a' : '#dc2626' }}>
+                      <td style={{ padding: '8px', fontWeight: 'bold', color: isKhung ? '#0284c7' : isNK ? '#16a34a' : '#dc2626' }}>
                         {item.slipNo}
                       </td>
-                      <td style={{ padding: '10px', fontWeight: 'bold', color: '#047857' }}>{formatDateVN(item.date)}</td>
-                      <td style={{ padding: '10px', fontWeight: 'bold', color: '#1e40af' }}>{item.contractNo || '—'}</td>
-                      <td style={{ padding: '10px' }}>
+                      <td style={{ padding: '8px', fontWeight: 'bold', color: '#047857' }}>{formatDateVN(item.date)}</td>
+                      <td style={{ padding: '8px', fontWeight: 'bold', color: '#1e40af' }}>{item.contractNo || '—'}</td>
+                      <td style={{ padding: '8px' }}>
                         <span style={{ fontWeight: 'bold', color: '#7c3aed' }}>[{item.productCode}]</span> {item.productName}
                       </td>
-                      <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#b45309' }}>
+                      <td style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold', color: '#b45309' }}>
                         {Number(item.quantity || 0).toLocaleString()}
                       </td>
-                      <td style={{ padding: '10px', color: '#0f766e', fontSize: '12px' }}>
+                      <td style={{ padding: '8px', color: '#0f766e', fontSize: '12px' }}>
                         {Array.isArray(item.accompanyingMaterials) && item.accompanyingMaterials.length
                           ? item.accompanyingMaterials.filter(Boolean).map(material =>
                             `${material.materialCode ? `${material.materialCode} - ` : ''}${material.materialName} ${Number(material.quantity).toLocaleString()} ${material.unit}`
                           ).join('; ')
                           : '—'}
                       </td>
-                      <td style={{ padding: '10px', fontSize: '12px', fontWeight: '600' }}>{item.unit}</td>
-                      <td style={{ padding: '10px', fontWeight: 'bold', color: '#334155' }}>{item.partnerName || item.partner || '—'}</td>
-                      <td style={{ padding: '10px', color: '#64748b', fontSize: '12px' }}>{item.note || '—'}</td>
-                      <td style={{ padding: '10px', textAlign: 'center' }}>
+                      <td style={{ padding: '8px', fontSize: '12px', fontWeight: '600' }}>{item.unit}</td>
+                      <td style={{ padding: '8px', fontWeight: 'bold', color: '#334155' }}>{item.partnerName || item.partner || '—'}</td>
+                      <td style={{ padding: '8px', color: '#64748b', fontSize: '12px' }}>{item.note || '—'}</td>
+                      <td style={{ padding: '8px', textAlign: 'center' }}>
                         <div className="slip-action-buttons">
                           <button
                             type="button"
@@ -1743,8 +1743,8 @@ const handleSaveTransaction = (e: React.FormEvent) => {
               </div>
               <button type="button" onClick={() => setHistoryContract(null)} style={{ border: 0, borderRadius: '6px', padding: '7px 11px', backgroundColor: '#e2e8f0', cursor: 'pointer', fontWeight: 'bold' }}>Đóng</button>
             </div>
-            <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-              <table style={{ minWidth: '900px',  width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }} className="min-w-[950px] w-full">
+            <div className="w-full overflow-x-auto shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }} className="w-full min-w-max">
                 <thead>
                   <tr style={{ backgroundColor: '#f1f5f9' }}>
                     <th style={{ padding: '9px' }}>Lần</th>
@@ -1838,7 +1838,7 @@ const handleSaveTransaction = (e: React.FormEvent) => {
 
               <section style={{ marginBottom: '18px' }}>
                 <h3 style={{ margin: '0 0 10px', paddingBottom: '6px', borderBottom: '1px solid #64748b', fontSize: '15px' }}>II. CHI TIẾT SỐ LƯỢNG &amp; TÌNH TRẠNG KHUNG</h3>
-                <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll"><table style={{ minWidth: '900px',  width: '100%', borderCollapse: 'collapse', fontSize: '14px' }} className="min-w-[950px] w-full">
+                <div className="w-full overflow-x-auto shadow-sm rounded-lg border border-gray-200 erp-table-scroll"><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }} className="w-full min-w-max">
                   <tbody>
                     {([
                       ['Tổng số lượng đã phát', frameReceiptPreview.issuedQuantity, frameReceiptPreview.contract.unit || 'Bộ'],

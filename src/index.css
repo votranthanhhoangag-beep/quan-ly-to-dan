@@ -47,14 +47,6 @@ body,
   box-shadow: 2px 0 3px rgb(15 23 42 / 8%);
 }
 
-.expense-items-mobile {
-  display: none;
-}
-
-.expense-items-desktop {
-  display: block;
-}
-
 main input,
 main select,
 main textarea {
@@ -139,7 +131,7 @@ main textarea {
 .erp-table-scroll table,
 .erp-content-shell div:has(> table) > table {
   width: 100%;
-  min-width: max(950px, 100%) !important;
+  min-width: max-content !important;
 }
 
 .erp-table-scroll::-webkit-scrollbar,
@@ -325,14 +317,6 @@ main textarea {
     padding: 12px !important;
   }
 
-  .expense-items-mobile {
-    display: block;
-  }
-
-  .expense-items-desktop {
-    display: none;
-  }
-
   .erp-content-shell div[style*="grid-template-columns"] {
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)) !important;
   }
@@ -380,14 +364,14 @@ main textarea {
 
   .erp-content-shell div:has(> table) > table {
     width: max-content !important;
-    min-width: max(950px, 100%) !important;
+    min-width: max-content !important;
     max-width: none !important;
   }
 
   .erp-content-shell .erp-table-scroll > table {
     display: table !important;
     width: max-content !important;
-    min-width: max(950px, 100%) !important;
+    min-width: max-content !important;
     max-width: none !important;
     overflow: visible !important;
   }
@@ -543,7 +527,7 @@ main textarea {
   .erp-content-shell div:has(> table) > table {
     display: table !important;
     width: max-content !important;
-    min-width: 1100px !important;
+    min-width: max-content !important;
     max-width: none !important;
     table-layout: auto !important;
     font-size: 12px !important;

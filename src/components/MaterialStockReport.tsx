@@ -319,27 +319,16 @@ export default function MaterialStockReport() {
           ))}
         </div>
 
-        <div className="block touch-pan-x select-none w-full overflow-x-auto shadow rounded-lg erp-table-scroll">
-          <table className="min-w-[950px] material-stock-table w-full min-w-[1000px]" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: '1000px', fontSize: '13px' }}>
-            <colgroup>
-              <col style={{ width: '16%' }} />
-              <col style={{ width: '8%' }} />
-              <col style={{ width: '8%' }} />
-              <col style={{ width: '10%' }} />
-              <col style={{ width: '10%' }} />
-              <col style={{ width: '9%' }} />
-              <col style={{ width: '13%' }} />
-              <col style={{ width: '12%' }} />
-              <col style={{ width: '14%' }} />
-            </colgroup>
+        <div className="overflow-x-auto w-full shadow rounded-lg erp-table-scroll">
+          <table className="material-stock-table w-full min-w-max" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
             <thead>
               <tr style={{ background: '#eff6ff', color: '#1e3a8a' }}>
-                {['Tên Hàng', 'Đơn Vị Tính', 'Tồn Đầu', 'Nhập Trong Kỳ', 'Xuất Trong Kỳ', 'Tồn Cuối Kỳ', 'Đơn Giá', 'Thành Tiền', 'Ghi Chú'].map((label, index) => (
+                {['Tên Hàng', 'ĐVT', 'Tồn Đầu', 'Nhập Trong Kỳ', 'Xuất Trong Kỳ', 'Tồn Cuối Kỳ', 'Đơn Giá', 'Thành Tiền', 'Ghi Chú'].map((label, index) => (
                   <th
                     key={label}
                     className={index === 0 ? 'report-sticky-column' : undefined}
                     style={{
-                      padding: '11px 9px',
+                      padding: '8px',
                       borderBottom: '1px solid #cbd5e1',
                       textAlign: index === 0 || index === 1 || index === 8 ? 'left' : 'right',
                       whiteSpace: 'normal',
@@ -355,25 +344,25 @@ export default function MaterialStockReport() {
             <tbody>
               {rows.map(row => (
                 <tr key={row.key} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                  <td className="report-sticky-column" style={{ padding: '10px 9px', textAlign: 'left', overflowWrap: 'anywhere' }}>
+                  <td className="report-sticky-column" style={{ padding: '8px', textAlign: 'left', overflowWrap: 'anywhere' }}>
                     <strong>{row.name}</strong>
                     {row.code && <div style={{ color: '#64748b', fontSize: '11px' }}>{row.code}</div>}
                   </td>
-                  <td style={{ padding: '10px 9px', textAlign: 'left', overflowWrap: 'anywhere' }}>{row.unit || '-'}</td>
-                  <td style={{ padding: '10px 9px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.opening)}</td>
-                  <td style={{ padding: '10px 9px', textAlign: 'right', color: '#15803d', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.incoming)}</td>
-                  <td style={{ padding: '10px 9px', textAlign: 'right', color: '#b91c1c', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.outgoing)}</td>
-                  <td style={{ padding: '10px 9px', textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.closing)}</td>
-                  <td style={{ padding: '10px 9px', textAlign: 'right', overflowWrap: 'anywhere', fontVariantNumeric: 'tabular-nums' }}>
+                  <td style={{ padding: '8px', textAlign: 'left', overflowWrap: 'anywhere' }}>{row.unit || '-'}</td>
+                  <td style={{ padding: '8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.opening)}</td>
+                  <td style={{ padding: '8px', textAlign: 'right', color: '#15803d', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.incoming)}</td>
+                  <td style={{ padding: '8px', textAlign: 'right', color: '#b91c1c', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.outgoing)}</td>
+                  <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.closing)}</td>
+                  <td style={{ padding: '8px', textAlign: 'right', overflowWrap: 'anywhere', fontVariantNumeric: 'tabular-nums' }}>
                     <div>{formatCurrency(row.averagePrice)}</div>
                     {row.highestPurchasePrice > 0 && <div style={{ color: '#64748b', fontSize: '11px' }}>Xuất tối đa: {formatCurrency(row.highestPurchasePrice)}</div>}
                   </td>
-                  <td style={{ padding: '10px 9px', textAlign: 'right', overflowWrap: 'anywhere', fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(row.closingValue)}</td>
-                  <td style={{ padding: '10px 9px', textAlign: 'left', color: '#475569', overflowWrap: 'anywhere' }}>{row.notes.length ? row.notes.join(' · ') : '-'}</td>
+                  <td style={{ padding: '8px', textAlign: 'right', overflowWrap: 'anywhere', fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(row.closingValue)}</td>
+                  <td style={{ padding: '8px', textAlign: 'left', color: '#475569', overflowWrap: 'anywhere' }}>{row.notes.length ? row.notes.join(' · ') : '-'}</td>
                 </tr>
               ))}
               {rows.length === 0 && (
-                <tr><td colSpan={9} style={{ padding: '24px', textAlign: 'center', color: '#64748b' }}>Chưa có danh mục hoặc phát sinh nguyên phụ liệu.</td></tr>
+                <tr><td colSpan={9} style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>Chưa có danh mục hoặc phát sinh nguyên phụ liệu.</td></tr>
               )}
             </tbody>
           </table>

@@ -351,7 +351,7 @@ function AppContent({ initialTab }: { initialTab: string }) {
     { id: 'exportFrame', label: '📥 Nhận Hàng Đan Từ Tổ Đan', permission: 'manage_knitting_receipts' },
     { id: 'knittingExport', label: '📤 Xuất Hàng Đan', permission: 'manage_knitting_exports' },
     { id: 'defectiveGoodsImport', label: '📥 Nhập Hàng Loại', permission: 'manage_settings' },
-    { id: 'inventoryStockReport', label: '📊 Báo Cáo NXT & Sửa Khoán', permission: 'manage_settings' },
+    { id: 'inventoryStockReport', label: '📊 Báo Cáo NXT & SK', permission: 'manage_settings' },
     { id: 'materialStockReport', label: '🧵 Báo Cáo NXT Nguyên Phụ Liệu', permission: 'view_material_stock' },
     { id: 'expenses', label: '💰 Quản Lý Phiếu Chi', permission: 'view_expenses' },
     { id: 'vehicles', label: '🚛 Quản Lý Xe & KM', permission: 'view_vehicles' },
