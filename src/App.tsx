@@ -375,7 +375,7 @@ function AppContent({ initialTab }: { initialTab: string }) {
     const handleSyncStatus = (event: Event) => {
       const detail = (event as CustomEvent<{ status: string; message: string }>).detail;
       if (!detail) return;
-      if (['pending', 'syncing', 'sent'].includes(detail.status)) return;
+      if (detail.status !== 'error' && detail.status !== 'offline') return;
       setSyncNotice(detail);
     };
     const handleOffline = () => setSyncNotice({
@@ -429,7 +429,7 @@ function AppContent({ initialTab }: { initialTab: string }) {
 
   return (
 <div className="erp-app-shell" style={{ display: 'flex', minHeight: '100vh', width: '100%', backgroundColor: '#f8fafc', margin: 0, padding: 0, boxSizing: 'border-box' }}>
-      {syncNotice && (
+      {syncNotice && (syncNotice.status === 'error' || syncNotice.status === 'offline') && (
         <div
           role={syncNotice.status === 'error' ? 'alert' : 'status'}
           aria-live="polite"
@@ -450,7 +450,7 @@ function AppContent({ initialTab }: { initialTab: string }) {
             fontWeight: 700
           }}
         >
-          {syncNotice.status === 'syncing' ? '⏳ ' : syncNotice.status === 'sent' ? 'ℹ️ ' : '⚠️ '}
+          ⚠️{' '}
           {syncNotice.message}
         </div>
       )}

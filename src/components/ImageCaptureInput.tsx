@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { uploadImageToGoogleDrive } from '../services/googleService';
+import { uploadImageToGoogleDrive } from '../services/googleDriveService';
 
 interface ImageCaptureProps {
   onImageCaptured: (url: string) => void;

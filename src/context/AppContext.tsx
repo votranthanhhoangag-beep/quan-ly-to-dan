@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { fetchSheetData, getCachedSheetData, refreshSheetData, saveSheetData } from '../services/googleService';
+import { fetchDataStore, getCachedDataStore, saveDataStore } from '../services/supabaseDataService';
 import { useAuth, type Permission } from './AuthContext';
 import { logAction } from '../services/auditLog';
 
@@ -324,11 +324,11 @@ const readLocalStorageArray = <T,>(key: string): T[] | null => {
 
 const fetchExpensesWithLocalFallback = async () => {
   try {
-    return await fetchSheetData('expenses');
+    return await fetchDataStore('expenses');
   } catch (error) {
     const localExpenses = readLocalStorageArray<ExpenseItem>(EXPENSE_STORAGE_KEY);
-    if (localExpenses === null) throw error;
-    console.warn('Không thể tải Phiếu Chi từ máy chủ; đang khôi phục bản lưu trên thiết bị.', error);
+    if (navigator.onLine || localExpenses === null) throw error;
+    console.warn('Không có mạng; đang khôi phục Phiếu Chi từ bản lưu trên thiết bị.', error);
     window.dispatchEvent(new CustomEvent('erp:sync-status', {
       detail: {
         status: 'offline',
@@ -697,7 +697,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const hydrateFromCache = () => {
       const cachedSnapshots = new Map<string, unknown[]>();
       APP_DATA_SHEETS.forEach(sheetName => {
-        const cached = getCachedSheetData(sheetName);
+        const cached = getCachedDataStore(sheetName);
         if (cached !== null) cachedSnapshots.set(sheetName, cached);
       });
 
@@ -719,7 +719,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!navigator.onLine) return;
       const results = await Promise.allSettled(APP_DATA_SHEETS.map(async sheetName => ({
         sheetName,
-        value: await refreshSheetData(sheetName)
+        value: await fetchDataStore(sheetName)
       })));
       if (!active) return;
 
@@ -750,20 +750,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       try {
         const [p, m, ec, otherEc, v, s, exp, ml, ds, ct, knittingExports, defectiveImports, config, allocations] = await Promise.all([
-          fetchSheetData('products'),
-          fetchSheetData('materials'),
-          fetchSheetData('expensesCat'),
-          fetchSheetData('otherExpensesCat'),
-          fetchSheetData('vehicles'),
-          fetchSheetData('slips'),
+          fetchDataStore('products'),
+          fetchDataStore('materials'),
+          fetchDataStore('expensesCat'),
+          fetchDataStore('otherExpensesCat'),
+          fetchDataStore('vehicles'),
+          fetchDataStore('slips'),
           fetchExpensesWithLocalFallback(),
-          fetchSheetData('mileageLogs'),
-          fetchSheetData('depositSlips'),
-          fetchSheetData('contracts'),
-          fetchSheetData('knittingExportSlips'),
-          fetchSheetData('defectiveGoodsImportSlips'),
-          fetchSheetData('systemConfig'),
-          fetchSheetData('expenseAllocations')
+          fetchDataStore('mileageLogs'),
+          fetchDataStore('depositSlips'),
+          fetchDataStore('contracts'),
+          fetchDataStore('knittingExportSlips'),
+          fetchDataStore('defectiveGoodsImportSlips'),
+          fetchDataStore('systemConfig'),
+          fetchDataStore('expenseAllocations')
         ]);
 
         const snapshots = new Map<string, unknown[]>([
@@ -786,7 +786,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         applyAvailableSnapshots(snapshots);
       } catch (e) {
         if (!active) return;
-        console.error("Lỗi khi tải dữ liệu ban đầu từ Google Sheets:", e);
+        console.error('Lỗi khi tải dữ liệu ban đầu từ Supabase:', e);
         setDataLoadError(e instanceof Error ? e.message : 'Không thể tải dữ liệu từ hệ thống.');
         return;
       }
@@ -814,21 +814,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return false;
   };
 
-  useEffect(() => { if (shouldPersistSnapshot('products', products)) void saveSheetData('products', products); }, [products]);
-  useEffect(() => { if (shouldPersistSnapshot('materials', materials)) void saveSheetData('materials', materials); }, [materials]);
-  useEffect(() => { if (shouldPersistSnapshot('expensesCat', expensesCat)) void saveSheetData('expensesCat', expensesCat); }, [expensesCat]);
-  useEffect(() => { if (shouldPersistSnapshot('otherExpensesCat', otherExpensesCat)) void saveSheetData('otherExpensesCat', otherExpensesCat); }, [otherExpensesCat]);
-  useEffect(() => { if (shouldPersistSnapshot('vehicles', vehicles)) void saveSheetData('vehicles', vehicles); }, [vehicles]);
-  useEffect(() => { if (shouldPersistSnapshot('slips', slips)) void saveSheetData('slips', slips); }, [slips]);
+  useEffect(() => { if (shouldPersistSnapshot('products', products)) void saveDataStore('products', products); }, [products]);
+  useEffect(() => { if (shouldPersistSnapshot('materials', materials)) void saveDataStore('materials', materials); }, [materials]);
+  useEffect(() => { if (shouldPersistSnapshot('expensesCat', expensesCat)) void saveDataStore('expensesCat', expensesCat); }, [expensesCat]);
+  useEffect(() => { if (shouldPersistSnapshot('otherExpensesCat', otherExpensesCat)) void saveDataStore('otherExpensesCat', otherExpensesCat); }, [otherExpensesCat]);
+  useEffect(() => { if (shouldPersistSnapshot('vehicles', vehicles)) void saveDataStore('vehicles', vehicles); }, [vehicles]);
+  useEffect(() => { if (shouldPersistSnapshot('slips', slips)) void saveDataStore('slips', slips); }, [slips]);
   useEffect(() => {
     if (!shouldPersistSnapshot('expenses', expenses)) return;
     saveLocalStorageArray(EXPENSE_STORAGE_KEY, expenses);
-    void saveSheetData('expenses', expenses);
+    void saveDataStore('expenses', expenses);
   }, [expenses]);
-  useEffect(() => { if (shouldPersistSnapshot('expenseAllocations', expenseAllocations)) void saveSheetData('expenseAllocations', expenseAllocations); }, [expenseAllocations]);
-  useEffect(() => { if (shouldPersistSnapshot('mileageLogs', mileageLogs)) void saveSheetData('mileageLogs', mileageLogs); }, [mileageLogs]);
-  useEffect(() => { if (shouldPersistSnapshot('depositSlips', depositSlips)) void saveSheetData('depositSlips', depositSlips); }, [depositSlips]);
-  useEffect(() => { if (shouldPersistSnapshot('contracts', contracts)) void saveSheetData('contracts', contracts); }, [contracts]);
+  useEffect(() => { if (shouldPersistSnapshot('expenseAllocations', expenseAllocations)) void saveDataStore('expenseAllocations', expenseAllocations); }, [expenseAllocations]);
+  useEffect(() => { if (shouldPersistSnapshot('mileageLogs', mileageLogs)) void saveDataStore('mileageLogs', mileageLogs); }, [mileageLogs]);
+  useEffect(() => { if (shouldPersistSnapshot('depositSlips', depositSlips)) void saveDataStore('depositSlips', depositSlips); }, [depositSlips]);
+  useEffect(() => { if (shouldPersistSnapshot('contracts', contracts)) void saveDataStore('contracts', contracts); }, [contracts]);
   useEffect(() => {
     if (!isLoaded.current) return;
     saveLocalStorageArray(RECEIVED_GOODS_STORAGE_KEY, contracts
@@ -841,12 +841,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (!shouldPersistSnapshot('knittingExportSlips', knittingExportSlips)) return;
     saveLocalStorageArray(KNITTING_EXPORT_STORAGE_KEY, knittingExportSlips);
-    void saveSheetData('knittingExportSlips', knittingExportSlips);
+    void saveDataStore('knittingExportSlips', knittingExportSlips);
   }, [knittingExportSlips]);
-  useEffect(() => { if (shouldPersistSnapshot('defectiveGoodsImportSlips', defectiveGoodsImportSlips)) void saveSheetData('defectiveGoodsImportSlips', defectiveGoodsImportSlips); }, [defectiveGoodsImportSlips]);
+  useEffect(() => { if (shouldPersistSnapshot('defectiveGoodsImportSlips', defectiveGoodsImportSlips)) void saveDataStore('defectiveGoodsImportSlips', defectiveGoodsImportSlips); }, [defectiveGoodsImportSlips]);
   useEffect(() => {
     if (shouldPersistSnapshot('systemConfig', systemConfiguration)) {
-      void saveSheetData('systemConfig', systemConfiguration ? [systemConfiguration] : []);
+      void saveDataStore('systemConfig', systemConfiguration ? [systemConfiguration] : []);
     }
   }, [systemConfiguration]);
   useEffect(() => {
