@@ -31,6 +31,7 @@ export interface AuthenticatedUser {
   username: string;
   email: string;
   role: UserRole;
+  organizationId: string;
 }
 
 type AuthStatus = 'loading' | 'ready' | 'signed_out' | 'configuration_error' | 'profile_error';
@@ -71,7 +72,7 @@ const loadProfile = async (session: Session): Promise<AuthenticatedUser> => {
   if (!supabase) throw new Error('Supabase chưa được cấu hình.');
   const { data, error } = await supabase
     .from('user_profiles')
-    .select('username, role')
+    .select('username, role, organization_id')
     .eq('user_id', session.user.id)
     .abortSignal(AbortSignal.timeout(8000))
     .single();
@@ -79,11 +80,15 @@ const loadProfile = async (session: Session): Promise<AuthenticatedUser> => {
   if (!data || !['admin', 'ke_toan', 'kho_to_dan'].includes(data.role)) {
     throw new Error('Tài khoản chưa được cấp vai trò hợp lệ. Hãy liên hệ quản trị viên.');
   }
+  if (typeof data.organization_id !== 'string' || !data.organization_id) {
+    throw new Error('Tài khoản chưa được gán vào công ty. Hãy liên hệ quản trị viên.');
+  }
   return {
     id: session.user.id,
     username: String(data.username || session.user.email || 'user'),
     email: String(session.user.email || ''),
-    role: data.role as UserRole
+    role: data.role as UserRole,
+    organizationId: data.organization_id
   };
 };
 

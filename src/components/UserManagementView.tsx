@@ -35,6 +35,35 @@ const formatCreatedAt = (value: string) => {
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString('vi-VN');
 };
 
+const normalizeManagedUsers = (value: unknown): ManagedUser[] => {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((row: unknown) => {
+    if (!row || typeof row !== 'object') return [];
+    const profile = row as Record<string, unknown>;
+    if (typeof profile.user_id !== 'string') return [];
+
+    const role: UserRole = profile.role === 'admin' || profile.role === 'ke_toan' || profile.role === 'kho_to_dan'
+      ? profile.role
+      : 'kho_to_dan';
+    const accountStatus: ManagedUser['account_status'] =
+      profile.account_status === 'pending_verification' || profile.account_status === 'suspended'
+        ? profile.account_status
+        : 'active';
+    const username = typeof profile.username === 'string' ? profile.username : '';
+
+    return [{
+      user_id: profile.user_id,
+      username,
+      email: typeof profile.email === 'string' ? profile.email : username || '—',
+      role,
+      auth_created_at: typeof profile.auth_created_at === 'string'
+        ? profile.auth_created_at
+        : typeof profile.created_at === 'string' ? profile.created_at : null,
+      account_status: accountStatus
+    }];
+  });
+};
+
 export default function UserManagementView() {
   const { user } = useAuth();
   const [users, setUsers] = useState<ManagedUser[]>([]);
@@ -78,23 +107,9 @@ export default function UserManagementView() {
           .from('user_profiles')
           .select('user_id, username, role');
         if (basicError) throw basicError;
-        profiles = (basicData || []).map((p: any) => ({
-          user_id: p.user_id,
-          username: p.username || '',
-          email: p.username || '—',
-          role: p.role || 'kho_to_dan',
-          auth_created_at: null,
-          account_status: 'active'
-        }));
+        profiles = normalizeManagedUsers(basicData);
       } else {
-        profiles = (data || []).map((p: any) => ({
-          user_id: p.user_id,
-          username: p.username || '',
-          email: p.email || p.username || '—',
-          role: p.role || 'kho_to_dan',
-          auth_created_at: p.auth_created_at || p.created_at || null,
-          account_status: p.account_status || 'active'
-        }));
+        profiles = normalizeManagedUsers(data);
       }
 
       setUsers(profiles);
@@ -124,6 +139,7 @@ export default function UserManagementView() {
     setIsCreating(true);
     setCreateError('');
     try {
+      if (!user?.organizationId) throw new Error('Không xác định được công ty đang đăng nhập.');
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
       if (!supabaseUrl || !supabaseAnonKey) throw new Error('Chưa cấu hình Supabase URL/Key.');
@@ -148,14 +164,15 @@ export default function UserManagementView() {
       if (!authData.user) throw new Error('Không thể tạo tài khoản người dùng.');
 
       // Cập nhật ngay vào user_profiles
-      if (supabase) {
-        await supabase.from('user_profiles').upsert({
-          user_id: authData.user.id,
-          username: newUsername.trim(),
-          role: newRole,
-          email: newEmail.trim()
-        });
-      }
+      if (!supabase) throw new Error('Supabase chưa được cấu hình.');
+      const { error: profileError } = await supabase.from('user_profiles').upsert({
+        user_id: authData.user.id,
+        username: newUsername.trim(),
+        role: newRole,
+        email: newEmail.trim(),
+        organization_id: user.organizationId
+      });
+      if (profileError) throw profileError;
 
       setNotice(`✅ Đã tạo tài khoản ${newEmail.trim()} thành công với vai trò: ${roleLabels[newRole]}!`);
       setIsCreateModalOpen(false);
@@ -164,9 +181,9 @@ export default function UserManagementView() {
       setNewUsername('');
       setNewRole('ke_toan');
       await loadUsers();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Lỗi tạo người dùng:', err);
-      setCreateError(err.message || 'Lỗi khi tạo tài khoản người dùng.');
+      setCreateError(err instanceof Error ? err.message : 'Lỗi khi tạo tài khoản người dùng.');
     } finally {
       setIsCreating(false);
     }

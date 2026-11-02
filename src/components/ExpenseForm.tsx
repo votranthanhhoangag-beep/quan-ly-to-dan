@@ -69,6 +69,12 @@ const formatExpenseDate = (value: string | undefined) => {
   return `${String(parsedDate.getDate()).padStart(2, '0')}/${String(parsedDate.getMonth() + 1).padStart(2, '0')}/${parsedDate.getFullYear()}`;
 };
 const parseAmount = (value: string) => Number(value.replace(/,/g, ''));
+const calculateExpenseLineTotal = (quantity: string | number, unitPrice: string | number) => {
+  const parsedQuantity = Number(quantity);
+  const parsedUnitPrice = typeof unitPrice === 'string' ? parseAmount(unitPrice) : Number(unitPrice);
+  return (Number.isFinite(parsedQuantity) ? parsedQuantity : 0) *
+    (Number.isFinite(parsedUnitPrice) ? parsedUnitPrice : 0);
+};
 const formatAmountInput = (value: string) => {
   const cleaned = value.replace(/[^\d.]/g, '');
   const decimalIndex = cleaned.indexOf('.');
@@ -189,7 +195,7 @@ export const ExpenseForm = () => {
   ), [materials, expensesCat, otherExpensesCat]);
 
   const subtotal = items.reduce((sum, item) =>
-    sum + (Number(item.quantity) || 0) * (parseAmount(item.unitPrice) || 0), 0);
+    sum + calculateExpenseLineTotal(item.quantity, item.unitPrice), 0);
   const vatRate = vatRatePercent.trim() ? Number(vatRatePercent) : 0;
   const vat = subtotal * vatRate / 100;
   const totalAmount = subtotal + vat;
@@ -308,7 +314,7 @@ export const ExpenseForm = () => {
           quantity,
           unit: item.unit.trim(),
           unitPrice,
-          amount: quantity * unitPrice,
+          amount: calculateExpenseLineTotal(quantity, unitPrice),
           sourceCode: item.sourceCode,
           sourceType: item.sourceType,
           sourceNote: item.sourceNote
@@ -487,7 +493,7 @@ export const ExpenseForm = () => {
               </thead>
               <tbody>
                 {items.map((item, index) => {
-                  const lineTotal = (Number(item.quantity) || 0) * (parseAmount(item.unitPrice) || 0);
+                  const lineTotal = calculateExpenseLineTotal(item.quantity, item.unitPrice);
                   const query = item.name.trim().toLowerCase();
                   const matchingSuggestions = catalogOptions.filter(option =>
                     option.name.toLowerCase().includes(query)

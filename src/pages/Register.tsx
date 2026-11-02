@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../services/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -21,11 +21,6 @@ export default function Register() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!supabase) {
-      setErrorMessage('Supabase chưa được cấu hình. Vui lòng liên hệ quản trị viên.');
-      return;
-    }
-
     setSubmitting(true);
     setErrorMessage('');
     const normalizedEmail = email.trim();
@@ -33,15 +28,25 @@ export default function Register() {
     let accountCreated = false;
 
     try {
-      const { data, error: signUpError } = await supabase.auth.signUp({
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
+      if (!supabaseUrl || !supabaseAnonKey) throw new Error('Supabase chưa được cấu hình. Vui lòng liên hệ quản trị viên.');
+
+      const registrationClient = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+      });
+      const { data, error: signUpError } = await registrationClient.auth.signUp({
         email: normalizedEmail,
         password
       });
       if (signUpError) throw signUpError;
       if (!data.user) throw new Error('Supabase không trả về thông tin tài khoản mới.');
       accountCreated = true;
+      if (!data.session) {
+        throw new Error('Hãy xác nhận email trước. Sau đó quản trị viên cần hoàn tất cấp tổ chức cho tài khoản.');
+      }
 
-      const { error: registrationError } = await supabase.rpc('register_new_tenant', {
+      const { error: registrationError } = await registrationClient.rpc('register_new_tenant', {
         p_tenant_name: normalizedTenantName,
         p_user_id: data.user.id,
         p_email: normalizedEmail
@@ -52,7 +57,7 @@ export default function Register() {
     } catch (error) {
       console.error('Không thể đăng ký xưởng:', error);
       setErrorMessage(accountCreated
-        ? 'Tài khoản đã được tạo nhưng chưa thể khởi tạo xưởng. Vui lòng liên hệ quản trị viên để hoàn tất đăng ký.'
+        ? `Tài khoản đã được tạo nhưng chưa thể khởi tạo xưởng: ${error instanceof Error ? error.message : 'Vui lòng liên hệ quản trị viên.'}`
         : error instanceof Error ? error.message : 'Không thể đăng ký. Vui lòng thử lại.');
     } finally {
       setSubmitting(false);

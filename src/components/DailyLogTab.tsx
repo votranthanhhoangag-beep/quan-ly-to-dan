@@ -11,6 +11,8 @@ type DailyLogAction =
 
 interface DailyLog {
   id: string;
+  user_id: string | null;
+  organization_id: string;
   user_email: string;
   action_type: DailyLogAction;
   title: string;
@@ -62,10 +64,12 @@ export default function DailyLogTab() {
   const loadLogs = useCallback(async (dateValue: string, isActive: () => boolean = () => true) => {
     try {
       if (!supabase) throw new Error('Supabase chưa được cấu hình.');
+      if (!user?.organizationId) throw new Error('Không xác định được công ty đang đăng nhập.');
       const { start, end } = getSelectedDayRange(dateValue);
       const { data, error: queryError } = await supabase
         .from('daily_logs')
-        .select('id, user_email, action_type, title, description, reference_id, created_at')
+        .select('id, user_id, organization_id, user_email, action_type, title, description, reference_id, created_at')
+        .eq('organization_id', user.organizationId)
         .gte('created_at', start)
         .lt('created_at', end)
         .order('created_at', { ascending: false })
@@ -88,7 +92,7 @@ export default function DailyLogTab() {
         setLoadedDate(dateValue);
       }
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     let active = true;
@@ -110,18 +114,22 @@ export default function DailyLogTab() {
     setFormError('');
     try {
       if (!supabase) throw new Error('Supabase chưa được cấu hình.');
-      if (!user?.email) throw new Error('Không xác định được email người dùng đang đăng nhập.');
+      if (!user?.email || !user.id || !user.organizationId) {
+        throw new Error('Không xác định được tài khoản hoặc công ty đang đăng nhập.');
+      }
 
       const { data, error: insertError } = await supabase
         .from('daily_logs')
         .insert({
+          organization_id: user.organizationId,
+          user_id: user.id,
           user_email: user.email,
           action_type: 'CUSTOM_NOTE',
           title: 'Ghi chú công việc thủ công',
           description,
           created_at: getSelectedDateTimestamp(selectedDate)
         })
-        .select('id, user_email, action_type, title, description, reference_id, created_at')
+        .select('id, user_id, organization_id, user_email, action_type, title, description, reference_id, created_at')
         .single();
 
       if (insertError) throw insertError;

@@ -2038,7 +2038,7 @@ export default function InventoryStockReport() {
           {error && <div role="alert" style={{ color: '#b91c1c', fontSize: '13px', fontWeight: 700 }}>{error}</div>}
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <button type="button" onClick={() => setLines(current => [...current, createRepairLine()])} style={{ padding: '9px 12px', border: 0, borderRadius: '6px', backgroundColor: '#0f766e', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>＋ Thêm dòng</button>
-            <button type="submit" disabled={repairDraft.isSubmitting} style={{ padding: '9px 12px', border: 0, borderRadius: '6px', backgroundColor: repairDraft.isSubmitting ? '#94a3b8' : '#2563eb', color: '#fff', fontWeight: 700, cursor: repairDraft.isSubmitting ? 'wait' : 'pointer' }}>{repairDraft.isSubmitting ? '⏳ Đang lưu...' : editingSlipId ? 'Lưu sửa' : 'Lưu Phiếu Sửa Khoán'}</button>
+            <button type="submit" disabled={repairDraft.isSubmitting} style={{ padding: '9px 12px', border: 0, borderRadius: '6px', backgroundColor: repairDraft.isSubmitting ? '#94a3b8' : '#2563eb', color: '#fff', fontWeight: 700, cursor: repairDraft.isSubmitting ? 'wait' : 'pointer' }}>{repairDraft.isSubmitting ? '⏳ Đang lưu...' : editingSlipId ? 'Lưu sửa' : 'Lưu Phiếu Xuất Sửa Khoán'}</button>
             <button type="button" onClick={resetForm} style={{ padding: '9px 12px', border: 0, borderRadius: '6px', backgroundColor: '#64748b', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>Làm mới / Tạo phiếu mới</button>
           </div>
         </form>

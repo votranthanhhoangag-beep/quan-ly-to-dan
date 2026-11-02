@@ -1,5 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { fetchDataStore, getCachedDataStore, saveDataStore } from '../services/supabaseDataService';
+import React, { createContext, useCallback, useContext, useState, useEffect, useRef } from 'react';
+import {
+  DEFAULT_ORGANIZATION_ID,
+  fetchDataStore,
+  getCachedDataStore,
+  saveDataStore
+} from '../services/supabaseDataService';
 import { useAuth, type Permission } from './AuthContext';
 import { logAction } from '../services/auditLog';
 
@@ -322,11 +327,26 @@ const readLocalStorageArray = <T,>(key: string): T[] | null => {
   }
 };
 
-const fetchExpensesWithLocalFallback = async () => {
+const getTenantStorageKey = (organizationId: string, key: string) =>
+  `${key}:${organizationId}`;
+
+const readTenantLocalStorageArray = <T,>(organizationId: string, key: string): T[] | null => {
+  const scopedValue = readLocalStorageArray<T>(getTenantStorageKey(organizationId, key));
+  if (scopedValue !== null || organizationId !== DEFAULT_ORGANIZATION_ID) return scopedValue;
+
+  const legacyValue = readLocalStorageArray<T>(key);
+  if (legacyValue !== null) saveLocalStorageArray(getTenantStorageKey(organizationId, key), legacyValue);
+  return legacyValue;
+};
+
+const saveTenantLocalStorageArray = <T,>(organizationId: string, key: string, value: T[]) =>
+  saveLocalStorageArray(getTenantStorageKey(organizationId, key), value);
+
+const fetchExpensesWithLocalFallback = async (organizationId: string) => {
   try {
-    return await fetchDataStore('expenses');
+    return await fetchDataStore('expenses', organizationId);
   } catch (error) {
-    const localExpenses = readLocalStorageArray<ExpenseItem>(EXPENSE_STORAGE_KEY);
+    const localExpenses = readTenantLocalStorageArray<ExpenseItem>(organizationId, EXPENSE_STORAGE_KEY);
     if (navigator.onLine || localExpenses === null) throw error;
     console.warn('Không có mạng; đang khôi phục Phiếu Chi từ bản lưu trên thiết bị.', error);
     window.dispatchEvent(new CustomEvent('erp:sync-status', {
@@ -587,12 +607,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     let active = true;
+    const organizationId = user?.organizationId;
 
     const markAsHydrated = (sheetName: string, value: unknown) => {
       suppressedSaveSnapshots.current.set(sheetName, value);
     };
 
     const applySheetSnapshot = (sheetName: string, rawValue: unknown[]) => {
+      const organizationId = user?.organizationId;
+      if (!organizationId) return;
       switch (sheetName) {
         case 'products': {
           const value = sortCategoryItemsAZ(normalizeRecordArray<CategoryItem>(rawValue));
@@ -633,9 +656,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         case 'expenses': {
           const remote = normalizeRecordArray<ExpenseItem>(rawValue);
-          const local = readLocalStorageArray<ExpenseItem>(EXPENSE_STORAGE_KEY) || [];
+          const local = readTenantLocalStorageArray<ExpenseItem>(organizationId, EXPENSE_STORAGE_KEY) || [];
           const value = mergeExpenseRecords(remote, local);
-          saveLocalStorageArray(EXPENSE_STORAGE_KEY, value);
+          saveTenantLocalStorageArray(organizationId, EXPENSE_STORAGE_KEY, value);
           markAsHydrated(sheetName, value);
           setExpenses(value);
           break;
@@ -655,16 +678,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         case 'contracts': {
           const value = restoreReceivedGoodsHistory(
             normalizeRecordArray<ContractItem>(rawValue),
-            readLocalStorageArray<ReceivedGoodsHistoryRecord>(RECEIVED_GOODS_STORAGE_KEY)
+            readTenantLocalStorageArray<ReceivedGoodsHistoryRecord>(organizationId, RECEIVED_GOODS_STORAGE_KEY)
           );
           markAsHydrated(sheetName, value);
           setContracts(value);
           break;
         }
         case 'knittingExportSlips': {
-          const value = readLocalStorageArray<KnittingExportSlip>(KNITTING_EXPORT_STORAGE_KEY)
+          const value = readTenantLocalStorageArray<KnittingExportSlip>(organizationId, KNITTING_EXPORT_STORAGE_KEY)
             ?? normalizeRecordArray<KnittingExportSlip>(rawValue);
-          saveLocalStorageArray(KNITTING_EXPORT_STORAGE_KEY, value);
+          saveTenantLocalStorageArray(organizationId, KNITTING_EXPORT_STORAGE_KEY, value);
           markAsHydrated(sheetName, value);
           setKnittingExportSlips(value);
           break;
@@ -695,18 +718,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const hydrateFromCache = () => {
+      if (!organizationId) return false;
       const cachedSnapshots = new Map<string, unknown[]>();
       APP_DATA_SHEETS.forEach(sheetName => {
-        const cached = getCachedDataStore(sheetName);
+        const cached = getCachedDataStore(sheetName, organizationId);
         if (cached !== null) cachedSnapshots.set(sheetName, cached);
       });
 
       if (!cachedSnapshots.has('expenses')) {
-        const localExpenses = readLocalStorageArray<ExpenseItem>(EXPENSE_STORAGE_KEY);
+        const localExpenses = readTenantLocalStorageArray<ExpenseItem>(organizationId, EXPENSE_STORAGE_KEY);
         if (localExpenses !== null) cachedSnapshots.set('expenses', localExpenses);
       }
       if (!cachedSnapshots.has('knittingExportSlips')) {
-        const localExports = readLocalStorageArray<KnittingExportSlip>(KNITTING_EXPORT_STORAGE_KEY);
+        const localExports = readTenantLocalStorageArray<KnittingExportSlip>(organizationId, KNITTING_EXPORT_STORAGE_KEY);
         if (localExports !== null) cachedSnapshots.set('knittingExportSlips', localExports);
       }
 
@@ -716,10 +740,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const refreshSnapshotsInBackground = async () => {
-      if (!navigator.onLine) return;
+      if (!organizationId || !navigator.onLine) return;
       const results = await Promise.allSettled(APP_DATA_SHEETS.map(async sheetName => ({
         sheetName,
-        value: await fetchDataStore(sheetName)
+        value: await fetchDataStore(sheetName, organizationId)
       })));
       if (!active) return;
 
@@ -739,6 +763,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setDataLoadError('');
       setIsSystemConfigurationLoaded(false);
       isLoaded.current = false;
+      suppressedSaveSnapshots.current.clear();
+      locallyModifiedSheets.current.clear();
+      if (!organizationId) return;
 
       if (hydrateFromCache()) {
         isLoaded.current = true;
@@ -750,20 +777,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       try {
         const [p, m, ec, otherEc, v, s, exp, ml, ds, ct, knittingExports, defectiveImports, config, allocations] = await Promise.all([
-          fetchDataStore('products'),
-          fetchDataStore('materials'),
-          fetchDataStore('expensesCat'),
-          fetchDataStore('otherExpensesCat'),
-          fetchDataStore('vehicles'),
-          fetchDataStore('slips'),
-          fetchExpensesWithLocalFallback(),
-          fetchDataStore('mileageLogs'),
-          fetchDataStore('depositSlips'),
-          fetchDataStore('contracts'),
-          fetchDataStore('knittingExportSlips'),
-          fetchDataStore('defectiveGoodsImportSlips'),
-          fetchDataStore('systemConfig'),
-          fetchDataStore('expenseAllocations')
+          fetchDataStore('products', organizationId),
+          fetchDataStore('materials', organizationId),
+          fetchDataStore('expensesCat', organizationId),
+          fetchDataStore('otherExpensesCat', organizationId),
+          fetchDataStore('vehicles', organizationId),
+          fetchDataStore('slips', organizationId),
+          fetchExpensesWithLocalFallback(organizationId),
+          fetchDataStore('mileageLogs', organizationId),
+          fetchDataStore('depositSlips', organizationId),
+          fetchDataStore('contracts', organizationId),
+          fetchDataStore('knittingExportSlips', organizationId),
+          fetchDataStore('defectiveGoodsImportSlips', organizationId),
+          fetchDataStore('systemConfig', organizationId),
+          fetchDataStore('expenseAllocations', organizationId)
         ]);
 
         const snapshots = new Map<string, unknown[]>([
@@ -799,12 +826,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => {
       active = false;
     };
-  }, [loadAttempt]);
+  }, [loadAttempt, user?.organizationId]);
 
   const retryDataLoad = () => setLoadAttempt(attempt => attempt + 1);
 
-  const shouldPersistSnapshot = (sheetName: string, value: unknown) => {
-    if (!isLoaded.current || !persistenceEffectsMounted.current) return false;
+  const shouldPersistSnapshot = useCallback((sheetName: string, value: unknown) => {
+    if (!user?.organizationId || !isLoaded.current || !persistenceEffectsMounted.current) return false;
     if (suppressedSaveSnapshots.current.get(sheetName) !== value) {
       locallyModifiedSheets.current.add(sheetName);
       return true;
@@ -812,48 +839,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     suppressedSaveSnapshots.current.delete(sheetName);
     locallyModifiedSheets.current.delete(sheetName);
     return false;
-  };
+  }, [user]);
+  const persistDataStoreSnapshot = useCallback((sheetName: string, value: unknown[]) => {
+    if (user?.organizationId) void saveDataStore(sheetName, user.organizationId, value);
+  }, [user]);
 
-  useEffect(() => { if (shouldPersistSnapshot('products', products)) void saveDataStore('products', products); }, [products]);
-  useEffect(() => { if (shouldPersistSnapshot('materials', materials)) void saveDataStore('materials', materials); }, [materials]);
-  useEffect(() => { if (shouldPersistSnapshot('expensesCat', expensesCat)) void saveDataStore('expensesCat', expensesCat); }, [expensesCat]);
-  useEffect(() => { if (shouldPersistSnapshot('otherExpensesCat', otherExpensesCat)) void saveDataStore('otherExpensesCat', otherExpensesCat); }, [otherExpensesCat]);
-  useEffect(() => { if (shouldPersistSnapshot('vehicles', vehicles)) void saveDataStore('vehicles', vehicles); }, [vehicles]);
-  useEffect(() => { if (shouldPersistSnapshot('slips', slips)) void saveDataStore('slips', slips); }, [slips]);
+  useEffect(() => { if (shouldPersistSnapshot('products', products)) persistDataStoreSnapshot('products', products); }, [products, shouldPersistSnapshot, persistDataStoreSnapshot]);
+  useEffect(() => { if (shouldPersistSnapshot('materials', materials)) persistDataStoreSnapshot('materials', materials); }, [materials, shouldPersistSnapshot, persistDataStoreSnapshot]);
+  useEffect(() => { if (shouldPersistSnapshot('expensesCat', expensesCat)) persistDataStoreSnapshot('expensesCat', expensesCat); }, [expensesCat, shouldPersistSnapshot, persistDataStoreSnapshot]);
+  useEffect(() => { if (shouldPersistSnapshot('otherExpensesCat', otherExpensesCat)) persistDataStoreSnapshot('otherExpensesCat', otherExpensesCat); }, [otherExpensesCat, shouldPersistSnapshot, persistDataStoreSnapshot]);
+  useEffect(() => { if (shouldPersistSnapshot('vehicles', vehicles)) persistDataStoreSnapshot('vehicles', vehicles); }, [vehicles, shouldPersistSnapshot, persistDataStoreSnapshot]);
+  useEffect(() => { if (shouldPersistSnapshot('slips', slips)) persistDataStoreSnapshot('slips', slips); }, [slips, shouldPersistSnapshot, persistDataStoreSnapshot]);
   useEffect(() => {
     if (!shouldPersistSnapshot('expenses', expenses)) return;
-    saveLocalStorageArray(EXPENSE_STORAGE_KEY, expenses);
-    void saveDataStore('expenses', expenses);
-  }, [expenses]);
-  useEffect(() => { if (shouldPersistSnapshot('expenseAllocations', expenseAllocations)) void saveDataStore('expenseAllocations', expenseAllocations); }, [expenseAllocations]);
-  useEffect(() => { if (shouldPersistSnapshot('mileageLogs', mileageLogs)) void saveDataStore('mileageLogs', mileageLogs); }, [mileageLogs]);
-  useEffect(() => { if (shouldPersistSnapshot('depositSlips', depositSlips)) void saveDataStore('depositSlips', depositSlips); }, [depositSlips]);
-  useEffect(() => { if (shouldPersistSnapshot('contracts', contracts)) void saveDataStore('contracts', contracts); }, [contracts]);
+    if (!user?.organizationId) return;
+    saveTenantLocalStorageArray(user.organizationId, EXPENSE_STORAGE_KEY, expenses);
+    persistDataStoreSnapshot('expenses', expenses);
+  }, [expenses, user?.organizationId, shouldPersistSnapshot, persistDataStoreSnapshot]);
+  useEffect(() => { if (shouldPersistSnapshot('expenseAllocations', expenseAllocations)) persistDataStoreSnapshot('expenseAllocations', expenseAllocations); }, [expenseAllocations, shouldPersistSnapshot, persistDataStoreSnapshot]);
+  useEffect(() => { if (shouldPersistSnapshot('mileageLogs', mileageLogs)) persistDataStoreSnapshot('mileageLogs', mileageLogs); }, [mileageLogs, shouldPersistSnapshot, persistDataStoreSnapshot]);
+  useEffect(() => { if (shouldPersistSnapshot('depositSlips', depositSlips)) persistDataStoreSnapshot('depositSlips', depositSlips); }, [depositSlips, shouldPersistSnapshot, persistDataStoreSnapshot]);
+  useEffect(() => { if (shouldPersistSnapshot('contracts', contracts)) persistDataStoreSnapshot('contracts', contracts); }, [contracts, shouldPersistSnapshot, persistDataStoreSnapshot]);
   useEffect(() => {
-    if (!isLoaded.current) return;
-    saveLocalStorageArray(RECEIVED_GOODS_STORAGE_KEY, contracts
+    if (!isLoaded.current || !user?.organizationId) return;
+    saveTenantLocalStorageArray(user.organizationId, RECEIVED_GOODS_STORAGE_KEY, contracts
       .filter(contract => contract.contractType === 'SUB')
       .map(contract => ({
         contractId: contract.id,
         logs: Array.isArray(contract.receivedGoodsLogs) ? contract.receivedGoodsLogs : []
       })));
-  }, [contracts]);
+  }, [contracts, user?.organizationId]);
   useEffect(() => {
     if (!shouldPersistSnapshot('knittingExportSlips', knittingExportSlips)) return;
-    saveLocalStorageArray(KNITTING_EXPORT_STORAGE_KEY, knittingExportSlips);
-    void saveDataStore('knittingExportSlips', knittingExportSlips);
-  }, [knittingExportSlips]);
-  useEffect(() => { if (shouldPersistSnapshot('defectiveGoodsImportSlips', defectiveGoodsImportSlips)) void saveDataStore('defectiveGoodsImportSlips', defectiveGoodsImportSlips); }, [defectiveGoodsImportSlips]);
+    if (!user?.organizationId) return;
+    saveTenantLocalStorageArray(user.organizationId, KNITTING_EXPORT_STORAGE_KEY, knittingExportSlips);
+    persistDataStoreSnapshot('knittingExportSlips', knittingExportSlips);
+  }, [knittingExportSlips, user?.organizationId, shouldPersistSnapshot, persistDataStoreSnapshot]);
+  useEffect(() => { if (shouldPersistSnapshot('defectiveGoodsImportSlips', defectiveGoodsImportSlips)) persistDataStoreSnapshot('defectiveGoodsImportSlips', defectiveGoodsImportSlips); }, [defectiveGoodsImportSlips, shouldPersistSnapshot, persistDataStoreSnapshot]);
   useEffect(() => {
     if (shouldPersistSnapshot('systemConfig', systemConfiguration)) {
-      void saveDataStore('systemConfig', systemConfiguration ? [systemConfiguration] : []);
+      persistDataStoreSnapshot('systemConfig', systemConfiguration ? [systemConfiguration] : []);
     }
-  }, [systemConfiguration]);
+  }, [systemConfiguration, shouldPersistSnapshot, persistDataStoreSnapshot]);
   useEffect(() => {
     persistenceEffectsMounted.current = true;
   }, []);
 
-  const sortAZ = <T extends Record<string, any>>(list: T[], key: keyof T): T[] => {
+  const sortAZ = <T extends object>(list: T[], key: keyof T): T[] => {
     return [...list].sort((a, b) => String(a[key]).localeCompare(String(b[key]), 'vi', { sensitivity: 'base' }));
   };
 
@@ -930,8 +962,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addExpense = (expense: ExpenseItem) => {
     if (!canWrite('manage_expenses')) return;
+    if (!user?.organizationId) return;
     const nextExpenses = [expense, ...expenses.filter(item => String(item.id) !== String(expense.id))];
-    saveLocalStorageArray(EXPENSE_STORAGE_KEY, nextExpenses);
+    saveTenantLocalStorageArray(user.organizationId, EXPENSE_STORAGE_KEY, nextExpenses);
     setExpenses(nextExpenses);
     if (user) {
       logAction(
@@ -945,11 +978,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
   const updateExpense = (expense: ExpenseItem) => {
     if (!canWrite('manage_expenses')) return;
+    if (!user?.organizationId) return;
     const existing = expenses.find(item => String(item.id) === String(expense.id));
     const nextExpenses = existing
       ? expenses.map(item => String(item.id) === String(expense.id) ? expense : item)
       : [expense, ...expenses];
-    saveLocalStorageArray(EXPENSE_STORAGE_KEY, nextExpenses);
+    saveTenantLocalStorageArray(user.organizationId, EXPENSE_STORAGE_KEY, nextExpenses);
     setExpenses(nextExpenses);
     if (existing && user) {
       const changed = changedFields(existing, expense, {
@@ -962,9 +996,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
   const deleteExpense = (id: number | string) => {
     if (!canWrite('delete_expenses')) return;
+    if (!user?.organizationId) return;
     const existing = expenses.find(item => String(item.id) === String(id));
     const nextExpenses = expenses.filter(item => String(item.id) !== String(id));
-    saveLocalStorageArray(EXPENSE_STORAGE_KEY, nextExpenses);
+    saveTenantLocalStorageArray(user.organizationId, EXPENSE_STORAGE_KEY, nextExpenses);
     setExpenses(nextExpenses);
     if (existing && user) logAction(user, 'DELETE', getExpenseModuleName(existing), `Xóa phiếu chi ${existing.expenseCode || existing.expenseName || id}, số tiền ${Number(existing.amount) || 0}`, id);
   };
