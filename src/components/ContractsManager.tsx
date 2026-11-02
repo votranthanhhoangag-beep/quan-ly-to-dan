@@ -5,6 +5,7 @@ import { getLatestMaterialUnitPrice, matchesMaterialNameSearch } from '../utils/
 import { usePersistentFormDraft } from '../hooks/usePersistentFormDraft';
 import { createUniqueId } from '../utils/uniqueId';
 import { useAuth } from '../context/AuthContext';
+import { logDailyAction } from '../utils/logger';
 import { ImageCaptureInput } from './ImageCaptureInput';
 
 type MaterialUnit = string;
@@ -1104,11 +1105,13 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
           if (submissionLock.current) return;
           submissionLock.current = true;
           setIsSubmitting(true);
+          try {
           const qty = Number(quantity) || 0;
           const price = Number(unitPrice) || 0;
-          const existingParent = (contracts || []).find((item: any) =>
-            String(item.id) === String(editingId) ||
-            (!editingId && String(item.contractNo || '') === String(parentContractNo || ''))
+          const safeContracts = Array.isArray(contracts) ? contracts : [];
+          const existingParent = safeContracts.find((item: any) =>
+            (item && String(item.id) === String(editingId)) ||
+            (!editingId && item && String(item.contractNo || '') === String(parentContractNo || ''))
           );
           const previousDeposit = Number(existingParent?.requiredDeposit) || 0;
           const depositReceivedAt = depositNum > 0
@@ -1138,13 +1141,27 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             note
           };
           if (editingId) updateContract(payload);
-          else addContract(payload);
+          else {
+            addContract(payload);
+            if (depositNum > 0) {
+              void logDailyAction({
+                actionType: 'CREATE_RECEIPT',
+                title: `Thu tiền cọc hợp đồng ${payload.contractNo}`,
+                description: `Đã ghi nhận ${depositNum.toLocaleString('vi-VN')} đ tiền cọc${companyName ? ` từ ${companyName}` : ''}.`,
+                referenceId: payload.id
+              }).catch(error => console.error('Đã lưu hợp đồng nhưng không thể ghi nhật ký phiếu thu:', error));
+            }
+          }
           alert('💾 Lưu HĐ CTY thành công!');
           resetForm();
-          window.setTimeout(() => {
+          } catch (saveError) {
+            console.error('Không thể lưu hồ sơ hợp đồng công ty:', saveError);
+            const message = saveError instanceof Error ? saveError.message : 'Lỗi không xác định.';
+            window.alert(`Không thể lưu hồ sơ hợp đồng công ty: ${message}`);
+          } finally {
             submissionLock.current = false;
             setIsSubmitting(false);
-          }, 700);
+          }
         }} style={{ display: 'flex', flexDirection: 'column', gap: '16px', backgroundColor: '#f8fafc', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
           
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1401,6 +1418,9 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
         <form {...formDraftProps} onSubmit={(e) => {
           e.preventDefault();
           if (submissionLock.current) return;
+          submissionLock.current = true;
+          setIsSubmitting(true);
+          try {
           if (!productCode) { alert('Vui lòng nhập hoặc chọn Mã Hàng!'); return; }
           if (!selectedParentNo) { alert('Mã hàng này chưa được gắn với HĐ Cty nào. Vui lòng tạo HĐ Cty trước!'); return; }
           if (isSubDueDateInvalid) return;
@@ -1421,8 +1441,11 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             return;
           }
 
-          const materialRowsWithInput = subContractMaterials.filter(row =>
-            row.query.trim() || row.quantity.trim() || row.materialId !== null
+          const safeMaterialRows = Array.isArray(subContractMaterials) ? subContractMaterials : [];
+          const materialRowsWithInput = safeMaterialRows.filter(row => row &&
+            (String(row.query ?? '').trim() ||
+              String(row.quantity ?? '').trim() ||
+              (row.materialId !== null && row.materialId !== undefined))
           );
           if (materialRowsWithInput.some(row =>
             row.materialId === null ||
@@ -1432,11 +1455,9 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             alert('Vui lòng chọn nguyên phụ liệu, nhập số lượng lớn hơn 0 và đơn giá hợp lệ cho từng dòng!');
             return;
           }
-          submissionLock.current = true;
-          setIsSubmitting(true);
           const savedSubContractMaterials: AccompanyingMaterial[] = materialRowsWithInput.flatMap(row => {
             if (row.materialId === null) return [];
-            const material = materials.find((item: CategoryItem) => item.id === row.materialId);
+            const material = (Array.isArray(materials) ? materials : []).find((item: CategoryItem) => item?.id === row.materialId);
             return [{
               materialId: row.materialId,
               materialCode: material?.code || row.materialCode,
@@ -1448,7 +1469,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             }];
           });
 
-          let updatedLogs = [...exportLogs];
+          const updatedLogs = Array.isArray(exportLogs) ? [...exportLogs] : [];
           if (inputNewQtyNum > 0) {
             updatedLogs.push({
               id: createUniqueId('deposit-'),
@@ -1459,7 +1480,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
           }
           
           const existingSubContract = editingId
-            ? (contracts || []).find((contract: any) => String(contract.id) === String(editingId))
+            ? (Array.isArray(contracts) ? contracts : []).find((contract: any) => contract && String(contract.id) === String(editingId))
             : null;
           const existingDepositLogs: DepositLog[] = Array.isArray(existingSubContract?.depositLogs)
             ? existingSubContract.depositLogs
@@ -1515,10 +1536,14 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
           else addContract(payload);
           alert(`🧺 Lưu Hợp Đồng Tổ Đan thành công!`);
           resetForm();
-          window.setTimeout(() => {
+          } catch (saveError) {
+            console.error('Không thể lưu hồ sơ hợp đồng tổ đan:', saveError);
+            const message = saveError instanceof Error ? saveError.message : 'Lỗi không xác định.';
+            window.alert(`Không thể lưu hồ sơ hợp đồng tổ đan: ${message}`);
+          } finally {
             submissionLock.current = false;
             setIsSubmitting(false);
-          }, 700);
+          }
         }} style={{ display: 'flex', flexDirection: 'column', gap: '16px', backgroundColor: '#faf5ff', padding: '20px', borderRadius: '8px', border: '1px solid #e9d5ff', marginBottom: '24px' }}>
           
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
@@ -1967,7 +1992,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
 
             <section style={{ marginBottom: '36px' }}>
               <h3 style={{ fontSize: '15px', fontWeight: '800', borderBottom: '1px solid #cbd5e1', paddingBottom: '8px', marginBottom: '12px' }}>II. SỐ LƯỢNG VÀ TÀI CHÍNH</h3>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+              <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll"><table style={{ minWidth: '900px',  width: '100%', borderCollapse: 'collapse', fontSize: '14px' }} className="min-w-[950px] w-full">
                 <tbody>
                   {[
                     ['Tổng số lượng giao', `${formatCurrency(subContractSlipData.quantity)} ${subContractSlipData.quantityUnit}`],
@@ -1983,7 +2008,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             </section>
 
             <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', textAlign: 'center', marginTop: '48px', fontSize: '14px' }}>
@@ -2039,8 +2064,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             </div>
           </div>
 
-          <div style={{ overflowX: 'auto' }}>
-  <table style={{ width: '100%', minWidth: '800px', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+          <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto' }}>
+  <table style={{ width: '100%', minWidth: '800px', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }} className="min-w-[950px] w-full">
               <thead>
                 <tr style={{ backgroundColor: '#e0f2fe', borderBottom: '2px solid #7dd3fc' }}>
                   <th style={{ padding: '10px' }}>Mã Hàng</th>
@@ -2140,8 +2165,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             </label>
           </div>
 
-          <div style={{ overflowX: 'auto', backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-            <table style={{ width: '100%', minWidth: '820px', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+          <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto', backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
+            <table style={{ width: '100%', minWidth: '820px', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }} className="min-w-[950px] w-full">
               <thead style={{ backgroundColor: '#ecfdf5', color: '#065f46' }}>
                 <tr>
                   <th style={{ padding: '11px' }}>Số HĐ Cty</th>
@@ -2335,8 +2360,14 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
         </div>
 
         {listTab === 'PARENT_LIST' && !isWarehouseUser && (
-          <div style={{ overflowX: 'auto' }}>
-  <table style={{ width: '100%', minWidth: '1500px', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+          <div
+            className="block touch-pan-x select-none overflow-x-auto w-full"
+            role="region"
+            aria-label="Danh sách hợp đồng công ty, cuộn ngang để xem đầy đủ"
+            tabIndex={0}
+            style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '8px', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.08)' }}
+          >
+          <table className="min-w-[950px] w-full min-w-[1000px]" style={{ minWidth: '1500px', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
               <thead>
                 <tr style={{ backgroundColor: '#eff6ff', borderBottom: '2px solid #93c5fd' }}>
                   <th style={{ padding: '10px' }}>Mã Hàng</th>
@@ -2430,8 +2461,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                           {isContractComplete ? 'Đã thanh toán đủ / Hoàn thành' : 'Chưa thanh toán đủ'}
                         </span>
                       </td>
-                      <td style={{ padding: '10px', textAlign: 'center' }}>
-                        <div className="slip-action-buttons">
+                      <td style={{ padding: '10px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        <div className="slip-action-buttons" style={{ flexWrap: 'nowrap' }}>
                           <button
                             type="button"
                             className="slip-action-button slip-action-zalo"
@@ -2459,8 +2490,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
         )}
 
         {listTab === 'SUB_LIST' && (
-          <div style={{ overflowX: 'auto' }}>
-  <table style={{ width: '100%', minWidth: isWarehouseUser ? '750px' : '1050px', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+          <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto' }}>
+  <table style={{ width: '100%', minWidth: isWarehouseUser ? '750px' : '1050px', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }} className="min-w-[950px] w-full">
               <thead>
                 <tr style={{ backgroundColor: '#faf5ff', borderBottom: '2px solid #d8b4fe' }}>
                   <th style={{ padding: '10px' }}>Mã Hàng</th>

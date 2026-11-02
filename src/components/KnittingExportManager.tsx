@@ -3,6 +3,7 @@ import type { KnittingExportSlip, ContractItem, ReceivedGoodsLog } from '../cont
 import { useApp } from '../context/AppContext';
 import { usePersistentFormDraft } from '../hooks/usePersistentFormDraft';
 import { useAuth } from '../context/AuthContext';
+import { logDailyAction } from '../utils/logger';
 
 interface ReceiptSource {
   contract: ContractItem;
@@ -550,7 +551,15 @@ export default function KnittingExportManager() {
     };
 
     if (editingId !== null) updateKnittingExportSlip(slip);
-    else addKnittingExportSlip(slip);
+    else {
+      addKnittingExportSlip(slip);
+      void logDailyAction({
+        actionType: 'CREATE_EXPORT',
+        title: `Tạo phiếu xuất ${slip.slipNo}`,
+        description: `${slip.productName} (${slip.productCode}), số lượng đạt ${slip.goodContractQuantity}, hàng lỗi ${slip.defectiveContractQuantity}${slip.note ? `. Ghi chú: ${slip.note}` : ''}`,
+        referenceId: slip.id
+      }).catch(error => console.error('Đã lưu phiếu xuất nhưng không thể ghi nhật ký:', error));
+    }
     resetForm();
   };
 
@@ -870,7 +879,7 @@ export default function KnittingExportManager() {
         </button>
 
         {showQuantities && selectedContract && (
-          <div style={{ overflowX: 'auto', border: '1px solid #cbd5e1', borderRadius: '8px', backgroundColor: '#fff' }}>
+          <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto', border: '1px solid #cbd5e1', borderRadius: '8px', backgroundColor: '#fff' }}>
             {isSetProduct && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(160px, 1fr))', gap: '10px', padding: '12px', backgroundColor: '#f8fafc' }}>
                 <label style={{ display: 'grid', gap: '5px', fontSize: '12px', fontWeight: 700 }}>Đạt · Số Bộ nguyên bộ
@@ -881,7 +890,7 @@ export default function KnittingExportManager() {
                 </label>
               </div>
             )}
-            <table style={{ width: '100%', minWidth: '500px', borderCollapse: 'collapse' }}>
+            <table style={{ width: '100%', minWidth: '500px', borderCollapse: 'collapse' }} className="min-w-[950px] w-full">
               <thead>
                 <tr>
                   <th style={tableHeaderStyle}>{isSetProduct ? 'Size 1' : 'ĐVT'}</th>
@@ -972,7 +981,7 @@ export default function KnittingExportManager() {
 
       <section style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', backgroundColor: '#fff' }}>
         <h3 style={{ padding: '14px 16px', margin: 0, color: '#1e293b', fontSize: '15px' }}>Lịch Sử Phiếu Xuất Hàng Đan</h3>
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1040px' }}>
+        <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll"><table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1040px' }} className="min-w-[950px] w-full">
           <thead><tr>{['Phiếu / Ngày', 'Mã hàng', 'HĐ Công ty A', 'Đạt', 'Loại', 'HĐ đối chiếu B-A', 'Chứng từ', 'Thao tác'].map(label => <th key={label} style={tableHeaderStyle}>{label}</th>)}</tr></thead>
           <tbody>
             {allSlips.map(slip => (
@@ -997,7 +1006,7 @@ export default function KnittingExportManager() {
             ))}
             {allSlips.length === 0 && <tr><td colSpan={8} style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>Chưa có phiếu xuất hàng đan.</td></tr>}
           </tbody>
-        </table>
+        </table></div>
       </section>
 
       {actionError && <div role="alert" style={{ color: '#b91c1c', fontSize: '13px', fontWeight: 700 }}>{actionError}</div>}
@@ -1042,7 +1051,7 @@ export default function KnittingExportManager() {
               @page { size: A4 portrait; margin: 0; }
             }
           `}</style>
-          <div style={{ width: 'min(850px, 96vw)', maxHeight: '94vh', display: 'flex', flexDirection: 'column', overflow: 'auto', borderRadius: '10px', backgroundColor: '#fff', boxShadow: '0 24px 60px rgba(0,0,0,.3)' }}>
+          <div className="overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ width: 'min(850px, 96vw)', maxHeight: '94vh', display: 'flex', flexDirection: 'column', overflow: 'auto', borderRadius: '10px', backgroundColor: '#fff', boxShadow: '0 24px 60px rgba(0,0,0,.3)' }}>
             <div ref={printAreaRef} id="knitting-export-print-area" style={{ padding: '36px', color: '#0f172a', backgroundColor: '#fff' }}>
               <div style={{ textAlign: 'center', marginBottom: '28px' }}>
                 <h2 style={{ margin: 0, fontSize: '20px' }}>PHIẾU XUẤT HÀNG ĐAN</h2>
@@ -1056,7 +1065,7 @@ export default function KnittingExportManager() {
                 <div><strong>HĐ đối chiếu Công ty B - A:</strong> {printSlip.companyBContractNo || '—'}</div>
                 <div><strong>ĐVT:</strong> {printSlip.unit}</div>
               </div>
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
+              <table style={{ minWidth: '900px',  width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
                 <thead><tr>{['Phân loại', 'Bộ', 'Cái', 'Quy đổi'].map(label => <th key={label} style={{ border: '1px solid #94a3b8', padding: '9px', textAlign: 'left' }}>{label}</th>)}</tr></thead>
                 <tbody>
                   <tr><td style={{ border: '1px solid #94a3b8', padding: '9px' }}>Hàng Đạt<br /><small>{getQuantitySummary(printSlip.goodBundles, printSlip.goodSizeQuantities, getSlipSizeNames(printSlip), getSlipPreviousSizeCounts(printSlip, 'good'))}</small></td><td style={{ border: '1px solid #94a3b8', padding: '9px' }}>{formatNumber(printSlip.goodBundles)}</td><td style={{ border: '1px solid #94a3b8', padding: '9px' }}>{formatNumber(printSlip.goodPieces)}</td><td style={{ border: '1px solid #94a3b8', padding: '9px' }}>{formatNumber(printSlip.goodContractQuantity)} {printSlip.unit}</td></tr>

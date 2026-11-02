@@ -64,8 +64,8 @@ export default function FrameStockReport() {
 
       {activeTab === 'company-return' && <FrameCompanyReturnManager />}
 
-      {activeTab === 'stock' && <section style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '8px' }}>
+      {activeTab === 'stock' && <section className="report-panel" style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+      <div className="report-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '8px' }}>
         <div>
           <h2 style={{ margin: 0, color: '#0f172a', fontSize: '20px' }}>Báo Cáo NXT Khung Sơn</h2>
           <p style={{ color: '#64748b', margin: '6px 0 0' }}>
@@ -88,8 +88,8 @@ export default function FrameStockReport() {
         </label>
       </div>
 
-      <div style={{ overflowX: 'auto', marginTop: '16px' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: '900px', fontSize: '13px' }}>
+      <div className="block touch-pan-x select-none w-full overflow-x-auto shadow rounded-lg erp-table-scroll" style={{ marginTop: '16px' }}>
+        <table className="min-w-[950px] w-full min-w-[1000px]" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: '1000px', fontSize: '13px' }}>
           <colgroup>
             <col style={{ width: '12%' }} />
             <col style={{ width: '19%' }} />
@@ -104,12 +104,14 @@ export default function FrameStockReport() {
               {['Mã Hàng', 'Tên Hàng', 'Tồn Đầu', 'Nhập', 'Xuất', 'Tồn Cuối', 'Ghi Chú'].map((label, index) => (
                 <th
                   key={label}
+                  className={index === 0 ? 'report-sticky-column' : undefined}
                   scope="col"
                   style={{
                     padding: '11px 9px',
                     borderBottom: '1px solid #cbd5e1',
                     whiteSpace: 'nowrap',
-                    textAlign: index >= 2 && index <= 5 ? 'right' : 'left'
+                    textAlign: index >= 2 && index <= 5 ? 'right' : 'left',
+                    backgroundColor: index === 0 ? '#eff6ff' : undefined
                   }}
                 >
                   {label}
@@ -120,7 +122,7 @@ export default function FrameStockReport() {
           <tbody>
             {pageRows.map(row => (
               <tr key={row.productCode} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                <td style={{ padding: '10px 9px', whiteSpace: 'nowrap' }}>{row.productCode}</td>
+                <td className="report-sticky-column" style={{ padding: '10px 9px', whiteSpace: 'nowrap' }}>{row.productCode}</td>
                 <td style={{ padding: '10px 9px' }}>{row.productName || '—'}</td>
                 <td style={{ padding: '10px 9px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.opening)}</td>
                 <td style={{ padding: '10px 9px', textAlign: 'right', color: '#15803d', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.inbound)}</td>
@@ -146,6 +148,7 @@ export default function FrameStockReport() {
             Không có dữ liệu nhập, xuất hoặc tồn khung sơn trong kỳ báo cáo.
           </p>
         )}
+      </div>
         {rows.length > 0 && (
           <nav
             aria-label="Phân trang báo cáo tồn kho Khung Sơn"
@@ -177,7 +180,6 @@ export default function FrameStockReport() {
             </div>
           </nav>
         )}
-      </div>
       </section>}
     </div>
   );

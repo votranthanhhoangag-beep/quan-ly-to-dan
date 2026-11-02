@@ -18,6 +18,8 @@ import { getVehicleExpiryWarnings } from './utils/vehicleExpiry';
 import { AuthProvider, useAuth, type Permission, type UserRole } from './context/AuthContext';
 import AuthGate from './components/AuthGate';
 import AuditLogView from './components/AuditLogView';
+import DailyLogTab from './components/DailyLogTab';
+import UserManagementView from './components/UserManagementView';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import Unauthorized from './pages/Unauthorized';
 import Register from './pages/Register';
@@ -357,7 +359,8 @@ function AppContent({ initialTab }: { initialTab: string }) {
     { id: 'tax', label: '📊 Doanh Thu và Chi Phí', permission: 'view_revenue' },
     { id: 'systemSettings', label: '⚙️ Cấu Hình Hệ Thống', permission: 'manage_settings' },
     { id: 'userManagement', label: '👥 Quản Lý Người Dùng', permission: 'manage_settings' },
-    { id: 'auditLogs', label: '🧾 Lịch Sử Thao Tác', permission: 'view_audit_logs' }
+    { id: 'auditLogs', label: '🧾 Lịch Sử Thao Tác', permission: 'view_audit_logs' },
+    { id: 'dailyLogs', label: '📒 Nhật Ký Công Việc', permission: 'view_daily_logs' }
   ];
   const visibleMenuItems = menuItems.filter(item => hasPermission(item.permission));
   const activeTab = visibleMenuItems.some(item => item.id === selectedTab)
@@ -428,7 +431,7 @@ function AppContent({ initialTab }: { initialTab: string }) {
   }
 
   return (
-<div className="erp-app-shell" style={{ display: 'flex', minHeight: '100vh', width: '100%', backgroundColor: '#f8fafc', margin: 0, padding: 0, boxSizing: 'border-box' }}>
+<div className="erp-app-shell w-full max-w-full" style={{ display: 'flex', minHeight: '100vh', width: '100%', maxWidth: '100%', overflowX: 'clip', backgroundColor: '#f8fafc', margin: 0, padding: 0, boxSizing: 'border-box' }}>
       {syncNotice && (syncNotice.status === 'error' || syncNotice.status === 'offline') && (
         <div
           role={syncNotice.status === 'error' ? 'alert' : 'status'}
@@ -502,8 +505,8 @@ function AppContent({ initialTab }: { initialTab: string }) {
         {/* ========================================== */}
         {/* KHU VỰC NỘI DUNG CHÍNH BÊN PHẢI (CONTENT AREA) */}
         {/* ========================================== */}
-        <main className="erp-main" style={{ flex: 1, minWidth: 0, width: 0, padding: '24px', backgroundColor: '#f8fafc', boxSizing: 'border-box' }}>
-          <div className="erp-content-shell" style={{ width: '100%', minWidth: 0 }}>
+        <main className="erp-main w-full max-w-full" style={{ flex: '1 1 0%', minWidth: 0, width: '100%', maxWidth: '100%', padding: '24px', backgroundColor: '#f8fafc', boxSizing: 'border-box', overflowX: 'clip' }}>
+          <div className="erp-content-shell w-full max-w-full" style={{ width: '100%', maxWidth: '100%', minWidth: 0, overflowX: 'clip' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '18px' }}>
               <strong style={{ color: '#334155', fontSize: '14px' }}>
                 {visibleMenuItems.find(item => item.id === activeTab)?.label.replace(/^[^ ]+ /u, '') || 'ERP Lục Bình'}
@@ -569,13 +572,9 @@ function AppContent({ initialTab }: { initialTab: string }) {
             {activeTab === 'tax' && <TaxExpenseManager />}
 
             {activeTab === 'systemSettings' && <SystemSettingsView />}
-            {activeTab === 'userManagement' && (
-              <section role="status" style={{ padding: '24px', border: '1px solid #e2e8f0', borderRadius: '10px', backgroundColor: '#fff' }}>
-                <h2 style={{ marginTop: 0 }}>Quản lý người dùng</h2>
-                <p style={{ marginBottom: 0, color: '#475569' }}>Màn hình quản lý người dùng chưa được triển khai.</p>
-              </section>
-            )}
+            {activeTab === 'userManagement' && <UserManagementView />}
             {activeTab === 'auditLogs' && hasPermission('view_audit_logs') && <AuditLogView />}
+            {activeTab === 'dailyLogs' && hasPermission('view_daily_logs') && <DailyLogTab />}
 
           </div>
         </main>

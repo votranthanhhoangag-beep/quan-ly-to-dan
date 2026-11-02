@@ -291,8 +291,8 @@ export default function MaterialStockReport() {
 
   return (
     <div style={{ display: 'grid', gap: '18px' }}>
-      <section style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '18px' }}>
+      <section className="report-panel" style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+        <div className="report-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '18px' }}>
           <div>
             <h2 style={{ margin: 0, color: '#0f172a', fontSize: '20px' }}>Báo Cáo NXT Nguyên Phụ Liệu</h2>
             <p style={{ color: '#64748b', margin: '6px 0 0' }}>Đơn giá nhập là bình quân gia quyền lũy kế; xuất dùng giá mua cao nhất đã ghi nhận.</p>
@@ -305,22 +305,22 @@ export default function MaterialStockReport() {
           </label>
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4" style={{ marginBottom: '16px' }}>
           {[
             ['Tồn đầu kỳ', formatNumber(totalOpening)],
             ['Nhập trong kỳ', formatNumber(totalIncoming)],
             ['Xuất trong kỳ', formatNumber(totalOutgoing)],
             ['Giá trị tồn cuối', formatCurrency(totalClosingValue)]
           ].map(([label, value]) => (
-            <div key={label} style={{ minWidth: '150px', padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+            <div key={label} style={{ minWidth: 0, padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
               <div style={{ fontSize: '12px', color: '#64748b' }}>{label}</div>
-              <strong style={{ display: 'block', marginTop: '4px', color: '#0f172a' }}>{value}</strong>
+              <strong style={{ display: 'block', marginTop: '4px', color: '#0f172a', overflowWrap: 'anywhere' }}>{value}</strong>
             </div>
           ))}
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: '1320px', fontSize: '13px' }}>
+        <div className="block touch-pan-x select-none w-full overflow-x-auto shadow rounded-lg erp-table-scroll">
+          <table className="min-w-[950px] material-stock-table w-full min-w-[1000px]" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: '1000px', fontSize: '13px' }}>
             <colgroup>
               <col style={{ width: '16%' }} />
               <col style={{ width: '8%' }} />
@@ -337,12 +337,14 @@ export default function MaterialStockReport() {
                 {['Tên Hàng', 'Đơn Vị Tính', 'Tồn Đầu', 'Nhập Trong Kỳ', 'Xuất Trong Kỳ', 'Tồn Cuối Kỳ', 'Đơn Giá', 'Thành Tiền', 'Ghi Chú'].map((label, index) => (
                   <th
                     key={label}
+                    className={index === 0 ? 'report-sticky-column' : undefined}
                     style={{
                       padding: '11px 9px',
                       borderBottom: '1px solid #cbd5e1',
                       textAlign: index === 0 || index === 1 || index === 8 ? 'left' : 'right',
                       whiteSpace: 'normal',
-                      verticalAlign: 'bottom'
+                      verticalAlign: 'bottom',
+                      backgroundColor: index === 0 ? '#eff6ff' : undefined
                     }}
                   >
                     {label}
@@ -353,7 +355,7 @@ export default function MaterialStockReport() {
             <tbody>
               {rows.map(row => (
                 <tr key={row.key} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                  <td style={{ padding: '10px 9px', textAlign: 'left', overflowWrap: 'anywhere' }}>
+                  <td className="report-sticky-column" style={{ padding: '10px 9px', textAlign: 'left', overflowWrap: 'anywhere' }}>
                     <strong>{row.name}</strong>
                     {row.code && <div style={{ color: '#64748b', fontSize: '11px' }}>{row.code}</div>}
                   </td>

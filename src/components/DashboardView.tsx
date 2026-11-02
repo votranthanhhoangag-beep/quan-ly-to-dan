@@ -65,8 +65,8 @@ export default function DashboardView() {
   ) => rows.length > 0 ? (
     <article style={{ ...cardStyle, backgroundColor: '#fff', borderColor: '#fecaca' }}>
       <h3 style={{ margin: '0 0 10px', color: accent, fontSize: '15px' }}>{title}</h3>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', minWidth: '520px', borderCollapse: 'collapse', fontSize: '12px' }}>
+      <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', minWidth: '520px', borderCollapse: 'collapse', fontSize: '12px' }} className="min-w-[950px] w-full">
           <thead>
             <tr>
               {['Tên xe', 'Biển số xe', 'Ngày hết hạn', 'Trạng thái'].map(header => (
@@ -375,8 +375,8 @@ export default function DashboardView() {
       {maintenanceWarnings.length > 0 && (
         <section aria-label="Cảnh báo bảo dưỡng xe" style={{ ...cardStyle, backgroundColor: '#fffbeb', borderColor: '#fbbf24' }}>
           <h3 style={{ margin: '0 0 10px', color: '#92400e', fontSize: '16px' }}>⚠️ Cảnh Báo Bảo Dưỡng / Thay Nhớt Xe</h3>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', minWidth: '760px', borderCollapse: 'collapse', fontSize: '12px' }}>
+          <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', minWidth: '760px', borderCollapse: 'collapse', fontSize: '12px' }} className="min-w-[950px] w-full">
               <thead>
                 <tr>
                   {['Biển số xe', 'Km hiện tại', 'Km mốc cần bảo dưỡng', 'Km còn lại', 'Trung bình Km/ngày', 'Thao tác'].map(header => (
@@ -424,8 +424,8 @@ export default function DashboardView() {
                   <span>{group.label}</span>
                   <span>{formatNumber(group.rows.length)} mốc hạn</span>
                 </h4>
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', minWidth: '850px', borderCollapse: 'collapse', fontSize: '12px' }}>
+                <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', minWidth: '850px', borderCollapse: 'collapse', fontSize: '12px' }} className="min-w-[950px] w-full">
                     <thead>
                       <tr>
                         {['Mã Hợp Đồng', 'Tên Tổ Đan', 'Số Điện Thoại / Zalo', 'Mốc Hạn', 'Ngày Hết Hạn', 'Trạng Thái / Số Ngày'].map(header => (
@@ -479,8 +479,8 @@ export default function DashboardView() {
             </div>
           ))}
         </div>
-        <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', minWidth: '680px', borderCollapse: 'collapse', fontSize: '12px' }}>
+        <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', minWidth: '680px', borderCollapse: 'collapse', fontSize: '12px' }} className="min-w-[950px] w-full">
               <thead>
                 <tr>
                   {['Tổ Đan / Hợp Đồng', 'Mã Hàng', 'Công Nợ Còn Lại', 'Hạn Trả Nợ', 'Cảnh Báo'].map(header => (

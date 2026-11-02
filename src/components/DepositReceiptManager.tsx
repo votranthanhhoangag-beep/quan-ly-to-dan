@@ -205,8 +205,8 @@ export default function DepositReceiptManager() {
       )}
 
       {/* BẢNG DANH SÁCH PHIẾU CỌC */}
-      <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: '800px' }}>
+      <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: '800px' }} className="min-w-[950px] w-full">
           <thead>
             <tr style={{ background: '#f1f5f9', textAlign: 'left', color: '#334155' }}>
               <th style={{ padding: '10px' }}>Số Phiếu Cọc</th>

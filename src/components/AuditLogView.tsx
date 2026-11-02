@@ -81,8 +81,8 @@ export default function AuditLogView() {
         <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>Nhật ký được hiển thị mới nhất trước. Bản cục bộ giới hạn 1.000 sự kiện.</p>
         {serverError && <p role="alert" style={{ margin: '8px 0 0', color: '#b91c1c', fontSize: '13px' }}>{serverError}</p>}
       </header>
-      <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '9px', backgroundColor: '#fff' }}>
-        <table style={{ width: '100%', minWidth: '900px', borderCollapse: 'collapse', fontSize: '13px' }}>
+      <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '9px', backgroundColor: '#fff' }}>
+        <table style={{ width: '100%', minWidth: '900px', borderCollapse: 'collapse', fontSize: '13px' }} className="min-w-[950px] w-full">
           <thead>
             <tr>
               {['Thời gian', 'Người thực hiện', 'Vai trò', 'Thao tác', 'Phân hệ', 'Mã đối tượng', 'Chi tiết'].map(label => (

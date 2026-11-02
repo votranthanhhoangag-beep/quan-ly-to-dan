@@ -318,8 +318,8 @@ export default function ExpenseAllocationManager() {
                 Tổng phân bổ: {formatCurrency(allocatedTotal)} / {formatCurrency(Math.round(selectedCost.amount))}
               </strong>
             </div>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', minWidth: '700px', borderCollapse: 'collapse', fontSize: '13px' }}>
+            <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: '700px', borderCollapse: 'collapse', fontSize: '13px' }} className="min-w-[950px] w-full">
                 <thead>
                   <tr style={{ background: '#f1f5f9', textAlign: 'left' }}>
                     {['Chọn', 'Số HĐ', 'Mã hàng', 'Giá trị hợp đồng', 'Số tiền phân bổ'].map(label => (
@@ -386,8 +386,8 @@ export default function ExpenseAllocationManager() {
 
       <section style={{ padding: '18px', border: '1px solid #e2e8f0', borderRadius: '10px', background: '#fff' }}>
         <h3 style={{ margin: '0 0 12px', color: '#1e293b', fontSize: '15px' }}>Phân bổ đã lưu trong kỳ</h3>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', minWidth: '650px', borderCollapse: 'collapse', fontSize: '13px' }}>
+        <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: '650px', borderCollapse: 'collapse', fontSize: '13px' }} className="min-w-[950px] w-full">
             <thead>
               <tr style={{ background: '#f1f5f9', textAlign: 'left' }}>
                 {['Ngày', 'Khoản chi', 'Tổng chi', 'Hợp đồng được phân bổ', 'Tổng đã phân bổ'].map(label => (

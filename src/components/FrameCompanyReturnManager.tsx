@@ -637,8 +637,8 @@ export default function FrameCompanyReturnManager() {
         </div>
       </div>
 
-      <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '7px' }}>
-        <table style={{ width: '100%', minWidth: '1100px', borderCollapse: 'collapse', fontSize: '12px' }}>
+      <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '7px' }}>
+        <table style={{ width: '100%', minWidth: '1100px', borderCollapse: 'collapse', fontSize: '12px' }} className="min-w-[950px] w-full">
           <thead><tr>{['Số phiếu / Ngày', 'Mã hàng / Tên hàng', 'Tổ đan trả khung', 'Phân bổ hợp đồng công ty', 'Số lượng', 'Ghi chú', 'Thao tác'].map(label => <th key={label} style={tableHeaderStyle}>{label}</th>)}</tr></thead>
           <tbody>
             {savedSlips.length === 0 ? (
@@ -693,7 +693,7 @@ export default function FrameCompanyReturnManager() {
               </div>
             </div>
             {error && <div role="alert" style={{ color: '#b91c1c', fontSize: '13px', fontWeight: 700 }}>{error}</div>}
-            <div className="company-frame-return-scroll" style={{ minHeight: 0, overflow: 'auto', backgroundColor: '#f1f5f9', padding: '12px' }}>
+            <div className="company-frame-return-scroll overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ minHeight: 0, overflow: 'auto', backgroundColor: '#f1f5f9', padding: '12px' }}>
               <div id="company-frame-return-print" ref={printRef} style={{ boxSizing: 'border-box', width: '100%', maxWidth: '760px', minHeight: '480px', margin: '0 auto', padding: '30px 34px', border: '1px solid #cbd5e1', boxShadow: '0 2px 8px rgba(15,23,42,.12)', color: '#0f172a', backgroundColor: '#fff', fontFamily: 'Arial, sans-serif' }}>
                 <header style={{ textAlign: 'center', borderBottom: '2px solid #0f172a', paddingBottom: '12px', marginBottom: '16px' }}>
                   {systemConfiguration?.logo && <img src={systemConfiguration.logo} alt="Logo xưởng" style={{ display: 'block', maxWidth: '90px', maxHeight: '54px', objectFit: 'contain', margin: '0 auto 8px' }} />}
@@ -703,7 +703,7 @@ export default function FrameCompanyReturnManager() {
                   <h2 style={{ margin: '12px 0 6px', fontSize: '18px' }}>PHIẾU XUẤT KHUNG SƠN TRẢ CÔNG TY</h2>
                   <div>Số phiếu: <strong>{printSlip.slipNo}</strong> · Ngày: {printSlip.date}</div>
                 </header>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                <table style={{ minWidth: '900px',  width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
                   <thead><tr>{['Mã hàng', 'Tên hàng', 'Tổ đan trả', 'Công ty / Hợp đồng nhận', 'Số lượng chi tiết'].map(label => <th key={label} style={{ border: '1px solid #94a3b8', padding: '7px', backgroundColor: '#f1f5f9', textAlign: 'left' }}>{label}</th>)}</tr></thead>
                   <tbody>{printSlip.companyReturnLines.map(line => {
                     const breakdown = getSavedLineBreakdown(line);

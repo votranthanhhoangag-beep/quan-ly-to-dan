@@ -536,8 +536,8 @@ export default function VehicleFleetManager() {
           <button type="button" onClick={() => setMonth(shiftMonth(month, -1))} style={{ padding: '8px 10px', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#fff', cursor: 'pointer' }}>← Tháng trước</button>
           <button type="button" onClick={() => setMonth(nextMonth)} style={{ padding: '8px 10px', border: 0, borderRadius: '6px', background: '#dbeafe', color: '#1d4ed8', fontWeight: 700, cursor: 'pointer' }}>Gợi ý tháng sau: {nextMonth.slice(5, 7)}/{nextMonth.slice(0, 4)} →</button>
         </div>
-        <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '7px' }}>
-          <table style={{ width: '100%', minWidth: '520px', borderCollapse: 'collapse', fontSize: '13px' }}>
+        <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '7px' }}>
+          <table style={{ width: '100%', minWidth: '520px', borderCollapse: 'collapse', fontSize: '13px' }} className="min-w-[950px] w-full">
             <thead><tr style={{ backgroundColor: '#f1f5f9', textAlign: 'left' }}>
               <th style={{ padding: '10px' }}>Xe</th>
               <th style={{ padding: '10px' }}>Biển số</th>
@@ -558,8 +558,8 @@ export default function VehicleFleetManager() {
 
       <section style={{ display: 'grid', gap: '10px' }}>
         <h3 style={{ margin: 0, color: '#1e293b', fontSize: '15px' }}>Chi tiết nhật trình · {monthLabel}</h3>
-        <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '7px' }}>
-          <table style={{ width: '100%', minWidth: '1040px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px' }}>
+        <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '7px' }}>
+          <table style={{ width: '100%', minWidth: '1040px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px' }} className="min-w-[950px] w-full">
             <colgroup>
               {[9, 13, 10, 8, 8, 10, 10, 9, 13, 10].map((width, index) => <col key={index} style={{ width: `${width}%` }} />)}
             </colgroup>

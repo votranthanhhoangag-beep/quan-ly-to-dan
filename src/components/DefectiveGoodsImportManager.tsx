@@ -569,8 +569,8 @@ export default function DefectiveGoodsImportManager() {
                   makeDetailLine(isSetProduct ? sizeNames[0] : 'Cái')
                 ])}>＋ Thêm dòng</button>
               </div>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', minWidth: '420px', borderCollapse: 'collapse' }}>
+              <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', minWidth: '420px', borderCollapse: 'collapse' }} className="min-w-[950px] w-full">
                   <thead><tr>
                     <th style={tableHeaderStyle}>Quy cách</th>
                     <th style={tableHeaderStyle}>Số lượng</th>
@@ -643,7 +643,7 @@ export default function DefectiveGoodsImportManager() {
       {actionError && <div role="alert" style={{ color: '#b91c1c', fontSize: '13px', fontWeight: 700 }}>{actionError}</div>}
       <section style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', backgroundColor: '#fff' }}>
         <h3 style={{ padding: '14px 16px', margin: 0, color: '#1e293b', fontSize: '15px' }}>Lịch Sử Phiếu Nhập Hàng Loại</h3>
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1050px', fontSize: '12px' }}>
+        <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll"><table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1050px', fontSize: '12px' }} className="min-w-[950px] w-full">
           <thead><tr>
             {['Phiếu / Ngày', 'Mã hàng / Tên hàng', 'Tổ đan / Phiếu nguồn', 'HĐ Công ty A', 'HĐ đối chiếu B-A', 'Quy cách nhập', 'Số lượng quy đổi', 'Thao tác'].map(label => (
               <th key={label} style={tableHeaderStyle}>{label}</th>
@@ -671,7 +671,7 @@ export default function DefectiveGoodsImportManager() {
             ))}
             {allSlips.length === 0 && <tr><td colSpan={8} style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>Chưa có phiếu nhập hàng loại.</td></tr>}
           </tbody>
-        </table>
+        </table></div>
       </section>
 
       {printSlip && (
@@ -685,7 +685,7 @@ export default function DefectiveGoodsImportManager() {
               @page { size: A4 portrait; margin: 0; }
             }
           `}</style>
-          <div style={{ width: 'min(850px, 96vw)', maxHeight: '94vh', display: 'flex', flexDirection: 'column', overflow: 'auto', borderRadius: '10px', backgroundColor: '#fff', boxShadow: '0 24px 60px rgba(0,0,0,.3)' }}>
+          <div className="overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ width: 'min(850px, 96vw)', maxHeight: '94vh', display: 'flex', flexDirection: 'column', overflow: 'auto', borderRadius: '10px', backgroundColor: '#fff', boxShadow: '0 24px 60px rgba(0,0,0,.3)' }}>
             <div ref={printAreaRef} id="defective-import-print-area" style={{ padding: '36px', color: '#0f172a', backgroundColor: '#fff' }}>
               <div style={{ textAlign: 'center', marginBottom: '28px' }}>
                 <h2 style={{ margin: 0, fontSize: '20px' }}>PHIẾU NHẬP HÀNG LOẠI</h2>
@@ -699,7 +699,7 @@ export default function DefectiveGoodsImportManager() {
                 <div><strong>Mã hàng:</strong> {printSlip.productCode}</div>
                 <div><strong>Tên hàng:</strong> {printSlip.productName}</div>
               </div>
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
+              <table style={{ minWidth: '900px',  width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
                 <thead><tr>{['Quy cách', 'Số lượng'].map(label => <th key={label} style={{ border: '1px solid #94a3b8', padding: '9px', textAlign: 'left' }}>{label}</th>)}</tr></thead>
                 <tbody>
                   <tr><td style={{ border: '1px solid #94a3b8', padding: '9px' }}>{getSlipSummary(printSlip)}</td><td style={{ border: '1px solid #94a3b8', padding: '9px' }}>{formatNumber(printSlip.quantity)} {printSlip.unit} · {formatNumber(printSlip.physicalQuantity)} cái thực nhập</td></tr>

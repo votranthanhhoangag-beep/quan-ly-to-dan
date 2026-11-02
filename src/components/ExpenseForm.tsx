@@ -5,6 +5,7 @@ import { createUniqueId } from '../utils/uniqueId';
 import { useAuth } from '../context/AuthContext';
 import { filterPhoneDigits, isValidVietnamMobileNumber } from '../utils/vietnamPhone';
 import { getTodayDateString, isValidDebtDueDate } from '../utils/contractDebt';
+import { logDailyAction } from '../utils/logger';
 
 interface ExpenseFormRow {
   id: string;
@@ -337,7 +338,15 @@ export const ExpenseForm = () => {
       };
 
       if (editingExpenseId !== null) updateExpense(newExpense);
-      else addExpense(newExpense);
+      else {
+        addExpense(newExpense);
+        void logDailyAction({
+          actionType: 'CREATE_PAYMENT',
+          title: `Tạo phiếu chi ${category}`,
+          description: `Số tiền ${totalAmount.toLocaleString('vi-VN')} đ${newExpense.supplierName ? `, nhà cung cấp ${newExpense.supplierName}` : ''}${newExpense.note ? `. Ghi chú: ${newExpense.note}` : ''}`,
+          referenceId: newExpense.id
+        }).catch(logError => console.error('Đã lưu phiếu chi nhưng không thể ghi nhật ký:', logError));
+      }
       resetForm();
       window.alert(editingExpenseId !== null ? 'Đã cập nhật phiếu chi thành công.' : 'Đã lưu phiếu chi thành công.');
     } catch (saveError) {
@@ -465,8 +474,8 @@ export const ExpenseForm = () => {
               + Thêm dòng
             </button>
           </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', minWidth: '900px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '13px' }}>
+          <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', minWidth: '900px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '13px' }} className="min-w-[950px] w-full">
               <thead>
                 <tr style={{ backgroundColor: '#f1f5f9', color: '#475569', textAlign: 'left' }}>
                   <th style={{ width: '210px', padding: '10px 12px' }}>Tên Mặt Hàng / Vật Tư / Khoản Chi</th>
@@ -794,8 +803,8 @@ export const ExpenseForm = () => {
             Tổng chi đã lập: {formatCurrency(safeExpenses.reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0))}
           </strong>
         </div>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', minWidth: '980px', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+        <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: '980px', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }} className="min-w-[950px] w-full">
             <thead>
               <tr style={{ backgroundColor: '#f1f5f9', color: '#475569' }}>
                 <th style={{ padding: '9px' }}>Ngày Chi</th>

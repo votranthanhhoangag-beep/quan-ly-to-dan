@@ -1617,8 +1617,8 @@ export default function InventoryStockReport() {
         ))}
       </nav>
       {activeReportTab === 'stock' && (
-      <section style={{ padding: '16px', border: '1px solid #cbd5e1', borderRadius: '9px', backgroundColor: '#fff' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+      <section className="report-panel" style={{ padding: '16px', border: '1px solid #cbd5e1', borderRadius: '9px', backgroundColor: '#fff' }}>
+        <div className="report-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
           <div>
             <h3 style={{ margin: 0, color: '#1e293b', fontSize: '16px' }}>📊 Báo Cáo Nhập - Xuất - Tồn</h3>
             <small style={{ color: '#64748b' }}>Số liệu Nhập/Xuất theo tháng; tồn đầu là số dư trước tháng được chọn.</small>
@@ -1628,8 +1628,8 @@ export default function InventoryStockReport() {
             <input type="month" value={reportMonth} onChange={event => setReportMonth(event.target.value)} style={inputStyle} />
           </label>
         </div>
-        <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '7px' }}>
-          <table style={{ width: '100%', minWidth: '1100px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px' }}>
+        <div className="block touch-pan-x select-none w-full overflow-x-auto shadow rounded-lg erp-table-scroll">
+          <table className="min-w-[950px] w-full min-w-[600px] text-xs sm:text-sm" style={{ width: '100%', minWidth: '600px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '12px' }}>
             <colgroup>
               <col style={{ width: '12%' }} />
               <col style={{ width: '18%' }} />
@@ -1645,10 +1645,12 @@ export default function InventoryStockReport() {
                 {['Mã Hàng', 'Tên Hàng', 'Tồn Đầu', 'Nhập', 'Xuất', 'Tồn Cuối (Bộ)', 'Lẻ Của Bộ (Cái)', 'Ghi Chú'].map((label, index) => (
                   <th
                     key={label}
+                    className={index === 0 ? 'report-sticky-column' : undefined}
                     scope="col"
                     style={{
                       ...tableHeaderStyle,
-                      textAlign: index >= 2 && index <= 6 ? 'right' : 'left'
+                      textAlign: index >= 2 && index <= 6 ? 'right' : 'left',
+                      backgroundColor: index === 0 ? '#f1f5f9' : undefined
                     }}
                   >
                     {label}
@@ -1673,7 +1675,7 @@ export default function InventoryStockReport() {
                 const unit = hasSet ? 'Bộ' : 'Cái';
                 return (
                   <tr key={row.productCode} style={{ borderTop: '1px solid #e2e8f0' }}>
-                    <td style={{ padding: '9px', fontWeight: 700 }}>{row.productCode}</td>
+                    <td className="report-sticky-column" style={{ padding: '9px', fontWeight: 700 }}>{row.productCode}</td>
                     <td style={{ padding: '9px' }}>{row.productName || '—'}</td>
                     <td style={{ padding: '9px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.opening / row.sizeCount)} {unit}</td>
                     <td style={{ padding: '9px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.incoming / row.sizeCount)} {unit}</td>
@@ -2067,8 +2069,8 @@ export default function InventoryStockReport() {
 
             {selectedRepairSource && (
               <>
-                <div style={{ overflowX: 'auto', border: '1px solid #99f6e4', borderRadius: '7px', backgroundColor: '#fff' }}>
-                  <table style={{ width: '100%', minWidth: '760px', borderCollapse: 'collapse', fontSize: '12px' }}>
+                <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto', border: '1px solid #99f6e4', borderRadius: '7px', backgroundColor: '#fff' }}>
+                  <table style={{ width: '100%', minWidth: '760px', borderCollapse: 'collapse', fontSize: '12px' }} className="min-w-[950px] w-full">
                     <thead>
                       <tr>{['Mã hàng', 'Lũy kế đã nhận', 'Còn thiếu để nhận đủ'].map(label => (
                         <th key={label} style={tableHeaderStyle}>{label}</th>
@@ -2258,8 +2260,8 @@ export default function InventoryStockReport() {
             )}
           </form>
 
-          <div style={{ overflowX: 'auto', marginTop: '14px', border: '1px solid #e2e8f0', borderRadius: '7px', backgroundColor: '#fff' }}>
-            <table style={{ width: '100%', minWidth: '1180px', borderCollapse: 'collapse', fontSize: '12px' }}>
+          <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto', marginTop: '14px', border: '1px solid #e2e8f0', borderRadius: '7px', backgroundColor: '#fff' }}>
+            <table style={{ width: '100%', minWidth: '1180px', borderCollapse: 'collapse', fontSize: '12px' }} className="min-w-[950px] w-full">
               <thead><tr>{['Số phiếu / Ngày', 'Phiếu xuất đối ứng', 'Người sửa', 'Tiền công', 'Trừ nguyên phụ liệu', 'Tạm ứng trừ', 'Còn phải trả', 'Hạn trả nợ', 'Ghi chú', 'Thao tác'].map(label => <th key={label} style={tableHeaderStyle}>{label}</th>)}</tr></thead>
               <tbody>
                 {repairReceiptSlips.length === 0 ? (
@@ -2295,8 +2297,8 @@ export default function InventoryStockReport() {
         </>}
 
         {activeReportTab === 'repair-export' && <>
-        <div style={{ overflowX: 'auto', marginTop: '14px', border: '1px solid #e2e8f0', borderRadius: '7px' }}>
-          <table style={{ width: '100%', minWidth: '1250px', borderCollapse: 'collapse', fontSize: '12px' }}>
+        <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto', marginTop: '14px', border: '1px solid #e2e8f0', borderRadius: '7px' }}>
+          <table style={{ width: '100%', minWidth: '1250px', borderCollapse: 'collapse', fontSize: '12px' }} className="min-w-[950px] w-full">
             <thead><tr>{['Số Phiếu / Ngày', 'Người nhận sửa / Zalo', 'Mã hàng / Tên hàng', 'Chi tiết xuất sửa', 'Thành tiền công', 'Nguyên phụ liệu kèm theo', 'Tạm ứng', 'Ghi chú / Lý do', 'Thao tác'].map(label => <th key={label} style={tableHeaderStyle}>{label}</th>)}</tr></thead>
             <tbody>
               {repairSlips.length === 0 ? (
@@ -2382,7 +2384,7 @@ export default function InventoryStockReport() {
             </div>
           </div>
           {error && <div role="alert" style={{ color: '#b91c1c', fontSize: '13px', fontWeight: 700 }}>{error}</div>}
-          <div className="repair-slip-scroll" style={{ minHeight: 0, overflow: 'auto', backgroundColor: '#f1f5f9', padding: '12px' }}>
+          <div className="repair-slip-scroll overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ minHeight: 0, overflow: 'auto', backgroundColor: '#f1f5f9', padding: '12px' }}>
           <div id="repair-slip-print-area" ref={sharePrintRef} style={{ boxSizing: 'border-box', width: '100%', maxWidth: '760px', minHeight: '480px', margin: '0 auto', padding: '30px 34px', border: '1px solid #cbd5e1', boxShadow: '0 2px 8px rgba(15,23,42,.12)', color: '#0f172a', backgroundColor: '#fff', fontFamily: 'Arial, sans-serif' }}>
           <header style={{ textAlign: 'center', borderBottom: '2px solid #0f172a', paddingBottom: '12px', marginBottom: '16px' }}>
             {systemConfiguration?.logo && <img src={systemConfiguration.logo} alt="Logo xưởng" style={{ display: 'block', maxWidth: '90px', maxHeight: '54px', objectFit: 'contain', margin: '0 auto 8px' }} />}
@@ -2396,7 +2398,7 @@ export default function InventoryStockReport() {
           {shareSlip.type === 'NHAN_SUA_KHOAN' ? (
             <p><strong>Phiếu xuất đối ứng:</strong> {repairSlips.find(item => String(item.id) === String(shareSlip.sourceRepairSlipId || ''))?.slipNo || shareSlip.contractNo || '—'}</p>
           ) : null}
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+          <table style={{ minWidth: '900px',  width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
             <thead><tr>{(shareSlip.type === 'NHAN_SUA_KHOAN'
               ? ['Mã hàng', 'Tên hàng', 'Số lượng nhận quy đổi', 'Thành tiền']
               : ['Mã hàng', 'Tên hàng', 'Số lượng / Size lỗi', 'Đơn giá theo bộ / size', 'Thành tiền']

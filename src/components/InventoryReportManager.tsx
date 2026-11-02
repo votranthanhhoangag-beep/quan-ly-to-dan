@@ -5,6 +5,7 @@ import FrameStockReport from './FrameStockReport';
 import { getLatestMaterialUnitPrice, matchesMaterialNameSearch } from '../utils/materialSearch';
 import { usePersistentFormDraft } from '../hooks/usePersistentFormDraft';
 import { useAuth } from '../context/AuthContext';
+import { logDailyAction } from '../utils/logger';
 
 type MaterialUnit = string;
 
@@ -759,6 +760,12 @@ const handleSaveTransaction = (e: React.FormEvent) => {
       handleUpdate(payload);
     } else {
       handleAdd(payload);
+      void logDailyAction({
+        actionType: 'CREATE_IMPORT',
+        title: `Tạo phiếu nhập ${finalSlipNo}`,
+        description: `${payload.productName} (${payload.productCode}), số lượng ${payload.quantity} ${payload.unit}${payload.partnerName ? `, đối tác ${payload.partnerName}` : ''}${payload.note ? `. Ghi chú: ${payload.note}` : ''}`,
+        referenceId: payload.id
+      }).catch(error => console.error('Đã lưu phiếu nhập nhưng không thể ghi nhật ký:', error));
     }
     clearDraft();
 
@@ -1584,8 +1591,8 @@ const handleSaveTransaction = (e: React.FormEvent) => {
         {activeTab === 'FRAME_STOCK' && <FrameStockReport />}
 
         {activeTab === 'KS_INCOMPLETE' && (
-          <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #fecaca', marginBottom: '16px' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+          <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #fecaca', marginBottom: '16px' }}>
+            <table style={{ minWidth: '900px',  width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }} className="min-w-[950px] w-full">
               <thead>
                 <tr style={{ backgroundColor: '#fef2f2', borderBottom: '2px solid #fecaca' }}>
                   <th style={{ padding: '10px' }}>Số HĐ CTY</th>
@@ -1632,8 +1639,8 @@ const handleSaveTransaction = (e: React.FormEvent) => {
           </div>
         )}
 
-        <div style={{ display: activeTab === 'KS_INCOMPLETE' || activeTab === 'FRAME_STOCK' ? 'none' : undefined, overflowX: 'auto', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+        <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ display: activeTab === 'KS_INCOMPLETE' || activeTab === 'FRAME_STOCK' ? 'none' : undefined, overflowX: 'auto', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+          <table style={{ minWidth: '900px',  width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }} className="min-w-[950px] w-full">
             <thead>
               <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
                 <th style={{ padding: '10px' }}>Số Phiếu</th>
@@ -1736,8 +1743,8 @@ const handleSaveTransaction = (e: React.FormEvent) => {
               </div>
               <button type="button" onClick={() => setHistoryContract(null)} style={{ border: 0, borderRadius: '6px', padding: '7px 11px', backgroundColor: '#e2e8f0', cursor: 'pointer', fontWeight: 'bold' }}>Đóng</button>
             </div>
-            <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+            <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+              <table style={{ minWidth: '900px',  width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }} className="min-w-[950px] w-full">
                 <thead>
                   <tr style={{ backgroundColor: '#f1f5f9' }}>
                     <th style={{ padding: '9px' }}>Lần</th>
@@ -1831,7 +1838,7 @@ const handleSaveTransaction = (e: React.FormEvent) => {
 
               <section style={{ marginBottom: '18px' }}>
                 <h3 style={{ margin: '0 0 10px', paddingBottom: '6px', borderBottom: '1px solid #64748b', fontSize: '15px' }}>II. CHI TIẾT SỐ LƯỢNG &amp; TÌNH TRẠNG KHUNG</h3>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll"><table style={{ minWidth: '900px',  width: '100%', borderCollapse: 'collapse', fontSize: '14px' }} className="min-w-[950px] w-full">
                   <tbody>
                     {([
                       ['Tổng số lượng đã phát', frameReceiptPreview.issuedQuantity, frameReceiptPreview.contract.unit || 'Bộ'],
@@ -1846,7 +1853,7 @@ const handleSaveTransaction = (e: React.FormEvent) => {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
               </section>
 
               <section style={{ minHeight: '76px', marginBottom: '24px' }}>

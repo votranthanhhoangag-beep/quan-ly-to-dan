@@ -23,7 +23,8 @@ export type Permission =
   | 'view_revenue'
   | 'view_vehicles'
   | 'manage_settings'
-  | 'view_audit_logs';
+  | 'view_audit_logs'
+  | 'view_daily_logs';
 
 export interface AuthenticatedUser {
   id: string;
@@ -49,15 +50,15 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     'manage_contracts', 'delete_contracts', 'manage_knitting_receipts', 'manage_knitting_exports', 'delete_knitting_exports',
     'manage_frame_returns', 'view_frame_stock', 'view_material_stock', 'view_expenses',
     'manage_expenses', 'delete_expenses', 'view_revenue', 'view_vehicles', 'manage_settings',
-    'view_audit_logs'
+    'view_audit_logs', 'view_daily_logs'
   ],
   ke_toan: [
     'view_dashboard', 'view_company_contracts', 'view_knitting_contracts', 'manage_contracts',
-    'view_expenses', 'manage_expenses', 'view_revenue'
+    'view_expenses', 'manage_expenses', 'view_revenue', 'view_daily_logs'
   ],
   kho_to_dan: [
     'view_knitting_contracts', 'manage_knitting_receipts', 'manage_knitting_exports',
-    'manage_frame_returns', 'view_frame_stock', 'view_material_stock'
+    'manage_frame_returns', 'view_frame_stock', 'view_material_stock', 'view_daily_logs'
   ]
 };
 
