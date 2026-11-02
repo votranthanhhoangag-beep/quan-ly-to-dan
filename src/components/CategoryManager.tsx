@@ -378,12 +378,12 @@ export default function CategoryManager() {
               {activeTab !== 'chikhac' && (
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Mã Danh Mục:</label>
-                  <input type="text" required placeholder="VD: HH-001..." value={code} onChange={e => setCode(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }} />
+                  <input type="text" required placeholder="VD: HH-001..." value={code} onChange={e => setCode(e.target.value)} autoCorrect="off" autoCapitalize="off" spellCheck={false} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }} />
                 </div>
               )}
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Tên Danh Mục:</label>
-                <input type="text" required placeholder="Nhập tên..." value={name} onChange={e => setName(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }} />
+                <input type="text" required placeholder="Nhập tên..." value={name} onChange={e => setName(e.target.value)} autoCorrect="off" autoCapitalize="off" spellCheck={false} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }} />
               </div>
               {activeTab === 'nguyenvatlieu' && (
                 <div>
@@ -433,8 +433,8 @@ export default function CategoryManager() {
 
       {/* Bảng hiển thị Xe 4 bánh */}
       {activeTab === 'xe' ? (
-        <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-          <table style={{ minWidth: '900px',  width: '100%', borderCollapse: 'collapse', fontSize: '12px' }} className="min-w-[950px] w-full">
+        <div className="overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ border: '1px solid #e2e8f0', borderRadius: '6px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', fontFamily: 'inherit' }} className="min-w-[950px] w-full">
             <thead>
               <tr style={{ background: '#f1f5f9', textAlign: 'left', color: '#334155' }}>
                 <th style={{ padding: '10px' }}>STT</th>
@@ -520,21 +520,21 @@ export default function CategoryManager() {
         </div>
       ) : (
         /* Bảng hiển thị Hàng hóa / NVL / Chi phí */
-        <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-          <table style={{ minWidth: '900px',  width: '100%', borderCollapse: 'collapse', fontSize: '12px' }} className="min-w-[950px] w-full">
+        <div className="overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ border: '1px solid #e2e8f0', borderRadius: '6px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', fontFamily: 'inherit' }} className="min-w-[950px] w-full">
             <thead>
               <tr style={{ background: '#f1f5f9', textAlign: 'left', color: '#334155' }}>
                 {activeTab === 'nguyenvatlieu' ? (
                   <>
-                    <th style={{ padding: '10px' }}>STT</th>
-                    <th style={{ padding: '10px' }}>Mã Danh Mục</th>
-                    <th style={{ padding: '10px' }}>Tên Danh Mục</th>
-                    <th style={{ padding: '10px', textAlign: 'right' }}>Hạn Mức Tồn Kho</th>
-                    <th style={{ padding: '10px' }}>Ghi Chú</th>
-                    <th style={{ padding: '10px', textAlign: 'center' }}>Thao Tác</th>
+                    <th style={{ padding: '10px', whiteSpace: 'nowrap' }}>STT</th>
+                    <th style={{ padding: '10px', whiteSpace: 'nowrap' }}>Mã Danh Mục</th>
+                    <th style={{ padding: '10px', whiteSpace: 'nowrap' }}>Tên Danh Mục</th>
+                    <th style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>Hạn Mức Tồn Kho</th>
+                    <th style={{ padding: '10px', whiteSpace: 'nowrap' }}>Ghi Chú</th>
+                    <th style={{ padding: '10px', textAlign: 'center', whiteSpace: 'nowrap' }}>Thao Tác</th>
                   </>
                 ) : visibleCategoryColumns.map(column => (
-                  <th key={column.key} style={{ padding: '10px', textAlign: column.key === 'actions' ? 'center' : 'left' }}>{column.label}</th>
+                  <th key={column.key} style={{ padding: '10px', textAlign: column.key === 'actions' ? 'center' : 'left', whiteSpace: 'nowrap' }}>{column.label}</th>
                 ))}
               </tr>
             </thead>
@@ -543,16 +543,16 @@ export default function CategoryManager() {
                 categoryList.map((item, idx) => (
                   activeTab === 'nguyenvatlieu' ? (
                     <tr key={item.id} style={{ borderBottom: '1px solid #f8fafc', background: idx % 2 === 0 ? '#fff' : '#fafafa' }}>
-                      <td style={{ padding: '10px', fontWeight: 'bold' }}>{idx + 1}</td>
-                      <td style={{ padding: '10px', fontWeight: 'bold', color: '#2563eb' }}>{item.code}</td>
-                      <td style={{ padding: '10px', fontWeight: 'bold', color: '#0f172a' }}>{item.name}</td>
-                      <td style={{ padding: '10px', textAlign: 'right' }}>
+                      <td style={{ padding: '10px', fontWeight: 'bold', verticalAlign: 'middle' }}>{idx + 1}</td>
+                      <td style={{ padding: '10px', fontWeight: 'bold', color: '#2563eb', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>{item.code}</td>
+                      <td style={{ padding: '10px', fontWeight: 'bold', color: '#0f172a', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>{item.name}</td>
+                      <td style={{ padding: '10px', textAlign: 'right', verticalAlign: 'middle' }}>
                         {Number(item.lowStockLimit) > 0
                           ? `${Number(item.lowStockLimit).toLocaleString('vi-VN')} ${item.unit || ''}`.trim()
                           : '—'}
                       </td>
-                      <td style={{ padding: '10px', color: '#64748b' }}>{item.note}</td>
-                      <td style={{ padding: '10px', textAlign: 'center' }}>
+                      <td style={{ padding: '10px', color: '#64748b', verticalAlign: 'middle' }}>{item.note}</td>
+                      <td style={{ padding: '10px', textAlign: 'center', verticalAlign: 'middle' }}>
                         <button onClick={() => handleOpenForm(item)} style={{ background: '#f59e0b', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', marginRight: '4px' }}>Sửa</button>
                         <button onClick={() => handleDelete(item.id)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>Xóa</button>
                       </td>
@@ -564,6 +564,7 @@ export default function CategoryManager() {
                           key={column.key}
                           style={{
                             padding: '10px',
+                            verticalAlign: 'middle',
                             textAlign: column.key === 'actions' ? 'center' : column.key === 'lowStockLimit' ? 'right' : 'left',
                             fontWeight: column.key === 'stt' || column.key === 'code' || column.key === 'name' ? 'bold' : 'normal',
                             color: column.key === 'code' ? '#2563eb' : column.key === 'name' ? '#0f172a' : column.key === 'note' ? '#64748b' : undefined
