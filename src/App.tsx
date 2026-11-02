@@ -18,7 +18,6 @@ import { getVehicleExpiryWarnings } from './utils/vehicleExpiry';
 import { AuthProvider, useAuth, type Permission, type UserRole } from './context/AuthContext';
 import AuthGate from './components/AuthGate';
 import AuditLogView from './components/AuditLogView';
-import DailyLogTab from './components/DailyLogTab';
 import UserManagementView from './components/UserManagementView';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import Unauthorized from './pages/Unauthorized';
@@ -359,8 +358,7 @@ function AppContent({ initialTab }: { initialTab: string }) {
     { id: 'tax', label: '📊 Doanh Thu và Chi Phí', permission: 'view_revenue' },
     { id: 'systemSettings', label: '⚙️ Cấu Hình Hệ Thống', permission: 'manage_settings' },
     { id: 'userManagement', label: '👥 Quản Lý Người Dùng', permission: 'manage_settings' },
-    { id: 'auditLogs', label: '🧾 Lịch Sử Thao Tác', permission: 'view_audit_logs' },
-    { id: 'dailyLogs', label: '📒 Nhật Ký Công Việc', permission: 'view_daily_logs' }
+    { id: 'auditLogs', label: '🧾 Lịch Sử Thao Tác', permission: 'view_audit_logs' }
   ];
   const visibleMenuItems = menuItems.filter(item => hasPermission(item.permission));
   const activeTab = visibleMenuItems.some(item => item.id === selectedTab)
@@ -574,7 +572,6 @@ function AppContent({ initialTab }: { initialTab: string }) {
             {activeTab === 'systemSettings' && <SystemSettingsView />}
             {activeTab === 'userManagement' && <UserManagementView />}
             {activeTab === 'auditLogs' && hasPermission('view_audit_logs') && <AuditLogView />}
-            {activeTab === 'dailyLogs' && hasPermission('view_daily_logs') && <DailyLogTab />}
 
           </div>
         </main>
