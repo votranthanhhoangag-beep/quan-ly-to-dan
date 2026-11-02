@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { callBackendApi } from '../services/api';
 
 const VALID_PRODUCTS: Record<string, number> = {
@@ -17,15 +17,43 @@ const TYPE_PREFIXES: Record<string, string> = {
   XUAT_VAT_TU: 'XVT',
 };
 
+type TransactionType = keyof typeof TYPE_PREFIXES;
+
+const isTransactionType = (value: string): value is TransactionType =>
+  Object.prototype.hasOwnProperty.call(TYPE_PREFIXES, value);
+
+const getNextContractNo = (type: TransactionType) => {
+  const currentYear = new Date().getFullYear();
+  const prefix = TYPE_PREFIXES[type] || 'HD';
+  try {
+    const savedSeq = localStorage.getItem(`seq_${type}_${currentYear}`) || '1';
+    return `${prefix}-${String(savedSeq).padStart(2, '0')}/${currentYear}`;
+  } catch (error) {
+    console.error('Không thể đọc số thứ tự giao dịch trên thiết bị:', error);
+    return `${prefix}-01/${currentYear}`;
+  }
+};
+
+const getOfflineQueueCount = () => {
+  try {
+    const stored: unknown = JSON.parse(localStorage.getItem('offline_transactions') || '[]');
+    if (!Array.isArray(stored)) throw new Error('Hàng đợi giao dịch ngoại tuyến không đúng định dạng.');
+    return stored.length;
+  } catch (error) {
+    console.error('Không thể đọc hàng đợi giao dịch ngoại tuyến:', error);
+    return 0;
+  }
+};
+
 export default function TransactionForm() {
-  const [formData, setFormData] = useState({
-    type: 'XUAT_KHUNG' as keyof typeof TYPE_PREFIXES,
-    contractNo: '',
+  const [formData, setFormData] = useState(() => ({
+    type: 'XUAT_KHUNG' as TransactionType,
+    contractNo: getNextContractNo('XUAT_KHUNG'),
     pi: '',
     productCode: '',
     householdId: '',
     note: '',
-  });
+  }));
 
   const [items, setItems] = useState<{ sizeOrBộ: string; quantity: number }[]>([
     { sizeOrBộ: 'Bộ tiêu chuẩn', quantity: 1 }
@@ -34,18 +62,11 @@ export default function TransactionForm() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [offlineQueueCount, setOfflineQueueCount] = useState(0);
+  const [offlineQueueCount, setOfflineQueueCount] = useState(getOfflineQueueCount);
 
-  useEffect(() => {
-    const queue = JSON.parse(localStorage.getItem('offline_transactions') || '[]');
-    setOfflineQueueCount(queue.length);
-
-    const currentYear = new Date().getFullYear();
-    const prefix = TYPE_PREFIXES[formData.type] || 'HD';
-    const storageKey = `seq_${formData.type}_${currentYear}`;
-    const savedSeq = localStorage.getItem(storageKey) || '1';
-    setFormData(prev => ({ ...prev, contractNo: `${prefix}-${String(savedSeq).padStart(2, '0')}/${currentYear}` }));
-  }, [formData.type]);
+  const handleTypeChange = (type: TransactionType) => {
+    setFormData(prev => ({ ...prev, type, contractNo: getNextContractNo(type) }));
+  };
 
   // HÀM NÉN ẢNH TỰ ĐỘNG (GIÚP ẢNH SIÊU NHẸ, TRÁNH LÀM NẶNG GOOGLE SHEETS)
   const compressAndResizeImage = (file: File): Promise<string> => {
@@ -131,7 +152,6 @@ export default function TransactionForm() {
 
     try {
       const res = await callBackendApi('CREATE_TRANSACTION', payload);
-      setLoading(false);
 
       if (res.status === 'success') {
         alert('✅ Lưu phiếu thành công lên hệ thống!');
@@ -156,39 +176,60 @@ export default function TransactionForm() {
         alert('⛔ ' + (res.message || 'Lỗi hệ thống'));
       }
     } catch (err) {
-      // Lưu tạm Offline khi rớt mạng
+      console.error('Không thể gửi giao dịch lên máy chủ:', err);
+      try {
+        const stored: unknown = JSON.parse(localStorage.getItem('offline_transactions') || '[]');
+        const existingQueue = Array.isArray(stored) ? stored : [];
+        existingQueue.push(payload);
+        localStorage.setItem('offline_transactions', JSON.stringify(existingQueue));
+        setOfflineQueueCount(existingQueue.length);
+        alert('⚠️ Mất kết nối mạng! Phiếu đã được lưu tạm an toàn trên điện thoại. Sẽ tự động đồng bộ khi có mạng.');
+      } catch (storageError) {
+        console.error('Không thể lưu giao dịch vào hàng đợi ngoại tuyến:', storageError);
+        alert('⛔ Không gửi được giao dịch và cũng không thể lưu tạm trên thiết bị. Vui lòng sao chép thông tin trước khi đóng màn hình.');
+      }
+    } finally {
       setLoading(false);
-      const existingQueue = JSON.parse(localStorage.getItem('offline_transactions') || '[]');
-      existingQueue.push(payload);
-      localStorage.setItem('offline_transactions', JSON.stringify(existingQueue));
-      setOfflineQueueCount(existingQueue.length);
-
-      alert('⚠️ Mất kết nối mạng! Phiếu đã được lưu tạm an toàn trên điện thoại. Sẽ tự động đồng bộ khi có mạng.');
     }
   };
 
   const syncOfflineData = async () => {
-    const queue = JSON.parse(localStorage.getItem('offline_transactions') || '[]');
+    let queue: unknown[];
+    try {
+      const stored: unknown = JSON.parse(localStorage.getItem('offline_transactions') || '[]');
+      if (!Array.isArray(stored)) throw new Error('Hàng đợi giao dịch ngoại tuyến không đúng định dạng.');
+      queue = stored;
+    } catch (error) {
+      console.error('Không thể đọc hàng đợi giao dịch ngoại tuyến:', error);
+      alert('⛔ Không thể đọc hàng đợi giao dịch lưu tạm trên thiết bị.');
+      return;
+    }
     if (queue.length === 0) return;
 
     setLoading(true);
     let successCount = 0;
-    const remainingQueue = [];
-
-    for (const payload of queue) {
-      try {
-        const res = await callBackendApi('CREATE_TRANSACTION', payload);
-        if (res.status === 'success') successCount++;
-        else remainingQueue.push(payload);
-      } catch (e) {
-        remainingQueue.push(payload);
+    const remainingQueue: unknown[] = [];
+    try {
+      for (const payload of queue) {
+        try {
+          const res = await callBackendApi('CREATE_TRANSACTION', payload);
+          if (res.status === 'success') successCount++;
+          else remainingQueue.push(payload);
+        } catch (error) {
+          console.error('Không thể đồng bộ một giao dịch ngoại tuyến:', error);
+          remainingQueue.push(payload);
+        }
       }
-    }
 
-    localStorage.setItem('offline_transactions', JSON.stringify(remainingQueue));
-    setOfflineQueueCount(remainingQueue.length);
-    setLoading(false);
-    alert(`🔄 Đã đồng bộ thành công ${successCount} phiếu lưu tạm lên Google Sheets!`);
+      localStorage.setItem('offline_transactions', JSON.stringify(remainingQueue));
+      setOfflineQueueCount(remainingQueue.length);
+      alert(`🔄 Đã đồng bộ thành công ${successCount} phiếu lưu tạm lên Google Sheets!`);
+    } catch (error) {
+      console.error('Không thể cập nhật hàng đợi giao dịch ngoại tuyến:', error);
+      alert('⛔ Không thể cập nhật trạng thái hàng đợi ngoại tuyến. Hãy kiểm tra dung lượng thiết bị.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -211,7 +252,10 @@ export default function TransactionForm() {
           <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px', fontSize: '12px' }}>Loại giao dịch:</label>
           <select 
             value={formData.type} 
-            onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
+            onChange={(e) => {
+              const selectedType = e.target.value;
+              if (isTransactionType(selectedType)) handleTypeChange(selectedType);
+            }}
             style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
           >
             <option value="XUAT_KHUNG">Xuất khung cho tổ đan</option>

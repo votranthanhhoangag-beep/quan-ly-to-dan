@@ -86,7 +86,7 @@ const flushPendingAuditLogs = async () => {
         p_module_name: entry.moduleName,
         p_description: entry.description,
         p_target_id: entry.targetId
-      });
+      }).abortSignal(AbortSignal.timeout(8000));
       if (error) throw error;
       writePendingAuditLogs(readPendingAuditLogs().filter(item => item.id !== entry.id));
     }

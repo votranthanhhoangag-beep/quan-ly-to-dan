@@ -372,24 +372,17 @@ function AppContent({ initialTab }: { initialTab: string }) {
   };
 
   useEffect(() => {
-    let dismissTimer: number | undefined;
     const handleSyncStatus = (event: Event) => {
       const detail = (event as CustomEvent<{ status: string; message: string }>).detail;
       if (!detail) return;
+      if (['pending', 'syncing', 'sent'].includes(detail.status)) return;
       setSyncNotice(detail);
-      if (dismissTimer !== undefined) window.clearTimeout(dismissTimer);
-      if (detail.status === 'sent') {
-        dismissTimer = window.setTimeout(() => setSyncNotice(null), 6000);
-      }
     };
     const handleOffline = () => setSyncNotice({
       status: 'offline',
       message: 'Mất kết nối mạng. Dữ liệu mới sẽ được lưu trên thiết bị và đồng bộ lại khi có mạng.'
     });
-    const handleOnline = () => setSyncNotice({
-      status: 'syncing',
-      message: 'Đã có kết nối. Đang đồng bộ dữ liệu đang chờ...'
-    });
+    const handleOnline = () => setSyncNotice(null);
     const handlePermissionDenied = (event: Event) => {
       const message = (event as CustomEvent<string>).detail;
       setSyncNotice({ status: 'error', message: message || 'Tài khoản không đủ quyền thực hiện thao tác.' });
@@ -409,7 +402,6 @@ function AppContent({ initialTab }: { initialTab: string }) {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('erp:permission-denied', handlePermissionDenied);
       window.removeEventListener('erp:audit-log-error', handleAuditError);
-      if (dismissTimer !== undefined) window.clearTimeout(dismissTimer);
     };
   }, []);
 

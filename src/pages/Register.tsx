@@ -45,7 +45,7 @@ export default function Register() {
         p_tenant_name: normalizedTenantName,
         p_user_id: data.user.id,
         p_email: normalizedEmail
-      });
+      }).abortSignal(AbortSignal.timeout(8000));
       if (registrationError) throw registrationError;
 
       setSuccess(true);

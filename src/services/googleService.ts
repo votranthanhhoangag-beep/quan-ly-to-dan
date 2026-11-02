@@ -88,24 +88,33 @@ const flushPendingSaves = async () => {
   pendingSaveFlush = (async () => {
     while (navigator.onLine) {
       const currentPending = readPendingSaves();
-      const sheetName = Object.keys(currentPending)[0];
-      if (!sheetName) break;
-      const items = currentPending[sheetName];
-      if (!items) continue;
-      emitSyncStatus('syncing', `Đang đồng bộ dữ liệu ${sheetName}...`);
-      try {
-        await sendSheetSnapshot(sheetName, items);
-        const latestPending = readPendingSaves();
-        if (JSON.stringify(latestPending[sheetName]) === JSON.stringify(items)) {
-          delete latestPending[sheetName];
-          writePendingSaves(latestPending);
+      const entries = Object.entries(currentPending);
+      if (entries.length === 0) break;
+
+      const results = await Promise.allSettled(entries.map(([sheetName, items]) =>
+        sendSheetSnapshot(sheetName, items)
+      ));
+      const latestPending = readPendingSaves();
+      let hasFailure = false;
+      results.forEach((result, index) => {
+        const [sheetName, items] = entries[index];
+        if (result.status === 'fulfilled') {
+          if (JSON.stringify(latestPending[sheetName]) === JSON.stringify(items)) {
+            delete latestPending[sheetName];
+          }
+          return;
         }
-      } catch (error) {
-        console.error(`Không thể đồng bộ dữ liệu (${sheetName}):`, error);
-        const detail = error instanceof DOMException && error.name === 'TimeoutError'
+
+        hasFailure = true;
+        console.error(`Không thể đồng bộ dữ liệu (${sheetName}):`, result.reason);
+        const detail = result.reason instanceof DOMException && result.reason.name === 'TimeoutError'
           ? `Hết thời gian chờ đồng bộ dữ liệu ${sheetName}. Dữ liệu vẫn được giữ trên thiết bị và sẽ tự thử lại.`
           : `Không thể đồng bộ dữ liệu ${sheetName}. Dữ liệu vẫn được giữ trên thiết bị và sẽ tự thử lại.`;
         emitSyncStatus('error', detail);
+      });
+      writePendingSaves(latestPending);
+
+      if (hasFailure) {
         schedulePendingSaveRetry();
         return;
       }
@@ -113,7 +122,6 @@ const flushPendingSaves = async () => {
 
     if (Object.keys(readPendingSaves()).length === 0) {
       retryDelay = 1000;
-      emitSyncStatus('sent', 'Đã gửi dữ liệu đang chờ đồng bộ. Máy chủ chưa cung cấp xác nhận lưu cuối cùng.');
     } else if (navigator.onLine) {
       schedulePendingSaveRetry();
     }
@@ -134,7 +142,6 @@ const schedulePendingSaveRetry = () => {
 
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {
-    emitSyncStatus('syncing', 'Đã có kết nối. Đang đồng bộ dữ liệu đang chờ...');
     retryDelay = 1000;
     void flushPendingSaves();
   });
@@ -142,6 +149,36 @@ if (typeof window !== 'undefined') {
     emitSyncStatus('offline', 'Mất kết nối mạng. Dữ liệu mới sẽ được lưu trên thiết bị và đồng bộ lại khi có mạng.');
   });
   if (navigator.onLine && Object.keys(readPendingSaves()).length) schedulePendingSaveRetry();
+};
+
+export const getCachedSheetData = (sheetName: string): unknown[] | null =>
+  readPendingSaves()[sheetName] ?? readCachedSheetData(sheetName);
+
+const fetchRemoteSheetData = async (sheetName: string): Promise<unknown[]> => {
+  const res = await fetch(`${WEB_APP_URL}?sheetName=${encodeURIComponent(sheetName)}`, {
+    method: 'GET',
+    redirect: 'follow',
+    signal: AbortSignal.timeout(SAVE_TIMEOUT_MS)
+  });
+  if (!res.ok) {
+    throw new Error(`Google Sheets trả về HTTP ${res.status} khi đọc ${sheetName}.`);
+  }
+  const text = await res.text();
+  if (!text) return [];
+  const data: unknown = JSON.parse(text);
+  if (!Array.isArray(data)) {
+    throw new Error(`Dữ liệu Google Sheets không đúng định dạng mảng (${sheetName}).`);
+  }
+  cacheSheetData(sheetName, data);
+  return data;
+};
+
+export async function refreshSheetData(sheetName: string): Promise<unknown[]> {
+  const pending = readPendingSaves()[sheetName];
+  if (pending) return pending;
+
+  const remoteData = await fetchRemoteSheetData(sheetName);
+  return readPendingSaves()[sheetName] ?? remoteData;
 }
 
 /**
@@ -151,22 +188,7 @@ export async function fetchSheetData(sheetName: string) {
   try {
     const pending = readPendingSaves()[sheetName];
     if (pending) return pending;
-    const res = await fetch(`${WEB_APP_URL}?sheetName=${encodeURIComponent(sheetName)}`, {
-      method: 'GET',
-      redirect: 'follow',
-      signal: AbortSignal.timeout(SAVE_TIMEOUT_MS)
-    });
-    if (!res.ok) {
-      throw new Error(`Google Sheets trả về HTTP ${res.status} khi đọc ${sheetName}.`);
-    }
-    const text = await res.text();
-    if (!text) return [];
-    const data: unknown = JSON.parse(text);
-    if (!Array.isArray(data)) {
-      throw new Error(`Dữ liệu Google Sheets không đúng định dạng mảng (${sheetName}).`);
-    }
-    cacheSheetData(sheetName, data);
-    return data;
+    return await fetchRemoteSheetData(sheetName);
   } catch (error) {
     const cachedData = readCachedSheetData(sheetName);
     if (cachedData) {
@@ -182,10 +204,15 @@ export async function fetchSheetData(sheetName: string) {
  */
 export async function saveSheetData(sheetName: string, items: unknown[]) {
   if (!items) return;
-  cacheSheetData(sheetName, items);
-  queueSheetSave(sheetName, items);
-  if (!navigator.onLine) return;
-  await flushPendingSaves();
+  try {
+    cacheSheetData(sheetName, items);
+    queueSheetSave(sheetName, items);
+    if (!navigator.onLine) return;
+    await flushPendingSaves();
+  } catch (error) {
+    console.error(`Không thể lưu dữ liệu (${sheetName}):`, error);
+    emitSyncStatus('error', `Không thể lưu dữ liệu ${sheetName}. Hãy thử lại và kiểm tra kết nối mạng.`);
+  }
 }
 
 /**
@@ -207,7 +234,8 @@ export async function uploadImageToGoogleDrive(file: File): Promise<string | nul
             base64: base64String,
             filename: file.name,
             mimeType: file.type
-          })
+          }),
+          signal: AbortSignal.timeout(SAVE_TIMEOUT_MS)
         });
         resolve("https://drive.google.com");
       } catch (err) {

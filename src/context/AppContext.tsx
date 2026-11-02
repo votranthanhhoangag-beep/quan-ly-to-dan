@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { fetchSheetData, saveSheetData } from '../services/googleService';
+import { fetchSheetData, getCachedSheetData, refreshSheetData, saveSheetData } from '../services/googleService';
 import { useAuth, type Permission } from './AuthContext';
 import { logAction } from '../services/auditLog';
 
@@ -289,6 +289,22 @@ const normalizeRecordArray = <T,>(value: unknown): T[] => {
 const RECEIVED_GOODS_STORAGE_KEY = 'erp_nhan_hang_dan_data';
 const KNITTING_EXPORT_STORAGE_KEY = 'erp_xuat_hang_dan_data';
 const EXPENSE_STORAGE_KEY = 'erp_expenses_data';
+const APP_DATA_SHEETS = [
+  'products',
+  'materials',
+  'expensesCat',
+  'otherExpensesCat',
+  'vehicles',
+  'slips',
+  'expenses',
+  'mileageLogs',
+  'depositSlips',
+  'contracts',
+  'knittingExportSlips',
+  'defectiveGoodsImportSlips',
+  'systemConfig',
+  'expenseAllocations'
+] as const;
 
 interface ReceivedGoodsHistoryRecord {
   contractId: number | string;
@@ -565,13 +581,173 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
   const isLoaded = useRef<boolean>(false);
+  const persistenceEffectsMounted = useRef(false);
+  const suppressedSaveSnapshots = useRef(new Map<string, unknown>());
+  const locallyModifiedSheets = useRef(new Set<string>());
 
   useEffect(() => {
+    let active = true;
+
+    const markAsHydrated = (sheetName: string, value: unknown) => {
+      suppressedSaveSnapshots.current.set(sheetName, value);
+    };
+
+    const applySheetSnapshot = (sheetName: string, rawValue: unknown[]) => {
+      switch (sheetName) {
+        case 'products': {
+          const value = sortCategoryItemsAZ(normalizeRecordArray<CategoryItem>(rawValue));
+          markAsHydrated(sheetName, value);
+          setProducts(value);
+          break;
+        }
+        case 'materials': {
+          const value = sortCategoryItemsAZ(normalizeRecordArray<CategoryItem>(rawValue));
+          markAsHydrated(sheetName, value);
+          setMaterials(value);
+          break;
+        }
+        case 'expensesCat': {
+          const categories = normalizeRecordArray<CategoryItem>(rawValue);
+          const value = sortCategoryItemsAZ(categories.length ? categories : DEFAULT_EXPENSE_CATEGORIES);
+          markAsHydrated(sheetName, value);
+          setExpensesCat(value);
+          break;
+        }
+        case 'otherExpensesCat': {
+          const value = sortCategoryItemsAZ(normalizeRecordArray<CategoryItem>(rawValue));
+          markAsHydrated(sheetName, value);
+          setOtherExpensesCat(value);
+          break;
+        }
+        case 'vehicles': {
+          const value = normalizeRecordArray<VehicleCategoryItem>(rawValue);
+          markAsHydrated(sheetName, value);
+          setVehicles(value);
+          break;
+        }
+        case 'slips': {
+          const value = normalizeRecordArray<SlipItem>(rawValue);
+          markAsHydrated(sheetName, value);
+          setSlips(value);
+          break;
+        }
+        case 'expenses': {
+          const remote = normalizeRecordArray<ExpenseItem>(rawValue);
+          const local = readLocalStorageArray<ExpenseItem>(EXPENSE_STORAGE_KEY) || [];
+          const value = mergeExpenseRecords(remote, local);
+          saveLocalStorageArray(EXPENSE_STORAGE_KEY, value);
+          markAsHydrated(sheetName, value);
+          setExpenses(value);
+          break;
+        }
+        case 'mileageLogs': {
+          const value = normalizeRecordArray<MileageLog>(rawValue);
+          markAsHydrated(sheetName, value);
+          setMileageLogs(value);
+          break;
+        }
+        case 'depositSlips': {
+          const value = normalizeRecordArray<DepositSlip>(rawValue);
+          markAsHydrated(sheetName, value);
+          setDepositSlips(value);
+          break;
+        }
+        case 'contracts': {
+          const value = restoreReceivedGoodsHistory(
+            normalizeRecordArray<ContractItem>(rawValue),
+            readLocalStorageArray<ReceivedGoodsHistoryRecord>(RECEIVED_GOODS_STORAGE_KEY)
+          );
+          markAsHydrated(sheetName, value);
+          setContracts(value);
+          break;
+        }
+        case 'knittingExportSlips': {
+          const value = readLocalStorageArray<KnittingExportSlip>(KNITTING_EXPORT_STORAGE_KEY)
+            ?? normalizeRecordArray<KnittingExportSlip>(rawValue);
+          saveLocalStorageArray(KNITTING_EXPORT_STORAGE_KEY, value);
+          markAsHydrated(sheetName, value);
+          setKnittingExportSlips(value);
+          break;
+        }
+        case 'defectiveGoodsImportSlips': {
+          const value = normalizeRecordArray<DefectiveGoodsImportSlip>(rawValue);
+          markAsHydrated(sheetName, value);
+          setDefectiveGoodsImportSlips(value);
+          break;
+        }
+        case 'systemConfig': {
+          const value = normalizeSystemConfiguration(normalizeRecordArray<unknown>(rawValue)[0]);
+          markAsHydrated(sheetName, value);
+          setSystemConfiguration(value);
+          break;
+        }
+        case 'expenseAllocations': {
+          const value = normalizeRecordArray<ExpenseAllocation>(rawValue);
+          markAsHydrated(sheetName, value);
+          setExpenseAllocations(value);
+          break;
+        }
+      }
+    };
+
+    const applyAvailableSnapshots = (snapshots: Map<string, unknown[]>) => {
+      snapshots.forEach((value, sheetName) => applySheetSnapshot(sheetName, value));
+    };
+
+    const hydrateFromCache = () => {
+      const cachedSnapshots = new Map<string, unknown[]>();
+      APP_DATA_SHEETS.forEach(sheetName => {
+        const cached = getCachedSheetData(sheetName);
+        if (cached !== null) cachedSnapshots.set(sheetName, cached);
+      });
+
+      if (!cachedSnapshots.has('expenses')) {
+        const localExpenses = readLocalStorageArray<ExpenseItem>(EXPENSE_STORAGE_KEY);
+        if (localExpenses !== null) cachedSnapshots.set('expenses', localExpenses);
+      }
+      if (!cachedSnapshots.has('knittingExportSlips')) {
+        const localExports = readLocalStorageArray<KnittingExportSlip>(KNITTING_EXPORT_STORAGE_KEY);
+        if (localExports !== null) cachedSnapshots.set('knittingExportSlips', localExports);
+      }
+
+      if (cachedSnapshots.size === 0) return false;
+      applyAvailableSnapshots(cachedSnapshots);
+      return true;
+    };
+
+    const refreshSnapshotsInBackground = async () => {
+      if (!navigator.onLine) return;
+      const results = await Promise.allSettled(APP_DATA_SHEETS.map(async sheetName => ({
+        sheetName,
+        value: await refreshSheetData(sheetName)
+      })));
+      if (!active) return;
+
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          if (!locallyModifiedSheets.current.has(result.value.sheetName)) {
+            applySheetSnapshot(result.value.sheetName, result.value.value);
+          }
+        } else {
+          console.error(`Không thể làm mới dữ liệu nền (${APP_DATA_SHEETS[index]}):`, result.reason);
+        }
+      });
+    };
+
     async function initData() {
       setIsDataLoaded(false);
       setDataLoadError('');
       setIsSystemConfigurationLoaded(false);
       isLoaded.current = false;
+
+      if (hydrateFromCache()) {
+        isLoaded.current = true;
+        setIsDataLoaded(true);
+        setIsSystemConfigurationLoaded(true);
+        void refreshSnapshotsInBackground();
+        return;
+      }
+
       try {
         const [p, m, ec, otherEc, v, s, exp, ml, ds, ct, knittingExports, defectiveImports, config, allocations] = await Promise.all([
           fetchSheetData('products'),
@@ -590,30 +766,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           fetchSheetData('expenseAllocations')
         ]);
 
-        setProducts(sortCategoryItemsAZ(normalizeRecordArray<CategoryItem>(p)));
-        setMaterials(sortCategoryItemsAZ(normalizeRecordArray<CategoryItem>(m)));
-        const expenseCategories = normalizeRecordArray<CategoryItem>(ec);
-        setExpensesCat(sortCategoryItemsAZ(expenseCategories.length ? expenseCategories : DEFAULT_EXPENSE_CATEGORIES));
-        setOtherExpensesCat(sortCategoryItemsAZ(normalizeRecordArray<CategoryItem>(otherEc)));
-        setVehicles(normalizeRecordArray<VehicleCategoryItem>(v));
-        setSlips(normalizeRecordArray<SlipItem>(s));
-        const remoteExpenses = normalizeRecordArray<ExpenseItem>(exp);
-        const localExpenses = readLocalStorageArray<ExpenseItem>(EXPENSE_STORAGE_KEY) || [];
-        setExpenses(mergeExpenseRecords(remoteExpenses, localExpenses));
-        setExpenseAllocations(normalizeRecordArray<ExpenseAllocation>(allocations));
-        setMileageLogs(normalizeRecordArray<MileageLog>(ml));
-        setDepositSlips(normalizeRecordArray<DepositSlip>(ds));
-        const contractRecords = normalizeRecordArray<ContractItem>(ct);
-        const receivedGoodsHistory = readLocalStorageArray<ReceivedGoodsHistoryRecord>(RECEIVED_GOODS_STORAGE_KEY);
-        setContracts(restoreReceivedGoodsHistory(contractRecords, receivedGoodsHistory));
-        setKnittingExportSlips(
-          readLocalStorageArray<KnittingExportSlip>(KNITTING_EXPORT_STORAGE_KEY)
-            ?? normalizeRecordArray<KnittingExportSlip>(knittingExports)
-        );
-        setDefectiveGoodsImportSlips(normalizeRecordArray<DefectiveGoodsImportSlip>(defectiveImports));
-        const systemConfigurations = normalizeRecordArray<unknown>(config);
-        setSystemConfiguration(normalizeSystemConfiguration(systemConfigurations[0]));
+        const snapshots = new Map<string, unknown[]>([
+          ['products', p],
+          ['materials', m],
+          ['expensesCat', ec],
+          ['otherExpensesCat', otherEc],
+          ['vehicles', v],
+          ['slips', s],
+          ['expenses', exp],
+          ['mileageLogs', ml],
+          ['depositSlips', ds],
+          ['contracts', ct],
+          ['knittingExportSlips', knittingExports],
+          ['defectiveGoodsImportSlips', defectiveImports],
+          ['systemConfig', config],
+          ['expenseAllocations', allocations]
+        ]);
+        if (!active) return;
+        applyAvailableSnapshots(snapshots);
       } catch (e) {
+        if (!active) return;
         console.error("Lỗi khi tải dữ liệu ban đầu từ Google Sheets:", e);
         setDataLoadError(e instanceof Error ? e.message : 'Không thể tải dữ liệu từ hệ thống.');
         return;
@@ -623,26 +795,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsDataLoaded(true);
       setIsSystemConfigurationLoaded(true);
     }
-    initData();
+    void initData();
+    return () => {
+      active = false;
+    };
   }, [loadAttempt]);
 
   const retryDataLoad = () => setLoadAttempt(attempt => attempt + 1);
 
-  useEffect(() => { if (isLoaded.current) saveSheetData('products', products); }, [products]);
-  useEffect(() => { if (isLoaded.current) saveSheetData('materials', materials); }, [materials]);
-  useEffect(() => { if (isLoaded.current) saveSheetData('expensesCat', expensesCat); }, [expensesCat]);
-  useEffect(() => { if (isLoaded.current) saveSheetData('otherExpensesCat', otherExpensesCat); }, [otherExpensesCat]);
-  useEffect(() => { if (isLoaded.current) saveSheetData('vehicles', vehicles); }, [vehicles]);
-  useEffect(() => { if (isLoaded.current) saveSheetData('slips', slips); }, [slips]);
+  const shouldPersistSnapshot = (sheetName: string, value: unknown) => {
+    if (!isLoaded.current || !persistenceEffectsMounted.current) return false;
+    if (suppressedSaveSnapshots.current.get(sheetName) !== value) {
+      locallyModifiedSheets.current.add(sheetName);
+      return true;
+    }
+    suppressedSaveSnapshots.current.delete(sheetName);
+    locallyModifiedSheets.current.delete(sheetName);
+    return false;
+  };
+
+  useEffect(() => { if (shouldPersistSnapshot('products', products)) void saveSheetData('products', products); }, [products]);
+  useEffect(() => { if (shouldPersistSnapshot('materials', materials)) void saveSheetData('materials', materials); }, [materials]);
+  useEffect(() => { if (shouldPersistSnapshot('expensesCat', expensesCat)) void saveSheetData('expensesCat', expensesCat); }, [expensesCat]);
+  useEffect(() => { if (shouldPersistSnapshot('otherExpensesCat', otherExpensesCat)) void saveSheetData('otherExpensesCat', otherExpensesCat); }, [otherExpensesCat]);
+  useEffect(() => { if (shouldPersistSnapshot('vehicles', vehicles)) void saveSheetData('vehicles', vehicles); }, [vehicles]);
+  useEffect(() => { if (shouldPersistSnapshot('slips', slips)) void saveSheetData('slips', slips); }, [slips]);
   useEffect(() => {
-    if (!isLoaded.current) return;
+    if (!shouldPersistSnapshot('expenses', expenses)) return;
     saveLocalStorageArray(EXPENSE_STORAGE_KEY, expenses);
     void saveSheetData('expenses', expenses);
   }, [expenses]);
-  useEffect(() => { if (isLoaded.current) saveSheetData('expenseAllocations', expenseAllocations); }, [expenseAllocations]);
-  useEffect(() => { if (isLoaded.current) saveSheetData('mileageLogs', mileageLogs); }, [mileageLogs]);
-  useEffect(() => { if (isLoaded.current) saveSheetData('depositSlips', depositSlips); }, [depositSlips]);
-  useEffect(() => { if (isLoaded.current) saveSheetData('contracts', contracts); }, [contracts]);
+  useEffect(() => { if (shouldPersistSnapshot('expenseAllocations', expenseAllocations)) void saveSheetData('expenseAllocations', expenseAllocations); }, [expenseAllocations]);
+  useEffect(() => { if (shouldPersistSnapshot('mileageLogs', mileageLogs)) void saveSheetData('mileageLogs', mileageLogs); }, [mileageLogs]);
+  useEffect(() => { if (shouldPersistSnapshot('depositSlips', depositSlips)) void saveSheetData('depositSlips', depositSlips); }, [depositSlips]);
+  useEffect(() => { if (shouldPersistSnapshot('contracts', contracts)) void saveSheetData('contracts', contracts); }, [contracts]);
   useEffect(() => {
     if (!isLoaded.current) return;
     saveLocalStorageArray(RECEIVED_GOODS_STORAGE_KEY, contracts
@@ -653,18 +839,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })));
   }, [contracts]);
   useEffect(() => {
-    if (!isLoaded.current) return;
+    if (!shouldPersistSnapshot('knittingExportSlips', knittingExportSlips)) return;
     saveLocalStorageArray(KNITTING_EXPORT_STORAGE_KEY, knittingExportSlips);
-    saveSheetData('knittingExportSlips', knittingExportSlips);
+    void saveSheetData('knittingExportSlips', knittingExportSlips);
   }, [knittingExportSlips]);
+  useEffect(() => { if (shouldPersistSnapshot('defectiveGoodsImportSlips', defectiveGoodsImportSlips)) void saveSheetData('defectiveGoodsImportSlips', defectiveGoodsImportSlips); }, [defectiveGoodsImportSlips]);
   useEffect(() => {
-    if (isLoaded.current) saveSheetData('defectiveGoodsImportSlips', defectiveGoodsImportSlips);
-  }, [defectiveGoodsImportSlips]);
-  useEffect(() => {
-    if (isLoaded.current) {
-      saveSheetData('systemConfig', systemConfiguration ? [systemConfiguration] : []);
+    if (shouldPersistSnapshot('systemConfig', systemConfiguration)) {
+      void saveSheetData('systemConfig', systemConfiguration ? [systemConfiguration] : []);
     }
   }, [systemConfiguration]);
+  useEffect(() => {
+    persistenceEffectsMounted.current = true;
+  }, []);
 
   const sortAZ = <T extends Record<string, any>>(list: T[], key: keyof T): T[] => {
     return [...list].sort((a, b) => String(a[key]).localeCompare(String(b[key]), 'vi', { sensitivity: 'base' }));
