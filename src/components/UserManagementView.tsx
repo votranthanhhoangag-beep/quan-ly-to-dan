@@ -176,7 +176,7 @@ export default function UserManagementView() {
       setNewRole('ke_toan');
       await fetchUsers();
     } catch (err: unknown) {
-      console.error('Lỗi tạo người dùng:', err);
+      console.log('Chi tiết lỗi khi tạo người dùng từ Supabase:', err);
       const message = err instanceof Error ? err.message : '';
       setCreateError(
         message.includes('đã được sử dụng') ||
