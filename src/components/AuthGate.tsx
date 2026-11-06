@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 
 export default function AuthGate({ children }: { children: ReactNode }) {
   const { status, user, error, signIn } = useAuth();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
@@ -39,10 +39,14 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   if (status !== 'ready' || !user) {
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
+      if (!username.trim() || !password) {
+        setFormError('Vui lòng nhập tên đăng nhập và mật khẩu.');
+        return;
+      }
       setSubmitting(true);
       setFormError('');
       try {
-        await signIn(email, password);
+        await signIn(username, password);
       } catch (signInError) {
         setFormError(signInError instanceof Error ? signInError.message : 'Không thể đăng nhập.');
       } finally {
@@ -53,8 +57,8 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       <main style={screenStyle}>
         <form onSubmit={handleSubmit} style={cardStyle}>
           <h1 style={headingStyle}>Đăng nhập ERP Lục Bình</h1>
-          <label style={labelStyle}>Email
-            <input autoComplete="username" type="email" required value={email} onChange={event => setEmail(event.target.value)} style={inputStyle} />
+          <label style={labelStyle}>Tên đăng nhập / Tên hiển thị
+            <input autoComplete="username" type="text" required value={username} onChange={event => setUsername(event.target.value)} style={inputStyle} />
           </label>
           <label style={labelStyle}>Mật khẩu
             <input autoComplete="current-password" type="password" required value={password} onChange={event => setPassword(event.target.value)} style={inputStyle} />

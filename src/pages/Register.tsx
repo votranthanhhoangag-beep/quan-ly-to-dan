@@ -20,10 +20,14 @@ export default function Register() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setSubmitting(true);
     setErrorMessage('');
     const normalizedEmail = email.trim();
+    if (normalizedEmail.toLowerCase().endsWith('@erp.local')) {
+      setErrorMessage('Miền tài khoản nội bộ chỉ dành cho người dùng do quản trị viên tạo.');
+      return;
+    }
 
+    setSubmitting(true);
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();

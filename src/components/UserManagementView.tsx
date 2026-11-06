@@ -2,10 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useAuth, type UserRole } from '../context/AuthContext';
 import { supabase } from '../services/supabaseClient';
+import { getInternalEmail } from '../utils/username';
 
 interface ManagedUser {
   user_id: string;
-  email: string | null;
   username: string;
   role: UserRole;
   auth_created_at: string | null;
@@ -13,7 +13,7 @@ interface ManagedUser {
 }
 
 const roleLabels: Record<UserRole, string> = {
-  admin: 'Admin (Toàn quyền)',
+  admin: 'Quản trị viên',
   ke_toan: 'Kế toán',
   kho_to_dan: 'Tổ trưởng / Thủ kho'
 };
@@ -54,7 +54,6 @@ const normalizeManagedUsers = (value: unknown): ManagedUser[] => {
     return [{
       user_id: profile.user_id,
       username,
-      email: typeof profile.email === 'string' ? profile.email : username || '—',
       role,
       auth_created_at: typeof profile.auth_created_at === 'string'
         ? profile.auth_created_at
@@ -75,7 +74,6 @@ export default function UserManagementView() {
 
   // Form tạo user phụ mới
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newUsername, setNewUsername] = useState('');
   const [newRole, setNewRole] = useState<UserRole>('ke_toan');
@@ -84,7 +82,7 @@ export default function UserManagementView() {
 
   const isAdmin = user?.role === 'admin';
 
-  const loadUsers = useCallback(async () => {
+  const fetchUsers = useCallback(async () => {
     if (!isAdmin) {
       setLoading(false);
       return;
@@ -123,13 +121,14 @@ export default function UserManagementView() {
   }, [isAdmin]);
 
   useEffect(() => {
-    void Promise.resolve().then(loadUsers);
-  }, [loadUsers]);
+    void Promise.resolve().then(fetchUsers);
+  }, [fetchUsers]);
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newEmail || !newPassword || !newUsername) {
-      setCreateError('Vui lòng điền đầy đủ email, mật khẩu và tên hiển thị.');
+    const username = newUsername.trim();
+    if (!username || !newPassword.trim()) {
+      setCreateError('Vui lòng nhập tên đăng nhập, mật khẩu và chọn vai trò.');
       return;
     }
     if (newPassword.length < 6) {
@@ -142,6 +141,7 @@ export default function UserManagementView() {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
       if (!supabaseUrl || !supabaseAnonKey) throw new Error('Chưa cấu hình Supabase URL/Key.');
+      const internalEmail = getInternalEmail(username);
 
       // Tạo client tạm thời không lưu session để không làm Admin bị đăng xuất
       const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
@@ -149,39 +149,46 @@ export default function UserManagementView() {
       });
 
       const { data: authData, error: authError } = await tempClient.auth.signUp({
-        email: newEmail.trim(),
+        email: internalEmail,
         password: newPassword,
-        options: {
-          data: {
-            username: newUsername.trim(),
-            role: newRole
-          }
-        }
+        options: { data: { username } }
       });
 
       if (authError) throw authError;
       if (!authData.user) throw new Error('Không thể tạo tài khoản người dùng.');
+      if (authData.user.identities?.length === 0) {
+        throw new Error('Tên đăng nhập này đã được sử dụng. Vui lòng chọn tên khác.');
+      }
 
-      // Cập nhật ngay vào user_profiles
       if (!supabase) throw new Error('Supabase chưa được cấu hình.');
-      const { error: profileError } = await supabase.from('user_profiles').upsert({
-        user_id: authData.user.id,
-        username: newUsername.trim(),
-        role: newRole,
-        email: newEmail.trim()
-      });
+      const { error: profileError } = await supabase
+        .from('user_profiles')
+        .update({ username, role: newRole })
+        .eq('user_id', authData.user.id)
+        .select('user_id')
+        .single();
       if (profileError) throw profileError;
 
-      setNotice(`✅ Đã tạo tài khoản ${newEmail.trim()} thành công với vai trò: ${roleLabels[newRole]}!`);
+      setNotice(`✅ Đã tạo tài khoản "${username}" thành công với vai trò ${roleLabels[newRole]}.`);
       setIsCreateModalOpen(false);
-      setNewEmail('');
       setNewPassword('');
       setNewUsername('');
       setNewRole('ke_toan');
-      await loadUsers();
+      await fetchUsers();
     } catch (err: unknown) {
       console.error('Lỗi tạo người dùng:', err);
-      setCreateError(err instanceof Error ? err.message : 'Lỗi khi tạo tài khoản người dùng.');
+      const message = err instanceof Error ? err.message : '';
+      setCreateError(
+        message.includes('đã được sử dụng') ||
+        /already registered|already exists|duplicate key/i.test(message)
+          ? 'Tên đăng nhập này đã được sử dụng. Vui lòng chọn tên khác.'
+          : message.startsWith('Tên đăng nhập') ||
+            message.startsWith('Mật khẩu') ||
+            message.startsWith('Vui lòng') ||
+            message.startsWith('Supabase')
+            ? message
+            : 'Không thể tạo tài khoản. Vui lòng kiểm tra quyền quản lý người dùng và kết nối Supabase.'
+      );
     } finally {
       setIsCreating(false);
     }
@@ -217,7 +224,7 @@ export default function UserManagementView() {
         profile.user_id === target.user_id ? { ...profile, role } : profile
       ));
       setDraftRoles(current => ({ ...current, [target.user_id]: role }));
-      setNotice(`Đã cập nhật vai trò của ${target.email || target.username} thành ${roleLabels[role]}.`);
+      setNotice(`Đã cập nhật vai trò của ${target.username} thành ${roleLabels[role]}.`);
     } catch (saveError) {
       console.error('Không thể cập nhật vai trò người dùng:', saveError);
       setError(saveError instanceof Error ? saveError.message : 'Không thể cập nhật vai trò người dùng.');
@@ -254,7 +261,7 @@ export default function UserManagementView() {
           </button>
           <button
             type="button"
-            onClick={() => void loadUsers()}
+            onClick={() => void fetchUsers()}
             disabled={loading}
             style={{ padding: '9px 14px', borderRadius: '8px', backgroundColor: '#fff', color: '#334155', border: '1px solid #cbd5e1', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
           >
@@ -294,11 +301,10 @@ export default function UserManagementView() {
 
         <div style={{ overflowX: 'auto', width: '100%' }}>
           <table style={{ width: '100%', minWidth: '700px', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '1px solid #cbd5e1', color: '#475569' }}>
-                <th style={{ padding: '10px 14px', fontWeight: 600 }}>Email</th>
-                <th style={{ padding: '10px 14px', fontWeight: 600 }}>Tên hiển thị</th>
-                <th style={{ padding: '10px 14px', fontWeight: 600 }}>Vai trò / Phân quyền</th>
+          <thead>
+            <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '1px solid #cbd5e1', color: '#475569' }}>
+              <th style={{ padding: '10px 14px', fontWeight: 600 }}>Tên đăng nhập / Tên hiển thị</th>
+              <th style={{ padding: '10px 14px', fontWeight: 600 }}>Vai trò / Phân quyền</th>
                 <th style={{ padding: '10px 14px', fontWeight: 600 }}>Ngày tạo</th>
                 <th style={{ padding: '10px 14px', fontWeight: 600 }}>Trạng thái</th>
                 <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 600 }}>Thao tác</th>
@@ -306,17 +312,16 @@ export default function UserManagementView() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={6} style={{ padding: '30px', textAlign: 'center', color: '#64748b' }}>Đang tải danh sách tài khoản...</td></tr>
+                <tr><td colSpan={5} style={{ padding: '30px', textAlign: 'center', color: '#64748b' }}>Đang tải danh sách tài khoản...</td></tr>
               ) : users.length === 0 ? (
-                <tr><td colSpan={6} style={{ padding: '30px', textAlign: 'center', color: '#64748b' }}>Chưa có hồ sơ người dùng nào trong cơ sở dữ liệu. Bấm "➕ Tạo người dùng mới" để bắt đầu!</td></tr>
+                <tr><td colSpan={5} style={{ padding: '30px', textAlign: 'center', color: '#64748b' }}>Chưa có hồ sơ người dùng nào trong cơ sở dữ liệu. Bấm "➕ Tạo người dùng mới" để bắt đầu!</td></tr>
               ) : users.map(profile => {
                 const status = statusLabels[profile.account_status] || statusLabels.active;
                 const isSelf = profile.user_id === user?.id;
                 const roleChanged = draftRoles[profile.user_id] !== profile.role;
                 return (
                   <tr key={profile.user_id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '10px 14px', fontWeight: 600, color: '#0f172a' }}>{profile.email || '—'}</td>
-                    <td style={{ padding: '10px 14px', color: '#334155' }}>{profile.username}</td>
+                    <td style={{ padding: '10px 14px', fontWeight: 600, color: '#0f172a' }}>{profile.username}</td>
                     <td style={{ padding: '10px 14px' }}>
                       <select
                         value={draftRoles[profile.user_id] || profile.role}
@@ -374,13 +379,14 @@ export default function UserManagementView() {
 
             <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#334155', marginBottom: '4px' }}>Email đăng nhập:</label>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#334155', marginBottom: '4px' }}>Tên đăng nhập / Tên hiển thị:</label>
                 <input
-                  type="email"
+                  type="text"
                   required
-                  placeholder="VD: ketoan@lucbinh.com"
-                  value={newEmail}
-                  onChange={e => setNewEmail(e.target.value)}
+                  autoComplete="username"
+                  placeholder="VD: Nguyễn Văn A"
+                  value={newUsername}
+                  onChange={e => setNewUsername(e.target.value)}
                   style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
                 />
               </div>
@@ -391,21 +397,10 @@ export default function UserManagementView() {
                   type="password"
                   required
                   minLength={6}
+                  autoComplete="new-password"
                   placeholder="Nhập mật khẩu..."
                   value={newPassword}
                   onChange={e => setNewPassword(e.target.value)}
-                  style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#334155', marginBottom: '4px' }}>Tên hiển thị / Họ tên:</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="VD: Nguyễn Văn A (Kế toán)"
-                  value={newUsername}
-                  onChange={e => setNewUsername(e.target.value)}
                   style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box' }}
                 />
               </div>
@@ -417,9 +412,9 @@ export default function UserManagementView() {
                   onChange={e => setNewRole(e.target.value as UserRole)}
                   style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', boxSizing: 'border-box', backgroundColor: '#fff' }}
                 >
-                  <option value="ke_toan">Kế toán (Quản lý hợp đồng, doanh thu, thu chi, báo cáo)</option>
-                  <option value="kho_to_dan">Tổ trưởng / Thủ kho (Quản lý xuất nhập, giao nhận khung, tồn kho)</option>
-                  <option value="admin">Admin (Toàn quyền quản trị hệ thống)</option>
+                  <option value="admin">Quản trị viên</option>
+                  <option value="ke_toan">Kế toán</option>
+                  <option value="kho_to_dan">Tổ trưởng / Thủ kho</option>
                 </select>
                 <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#64748b' }}>
                   {roleDescriptions[newRole]}

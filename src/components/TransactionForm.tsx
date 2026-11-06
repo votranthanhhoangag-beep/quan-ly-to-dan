@@ -22,33 +22,17 @@ type TransactionType = keyof typeof TYPE_PREFIXES;
 const isTransactionType = (value: string): value is TransactionType =>
   Object.prototype.hasOwnProperty.call(TYPE_PREFIXES, value);
 
-const getNextContractNo = (type: TransactionType) => {
+const getNextContractNo = (type: TransactionType, sequence: number) => {
   const currentYear = new Date().getFullYear();
   const prefix = TYPE_PREFIXES[type] || 'HD';
-  try {
-    const savedSeq = localStorage.getItem(`seq_${type}_${currentYear}`) || '1';
-    return `${prefix}-${String(savedSeq).padStart(2, '0')}/${currentYear}`;
-  } catch (error) {
-    console.error('Không thể đọc số thứ tự giao dịch trên thiết bị:', error);
-    return `${prefix}-01/${currentYear}`;
-  }
-};
-
-const getOfflineQueueCount = () => {
-  try {
-    const stored: unknown = JSON.parse(localStorage.getItem('offline_transactions') || '[]');
-    if (!Array.isArray(stored)) throw new Error('Hàng đợi giao dịch ngoại tuyến không đúng định dạng.');
-    return stored.length;
-  } catch (error) {
-    console.error('Không thể đọc hàng đợi giao dịch ngoại tuyến:', error);
-    return 0;
-  }
+  return `${prefix}-${String(sequence).padStart(2, '0')}/${currentYear}`;
 };
 
 export default function TransactionForm() {
+  const [sequence, setSequence] = useState(1);
   const [formData, setFormData] = useState(() => ({
     type: 'XUAT_KHUNG' as TransactionType,
-    contractNo: getNextContractNo('XUAT_KHUNG'),
+    contractNo: getNextContractNo('XUAT_KHUNG', 1),
     pi: '',
     productCode: '',
     householdId: '',
@@ -62,10 +46,9 @@ export default function TransactionForm() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [offlineQueueCount, setOfflineQueueCount] = useState(getOfflineQueueCount);
 
   const handleTypeChange = (type: TransactionType) => {
-    setFormData(prev => ({ ...prev, type, contractNo: getNextContractNo(type) }));
+    setFormData(prev => ({ ...prev, type, contractNo: getNextContractNo(type, sequence) }));
   };
 
   // HÀM NÉN ẢNH TỰ ĐỘNG (GIÚP ẢNH SIÊU NHẸ, TRÁNH LÀM NẶNG GOOGLE SHEETS)
@@ -157,14 +140,12 @@ export default function TransactionForm() {
         alert('✅ Lưu phiếu thành công lên hệ thống!');
         
         const currentYear = new Date().getFullYear();
-        const storageKey = `seq_${formData.type}_${currentYear}`;
-        const currentSeq = parseInt(localStorage.getItem(storageKey) || '1', 10);
-        localStorage.setItem(storageKey, String(currentSeq + 1));
-
+        const nextSequence = sequence + 1;
+        setSequence(nextSequence);
         const prefix = TYPE_PREFIXES[formData.type] || 'HD';
         setFormData(prev => ({
           ...prev,
-          contractNo: `${prefix}-${String(currentSeq + 1).padStart(2, '0')}/${currentYear}`,
+          contractNo: `${prefix}-${String(nextSequence).padStart(2, '0')}/${currentYear}`,
           pi: '',
           productCode: '',
           householdId: '',
@@ -177,56 +158,9 @@ export default function TransactionForm() {
       }
     } catch (err) {
       console.error('Không thể gửi giao dịch lên máy chủ:', err);
-      try {
-        const stored: unknown = JSON.parse(localStorage.getItem('offline_transactions') || '[]');
-        const existingQueue = Array.isArray(stored) ? stored : [];
-        existingQueue.push(payload);
-        localStorage.setItem('offline_transactions', JSON.stringify(existingQueue));
-        setOfflineQueueCount(existingQueue.length);
-        alert('⚠️ Mất kết nối mạng! Phiếu đã được lưu tạm an toàn trên điện thoại. Sẽ tự động đồng bộ khi có mạng.');
-      } catch (storageError) {
-        console.error('Không thể lưu giao dịch vào hàng đợi ngoại tuyến:', storageError);
-        alert('⛔ Không gửi được giao dịch và cũng không thể lưu tạm trên thiết bị. Vui lòng sao chép thông tin trước khi đóng màn hình.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const syncOfflineData = async () => {
-    let queue: unknown[];
-    try {
-      const stored: unknown = JSON.parse(localStorage.getItem('offline_transactions') || '[]');
-      if (!Array.isArray(stored)) throw new Error('Hàng đợi giao dịch ngoại tuyến không đúng định dạng.');
-      queue = stored;
-    } catch (error) {
-      console.error('Không thể đọc hàng đợi giao dịch ngoại tuyến:', error);
-      alert('⛔ Không thể đọc hàng đợi giao dịch lưu tạm trên thiết bị.');
-      return;
-    }
-    if (queue.length === 0) return;
-
-    setLoading(true);
-    let successCount = 0;
-    const remainingQueue: unknown[] = [];
-    try {
-      for (const payload of queue) {
-        try {
-          const res = await callBackendApi('CREATE_TRANSACTION', payload);
-          if (res.status === 'success') successCount++;
-          else remainingQueue.push(payload);
-        } catch (error) {
-          console.error('Không thể đồng bộ một giao dịch ngoại tuyến:', error);
-          remainingQueue.push(payload);
-        }
-      }
-
-      localStorage.setItem('offline_transactions', JSON.stringify(remainingQueue));
-      setOfflineQueueCount(remainingQueue.length);
-      alert(`🔄 Đã đồng bộ thành công ${successCount} phiếu lưu tạm lên Google Sheets!`);
-    } catch (error) {
-      console.error('Không thể cập nhật hàng đợi giao dịch ngoại tuyến:', error);
-      alert('⛔ Không thể cập nhật trạng thái hàng đợi ngoại tuyến. Hãy kiểm tra dung lượng thiết bị.');
+      alert(err instanceof Error
+        ? `⛔ Không thể gửi giao dịch. Dữ liệu chưa được lưu: ${err.message}`
+        : '⛔ Không thể gửi giao dịch. Dữ liệu chưa được lưu.');
     } finally {
       setLoading(false);
     }
@@ -238,15 +172,6 @@ export default function TransactionForm() {
         ⚡ Giao Dịch Nhanh (Tối Ưu 300+ Đơn/Ngày)
       </h2>
 
-      {offlineQueueCount > 0 && (
-        <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', padding: '10px', borderRadius: '6px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: '11px', color: '#92400e', fontWeight: 'bold' }}>⚠️ Có {offlineQueueCount} phiếu lưu tạm chờ đồng bộ!</span>
-          <button onClick={syncOfflineData} style={{ background: '#d97706', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>
-            Đồng bộ ngay
-          </button>
-        </div>
-      )}
-      
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: '10px' }}>
           <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px', fontSize: '12px' }}>Loại giao dịch:</label>

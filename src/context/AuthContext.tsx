@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { isSupabaseConfigured, supabase } from '../services/supabaseClient';
+import { getInternalEmail } from '../utils/username';
 
 export type UserRole = 'admin' | 'ke_toan' | 'kho_to_dan';
 
@@ -39,7 +40,7 @@ interface AuthContextValue {
   status: AuthStatus;
   user: AuthenticatedUser | null;
   error: string;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (usernameOrEmail: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   hasPermission: (permission: Permission) => boolean;
 }
@@ -136,13 +137,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [applySession]);
 
-  const signIn = useCallback(async (email: string, password: string) => {
+  const signIn = useCallback(async (usernameOrEmail: string, password: string) => {
     if (!supabase) throw new Error('Thiếu cấu hình Supabase. Hãy khai báo URL và anon key.');
+    const login = usernameOrEmail.trim();
+    if (!login || !password) throw new Error('Vui lòng nhập tên đăng nhập và mật khẩu.');
     setError('');
+    const email = login.includes('@') ? login : getInternalEmail(login);
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
     if (signInError) {
-      setError(signInError.message);
-      throw signInError;
+      const localizedError = 'Tên đăng nhập hoặc mật khẩu không chính xác, hoặc tài khoản chưa được kích hoạt.';
+      setError(localizedError);
+      throw new Error(localizedError);
     }
   }, []);
 

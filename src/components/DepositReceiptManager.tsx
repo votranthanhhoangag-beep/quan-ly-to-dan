@@ -81,14 +81,7 @@ export default function DepositReceiptManager() {
 
     setDeposits([newDeposit, ...deposits]);
 
-    // PHÁT TÍN HIỆU ĐỒNG BỘ: Lưu trạng thái cọc vào LocalStorage để Tab Hợp Đồng tự động nhận diện & Tích chọn
-    const updatedDepositedContracts = JSON.parse(localStorage.getItem('deposited_contracts') || '[]');
-    if (!updatedDepositedContracts.includes(form.contractNo)) {
-      updatedDepositedContracts.push(form.contractNo);
-      localStorage.setItem('deposited_contracts', JSON.stringify(updatedDepositedContracts));
-    }
-
-    alert(`✅ Tạo phiếu thu tiền cọc thành công cho hợp đồng ${form.contractNo}!\n✨ Tab Hợp Đồng đã được tự động cập nhật trạng thái "Đã nhận cọc".`);
+    alert(`✅ Tạo phiếu thu tiền cọc thành công cho hợp đồng ${form.contractNo}!`);
     
     setShowForm(false);
     setForm({

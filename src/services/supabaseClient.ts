@@ -16,7 +16,7 @@ export const supabase = isSupabaseConfigured
       fetch: fetchWithTimeout
     },
     auth: {
-      persistSession: true,
+      persistSession: false,
       autoRefreshToken: true,
       detectSessionInUrl: true
     }

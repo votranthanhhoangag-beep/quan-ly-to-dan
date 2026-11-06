@@ -329,13 +329,13 @@ function FrameReceiptDashboard({
 }
 
 function AppContent({ initialTab }: { initialTab: string }) {
-  const { isDataLoaded, dataLoadError, retryDataLoad } = useApp();
+  const { isDataLoaded, isRefreshing, dataLoadError, reloadData } = useApp();
   const { user, hasPermission, signOut } = useAuth();
   const navigate = useNavigate();
   const [syncNotice, setSyncNotice] = useState<{ status: string; message: string } | null>(
     () => navigator.onLine ? null : {
       status: 'offline',
-      message: 'Mất kết nối mạng. Dữ liệu mới sẽ được lưu trên thiết bị và đồng bộ lại khi có mạng.'
+      message: 'Mất kết nối mạng. Hãy kết nối lại để tải hoặc lưu dữ liệu lên Supabase.'
     }
   );
   const [selectedTab, setSelectedTab] = useState<string>(initialTab);
@@ -364,6 +364,14 @@ function AppContent({ initialTab }: { initialTab: string }) {
   const activeTab = visibleMenuItems.some(item => item.id === selectedTab)
     ? selectedTab
     : visibleMenuItems[0]?.id || 'auditLogs';
+  const previousActiveTab = useRef(activeTab);
+
+  useEffect(() => {
+    if (previousActiveTab.current === activeTab) return;
+    previousActiveTab.current = activeTab;
+    const refresh = window.setTimeout(reloadData, 0);
+    return () => window.clearTimeout(refresh);
+  }, [activeTab, reloadData]);
 
   const navigateToTab = (tabId: string) => {
     if (tabId === 'inventory') setInventoryInitialTab('FRAME_STOCK');
@@ -381,7 +389,7 @@ function AppContent({ initialTab }: { initialTab: string }) {
     };
     const handleOffline = () => setSyncNotice({
       status: 'offline',
-      message: 'Mất kết nối mạng. Dữ liệu mới sẽ được lưu trên thiết bị và đồng bộ lại khi có mạng.'
+      message: 'Mất kết nối mạng. Hãy kết nối lại để tải hoặc lưu dữ liệu lên Supabase.'
     });
     const handleOnline = () => setSyncNotice(null);
     const handlePermissionDenied = (event: Event) => {
@@ -414,7 +422,7 @@ function AppContent({ initialTab }: { initialTab: string }) {
             <>
               <h1 style={{ margin: '0 0 8px', color: '#b91c1c', fontSize: '18px' }}>Không thể tải dữ liệu ERP</h1>
               <p role="alert" style={{ color: '#475569', lineHeight: 1.5 }}>{dataLoadError}</p>
-              <button type="button" onClick={retryDataLoad} style={{ padding: '10px 14px', border: 0, borderRadius: '6px', backgroundColor: '#2563eb', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
+              <button type="button" onClick={reloadData} disabled={isRefreshing} style={{ padding: '10px 14px', border: 0, borderRadius: '6px', backgroundColor: '#2563eb', color: '#fff', fontWeight: 700, cursor: isRefreshing ? 'wait' : 'pointer' }}>
                 Thử tải lại
               </button>
             </>
@@ -513,6 +521,9 @@ function AppContent({ initialTab }: { initialTab: string }) {
                 <span style={{ color: '#475569', fontSize: '12px', fontWeight: 700 }}>
                   {user?.username} · {roleLabels[user?.role || 'kho_to_dan']}
                 </span>
+                <button type="button" onClick={reloadData} disabled={isRefreshing} style={{ padding: '7px 10px', border: '1px solid #cbd5e1', borderRadius: '6px', backgroundColor: '#fff', color: '#334155', fontWeight: 700, cursor: isRefreshing ? 'wait' : 'pointer' }}>
+                  {isRefreshing ? 'Đang tải...' : 'Làm mới'}
+                </button>
                 <button type="button" onClick={() => void signOut()} style={{ padding: '7px 10px', border: '1px solid #cbd5e1', borderRadius: '6px', backgroundColor: '#fff', color: '#334155', fontWeight: 700, cursor: 'pointer' }}>Đăng xuất</button>
                 <VoiceCommandControl
                   menuItems={visibleMenuItems}

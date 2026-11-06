@@ -1,11 +1,6 @@
 import type { AuthenticatedUser } from '../context/AuthContext';
 import { supabase } from './supabaseClient';
 
-const AUDIT_STORAGE_KEY = 'erp_audit_logs';
-const PENDING_AUDIT_KEY = 'erp_pending_audit_logs';
-const MAX_LOCAL_AUDIT_RECORDS = 1000;
-let auditFlush: Promise<void> | null = null;
-
 export type AuditActionType = 'CREATE' | 'UPDATE' | 'DELETE';
 
 export interface AuditLogEntry {
@@ -26,84 +21,45 @@ const createEventId = () => globalThis.crypto?.randomUUID?.() ||
     return (character === 'x' ? random : (random & 0x3 | 0x8)).toString(16);
   });
 
-export const readAuditLogs = (): AuditLogEntry[] => {
-  try {
-    const value: unknown = JSON.parse(localStorage.getItem(AUDIT_STORAGE_KEY) || '[]');
-    if (!Array.isArray(value)) throw new Error('Dữ liệu nhật ký cục bộ không đúng định dạng.');
-    return value.filter((item): item is AuditLogEntry =>
-      item !== null &&
-      typeof item === 'object' &&
-      typeof item.timestamp === 'string' &&
-      typeof item.username === 'string' &&
-      typeof item.moduleName === 'string' &&
-      typeof item.actionType === 'string'
-    );
-  } catch (error) {
-    console.error('Không thể đọc nhật ký thao tác:', error);
-    return [];
+const emitAuditError = (message: string) => {
+  window.dispatchEvent(new CustomEvent('erp:audit-log-error', { detail: message }));
+};
+
+export async function fetchAuditLogs(date: string): Promise<AuditLogEntry[]> {
+  if (!supabase) throw new Error('Supabase chưa được cấu hình.');
+  const [year, month, day] = date.split('-').map(Number);
+  const startOfDay = new Date(year, month - 1, day);
+  if (
+    !Number.isFinite(startOfDay.getTime()) ||
+    startOfDay.getFullYear() !== year ||
+    startOfDay.getMonth() !== month - 1 ||
+    startOfDay.getDate() !== day
+  ) {
+    throw new Error('Ngày lọc không hợp lệ.');
   }
-};
+  const startOfNextDay = new Date(year, month - 1, day + 1);
 
-const readPendingAuditLogs = (): AuditLogEntry[] => {
-  try {
-    const value: unknown = JSON.parse(localStorage.getItem(PENDING_AUDIT_KEY) || '[]');
-    return Array.isArray(value) ? value.filter((item): item is AuditLogEntry =>
-      item !== null && typeof item === 'object' &&
-      typeof item.id === 'string' && typeof item.timestamp === 'string' &&
-      typeof item.actionType === 'string' && typeof item.moduleName === 'string'
-    ) : [];
-  } catch (error) {
-    console.error('Không thể đọc hàng đợi nhật ký thao tác:', error);
-    return [];
-  }
-};
+  const { data, error } = await supabase
+    .from('audit_logs')
+    .select('id, event_id, actor_user_id, username, role, action_type, module_name, description, target_id, created_at')
+    .gte('created_at', startOfDay.toISOString())
+    .lt('created_at', startOfNextDay.toISOString())
+    .order('created_at', { ascending: false })
+    .limit(1000)
+    .abortSignal(AbortSignal.timeout(8000));
+  if (error) throw error;
 
-const writePendingAuditLogs = (entries: AuditLogEntry[]) => {
-  try {
-    if (entries.length) localStorage.setItem(PENDING_AUDIT_KEY, JSON.stringify(entries));
-    else localStorage.removeItem(PENDING_AUDIT_KEY);
-  } catch (error) {
-    console.error('Không thể lưu hàng đợi nhật ký thao tác:', error);
-    window.dispatchEvent(new CustomEvent('erp:audit-log-error', {
-      detail: 'Không thể lưu hàng đợi nhật ký trên thiết bị.'
-    }));
-  }
-};
-
-const flushPendingAuditLogs = async () => {
-  if (auditFlush) return auditFlush;
-  if (!supabase || !navigator.onLine) return;
-  auditFlush = (async () => {
-    while (navigator.onLine) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const entry = readPendingAuditLogs().find(item => item.userId === user.id);
-      if (!entry) return;
-      const { error } = await supabase.rpc('write_audit_log', {
-        p_event_id: entry.id,
-        p_actor_user_id: entry.userId,
-        p_action_type: entry.actionType,
-        p_module_name: entry.moduleName,
-        p_description: entry.description,
-        p_target_id: entry.targetId
-      }).abortSignal(AbortSignal.timeout(8000));
-      if (error) throw error;
-      writePendingAuditLogs(readPendingAuditLogs().filter(item => item.id !== entry.id));
-    }
-  })().catch(error => {
-    console.error('Không thể đồng bộ hàng đợi nhật ký lên Supabase:', error);
-    window.dispatchEvent(new CustomEvent('erp:audit-log-error', {
-      detail: 'Nhật ký được giữ trên thiết bị nhưng chưa đồng bộ được lên Supabase.'
-    }));
-  }).finally(() => {
-    auditFlush = null;
-  });
-  return auditFlush;
-};
-
-if (typeof window !== 'undefined') {
-  window.addEventListener('online', () => { void flushPendingAuditLogs(); });
-  window.addEventListener('erp:auth-ready', () => { void flushPendingAuditLogs(); });
+  return (data || []).map(item => ({
+    id: item.event_id || `server-${item.id}`,
+    timestamp: item.created_at,
+    userId: item.actor_user_id,
+    username: item.username,
+    role: item.role,
+    actionType: item.action_type as AuditActionType,
+    moduleName: item.module_name,
+    description: item.description,
+    targetId: item.target_id
+  }));
 }
 
 export const logAction = (
@@ -125,23 +81,28 @@ export const logAction = (
     targetId: String(targetId)
   };
 
-  try {
-    const logs = readAuditLogs();
-    localStorage.setItem(AUDIT_STORAGE_KEY, JSON.stringify([entry, ...logs].slice(0, MAX_LOCAL_AUDIT_RECORDS)));
-    window.dispatchEvent(new CustomEvent('erp:audit-log-updated'));
-  } catch (error) {
-    console.error('Không thể lưu nhật ký thao tác trên thiết bị:', error);
-    window.dispatchEvent(new CustomEvent('erp:audit-log-error', {
-      detail: 'Không thể lưu nhật ký trên thiết bị. Hãy kiểm tra dung lượng trình duyệt.'
-    }));
+  if (!supabase) {
+    emitAuditError('Không thể lưu nhật ký thao tác vì Supabase chưa được cấu hình.');
+    return entry;
   }
 
-  if (supabase) {
-    const pending = readPendingAuditLogs();
-    if (!pending.some(item => item.id === entry.id)) {
-      writePendingAuditLogs([entry, ...pending]);
+  void (async () => {
+    try {
+      const { error } = await supabase.rpc('write_audit_log', {
+        p_event_id: entry.id,
+        p_actor_user_id: entry.userId,
+        p_action_type: entry.actionType,
+        p_module_name: entry.moduleName,
+        p_description: entry.description,
+        p_target_id: entry.targetId
+      });
+      if (error) throw error;
+      window.dispatchEvent(new CustomEvent('erp:audit-log-updated'));
+    } catch (error) {
+      console.error('Không thể ghi nhật ký thao tác lên Supabase:', error);
+      emitAuditError('Không thể lưu nhật ký thao tác lên Supabase.');
     }
-    void flushPendingAuditLogs();
-  }
+  })();
+
   return entry;
 };
