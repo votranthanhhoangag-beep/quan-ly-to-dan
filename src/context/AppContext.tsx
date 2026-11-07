@@ -394,23 +394,23 @@ interface AppContextType {
 
   addProduct: (item: CategoryItem) => void;
   updateProduct: (item: CategoryItem) => void;
-  deleteProduct: (id: number) => void;
+  deleteProduct: (id: number | string) => void;
 
   addMaterial: (item: CategoryItem) => void;
   updateMaterial: (item: CategoryItem) => void;
-  deleteMaterial: (id: number) => void;
+  deleteMaterial: (id: number | string) => void;
 
   addExpenseCat: (item: CategoryItem) => void;
   updateExpenseCat: (item: CategoryItem) => void;
-  deleteExpenseCat: (id: number) => void;
+  deleteExpenseCat: (id: number | string) => void;
 
   addOtherExpenseCat: (item: CategoryItem) => void;
   updateOtherExpenseCat: (item: CategoryItem) => void;
-  deleteOtherExpenseCat: (id: number) => void;
+  deleteOtherExpenseCat: (id: number | string) => void;
 
   addVehicle: (item: VehicleCategoryItem) => void;
   updateVehicle: (item: VehicleCategoryItem) => void;
-  deleteVehicle: (id: number) => void;
+  deleteVehicle: (id: number | string) => void;
 
   // PHIẾU KHO
   addSlip: (slip: SlipItem) => void;
