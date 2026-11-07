@@ -94,6 +94,9 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     slips = [],
     expenses = [],
     depositSlips = [],
+    isRefreshing,
+    dataLoadError,
+    reloadData,
     addContract,
     updateContract,
     deleteContract
@@ -1072,9 +1075,24 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
 
   return (
     <div style={{ padding: '16px', backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0', width: '100%', boxSizing: 'border-box' }}>
-      <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#1e293b', marginBottom: '16px' }}>
-        {isWarehouseUser ? '🧺 Danh Sách Hợp Đồng Tổ Đan' : '📋 Quản Lý HĐ CTY & HĐ TỔ ĐAN (Truy Vết Theo Mã Hàng)'}
-      </h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
+        <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#1e293b', margin: 0 }}>
+          {isWarehouseUser ? '🧺 Danh Sách Hợp Đồng Tổ Đan' : '📋 Quản Lý HĐ CTY & HĐ TỔ ĐAN (Truy Vết Theo Mã Hàng)'}
+        </h2>
+        <button
+          type="button"
+          onClick={reloadData}
+          disabled={isRefreshing}
+          style={{ padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', backgroundColor: isRefreshing ? '#e2e8f0' : '#fff', color: '#334155', fontWeight: 700, cursor: isRefreshing ? 'wait' : 'pointer' }}
+        >
+          {isRefreshing ? 'Đang tải...' : '🔄 Làm mới'}
+        </button>
+      </div>
+      {dataLoadError && (
+        <p role="alert" style={{ margin: '0 0 16px', padding: '10px 12px', borderRadius: '6px', backgroundColor: '#fef2f2', color: '#b91c1c' }}>
+          Không thể đồng bộ dữ liệu hợp đồng với Supabase: {dataLoadError}
+        </p>
+      )}
 
       {!isWarehouseUser && <datalist id="companyList">
         {existingCompanyNames.map((comp: any, idx: number) => <option key={idx} value={comp} />)}

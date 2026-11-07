@@ -328,6 +328,92 @@ function FrameReceiptDashboard({
   );
 }
 
+function SyncStatusIndicator() {
+  const [syncState, setSyncState] = useState<{
+    status: 'syncing' | 'synced' | 'error' | 'offline';
+    message: string;
+  }>({
+    status: navigator.onLine ? 'synced' : 'offline',
+    message: navigator.onLine ? 'Đã kết nối Supabase' : 'Mất kết nối mạng'
+  });
+
+  useEffect(() => {
+    let hideTimer: number | undefined;
+
+    const handleSyncStatus = (event: Event) => {
+      const detail = (event as CustomEvent<{ status: string; message: string }>).detail;
+      if (!detail) return;
+      if (detail.status === 'syncing') {
+        if (hideTimer) window.clearTimeout(hideTimer);
+        setSyncState({ status: 'syncing', message: detail.message || 'Đang lưu lên Supabase...' });
+      } else if (detail.status === 'synced') {
+        setSyncState({ status: 'synced', message: detail.message || 'Đã lưu Supabase' });
+        // Tự động chuyển về thông báo gọn gàng sau 4 giây
+        if (hideTimer) window.clearTimeout(hideTimer);
+        hideTimer = window.setTimeout(() => {
+          setSyncState({ status: 'synced', message: 'Dữ liệu đã đồng bộ' });
+        }, 4000);
+      } else if (detail.status === 'error') {
+        setSyncState({ status: 'error', message: detail.message || 'Lỗi lưu Supabase' });
+      }
+    };
+
+    const handleOffline = () => setSyncState({ status: 'offline', message: 'Mất kết nối mạng' });
+    const handleOnline = () => setSyncState({ status: 'synced', message: 'Đã khôi phục kết nối' });
+
+    window.addEventListener('erp:sync-status', handleSyncStatus);
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      if (hideTimer) window.clearTimeout(hideTimer);
+      window.removeEventListener('erp:sync-status', handleSyncStatus);
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, []);
+
+  const config = {
+    syncing: { bg: '#eff6ff', color: '#1d4ed8', border: '#93c5fd', dot: '#3b82f6', text: syncState.message },
+    synced: { bg: '#f0fdf4', color: '#15803d', border: '#86efac', dot: '#22c55e', text: syncState.message },
+    error: { bg: '#fef2f2', color: '#b91c1c', border: '#fca5a5', dot: '#ef4444', text: syncState.message },
+    offline: { bg: '#fffbeb', color: '#b45309', border: '#fde68a', dot: '#f59e0b', text: syncState.message }
+  }[syncState.status];
+
+  return (
+    <div
+      title={syncState.message}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
+        padding: '5px 11px',
+        borderRadius: '999px',
+        fontSize: '12px',
+        fontWeight: 700,
+        backgroundColor: config.bg,
+        color: config.color,
+        border: `1px solid ${config.border}`,
+        transition: 'all 0.25s ease'
+      }}
+    >
+      <span
+        style={{
+          width: '8px',
+          height: '8px',
+          borderRadius: '50%',
+          backgroundColor: config.dot,
+          display: 'inline-block',
+          boxShadow: syncState.status === 'syncing' ? '0 0 6px #3b82f6' : 'none'
+        }}
+      />
+      <span style={{ maxWidth: '240px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {config.text}
+      </span>
+    </div>
+  );
+}
+
 function AppContent({ initialTab }: { initialTab: string }) {
   const { isDataLoaded, isRefreshing, dataLoadError, reloadData } = useApp();
   const { user, hasPermission, signOut } = useAuth();
@@ -518,6 +604,7 @@ function AppContent({ initialTab }: { initialTab: string }) {
                 {visibleMenuItems.find(item => item.id === activeTab)?.label.replace(/^[^ ]+ /u, '') || 'ERP Lục Bình'}
               </strong>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <SyncStatusIndicator />
                 <span style={{ color: '#475569', fontSize: '12px', fontWeight: 700 }}>
                   {user?.username} · {roleLabels[user?.role || 'kho_to_dan']}
                 </span>

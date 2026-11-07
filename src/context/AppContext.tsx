@@ -677,8 +677,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [user]);
   const persistDataStoreSnapshot = useCallback((sheetName: string, value: unknown[]) => {
     if (!user?.id) return;
+    window.dispatchEvent(new CustomEvent('erp:sync-status', {
+      detail: { status: 'syncing', message: `Đang lưu ${sheetName} lên Supabase...` }
+    }));
     void saveDataStore(sheetName, user.id, value).then(remoteValue => {
       applySheetSnapshot(sheetName, remoteValue);
+      setDataLoadError('');
+      window.dispatchEvent(new CustomEvent('erp:sync-status', {
+        detail: { status: 'synced', message: `Đã lưu thành công lên Supabase lúc ${new Date().toLocaleTimeString('vi-VN')}` }
+      }));
     }).catch(error => {
       console.error(`Không thể lưu dữ liệu Supabase (${sheetName}):`, error);
       const message = error instanceof Error ? error.message : 'Không thể lưu dữ liệu lên Supabase.';
