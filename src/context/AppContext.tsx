@@ -445,22 +445,6 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const DEFAULT_EXPENSE_CATEGORIES: CategoryItem[] = [
-  { id: 1, code: 'EXPCAT-01', name: 'Xăng', note: 'Chi phí xăng xe vận chuyển' },
-  { id: 2, code: 'EXPCAT-02', name: 'Dầu', note: 'Chi phí dầu máy, nhiên liệu' },
-  { id: 3, code: 'EXPCAT-03', name: 'Nhân công', note: 'Tiền công thợ đan, lao động' },
-  { id: 4, code: 'EXPCAT-04', name: 'Băng keo', note: 'Vật tư đóng gói' },
-  { id: 5, code: 'EXPCAT-05', name: 'Điện', note: 'Chi phí điện sản xuất & sinh hoạt' },
-  { id: 6, code: 'EXPCAT-06', name: 'Nước', note: 'Chi phí nước sử dụng' },
-  { id: 7, code: 'EXPCAT-07', name: 'Internet', note: 'Cước dịch vụ Internet' },
-  { id: 8, code: 'EXPCAT-08', name: 'Nhà xưởng', note: 'Chi phí mặt bằng, thuê xưởng' },
-  { id: 9, code: 'EXPCAT-09', name: 'Mạng di động', note: 'Cước điện thoại liên lạc' },
-  { id: 10, code: 'EXPCAT-10', name: 'Kéo', note: 'Dụng cụ, kéo cắt' },
-  { id: 11, code: 'EXPCAT-11', name: 'Mua lục bình', note: 'Nguyên liệu lục bình đan' },
-  { id: 12, code: 'EXPCAT-12', name: 'Nan cong tre', note: 'Nguyên liệu nan tre cong' },
-  { id: 13, code: 'EXPCAT-13', name: 'Khác', note: 'Các khoản chi phí phát sinh khác' },
-];
-
 const normalizeCategoryItem = (item: CategoryItem): CategoryItem => ({
   ...item,
   code: String(item.code || '').trim().toLocaleUpperCase('vi'),
@@ -479,7 +463,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const { user, hasPermission } = useAuth();
   const [products, setProducts] = useState<CategoryItem[]>([]);
   const [materials, setMaterials] = useState<CategoryItem[]>([]);
-  const [expensesCat, setExpensesCat] = useState<CategoryItem[]>(DEFAULT_EXPENSE_CATEGORIES);
+  const [expensesCat, setExpensesCat] = useState<CategoryItem[]>([]);
   const [otherExpensesCat, setOtherExpensesCat] = useState<CategoryItem[]>([]);
   const [vehicles, setVehicles] = useState<VehicleCategoryItem[]>([]);
   const [slips, setSlips] = useState<SlipItem[]>([]);
@@ -533,7 +517,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       case 'expensesCat': {
         const categories = normalizeRecordArray<CategoryItem>(rawValue);
-        const value = sortCategoryItemsAZ(categories.length ? categories : DEFAULT_EXPENSE_CATEGORIES);
+        const value = sortCategoryItemsAZ(categories);
         suppressedSaveSnapshots.current.set(sheetName, value);
         setExpensesCat(value);
         break;
