@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { useApp, type CategoryItem, type VehicleCategoryItem } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
+import { saveDataStore } from '../services/supabaseDataService';
 import { formatVehicleExpiryDate as formatVehicleDate } from '../utils/vehicleExpiry';
 import { recordVehicleMaintenance } from '../utils/vehicleMaintenance';
 
@@ -30,6 +32,7 @@ const getTodayISODate = () => {
 };
 
 export default function CategoryManager() {
+  const { user, hasPermission } = useAuth();
   const {
     products,
     materials,
@@ -225,13 +228,62 @@ export default function CategoryManager() {
     setShowModal(false);
   };
 
-  const handleDelete = (id: number | string) => {
+  const handleDelete = async (id: number | string) => {
     if (!window.confirm('❓ Bạn có chắc chắn muốn xóa mục này không?')) return;
-    if (activeTab === 'hanghoa') deleteProduct(id as number);
-    else if (activeTab === 'nguyenvatlieu') deleteMaterial(id as number);
-    else if (activeTab === 'chiphi') deleteExpenseCat(id as number);
-    else if (activeTab === 'xe') deleteVehicle(id as number);
-    else if (activeTab === 'chikhac') deleteOtherExpenseCat(id as number);
+    if (!hasPermission('manage_settings')) {
+      window.dispatchEvent(new CustomEvent('erp:permission-denied', {
+        detail: 'Tài khoản hiện tại không có quyền thực hiện thao tác này.'
+      }));
+      return;
+    }
+    if (!user?.id) {
+      alert('Không thể xóa vì chưa xác định được tài khoản đang đăng nhập.');
+      return;
+    }
+
+    let sheetName: string;
+    let items: Array<CategoryItem | VehicleCategoryItem>;
+    let deleteItem: () => void;
+    switch (activeTab) {
+      case 'hanghoa':
+        sheetName = 'products';
+        items = products;
+        deleteItem = () => deleteProduct(id);
+        break;
+      case 'nguyenvatlieu':
+        sheetName = 'materials';
+        items = materials;
+        deleteItem = () => deleteMaterial(id);
+        break;
+      case 'chiphi':
+        sheetName = 'expensesCat';
+        items = expensesCat;
+        deleteItem = () => deleteExpenseCat(id);
+        break;
+      case 'xe':
+        sheetName = 'vehicles';
+        items = vehicles;
+        deleteItem = () => deleteVehicle(id);
+        break;
+      case 'chikhac':
+        sheetName = 'otherExpensesCat';
+        items = otherExpensesCat;
+        deleteItem = () => deleteOtherExpenseCat(id);
+        break;
+    }
+
+    const nextItems = items.filter(item => String(item.id) !== String(id));
+    if (nextItems.length === items.length) return;
+
+    try {
+      await saveDataStore(sheetName, user.id, nextItems);
+      deleteItem();
+      alert('✅ Đã xóa mục và lưu thành công lên cơ sở dữ liệu.');
+    } catch (error) {
+      console.error(`Không thể lưu trạng thái xóa (${sheetName}):`, error);
+      const message = error instanceof Error ? error.message : String(error);
+      alert(`❌ Không thể xóa mục. Dữ liệu chưa được cập nhật trong cơ sở dữ liệu.\nChi tiết: ${message}`);
+    }
   };
 
   const handleRecordMaintenance = (vehicle: VehicleCategoryItem) => {
