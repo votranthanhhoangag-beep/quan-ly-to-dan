@@ -737,24 +737,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addProduct = (item: CategoryItem) => { if (canWrite('manage_settings')) setProducts(prev => sortCategoryItemsAZ([...prev, item])); };
-  const updateProduct = (item: CategoryItem) => { if (canWrite('manage_settings')) setProducts(prev => sortCategoryItemsAZ(prev.map(p => Number(p.id) === Number(item.id) ? item : p))); };
-  const deleteProduct = (id: number) => { if (canWrite('manage_settings')) setProducts(prev => sortCategoryItemsAZ(prev.filter(p => Number(p.id) !== Number(id)))); };
+  const updateProduct = (item: CategoryItem) => { if (canWrite('manage_settings')) setProducts(prev => sortCategoryItemsAZ(prev.map(p => String(p.id) === String(item.id) ? item : p))); };
+  const deleteProduct = (id: number | string) => { if (canWrite('manage_settings')) setProducts(prev => prev.filter(p => String(p.id) !== String(id))); };
 
   const addMaterial = (item: CategoryItem) => { if (canWrite('manage_settings')) setMaterials(prev => sortCategoryItemsAZ([...prev, item])); };
-  const updateMaterial = (item: CategoryItem) => { if (canWrite('manage_settings')) setMaterials(prev => sortCategoryItemsAZ(prev.map(m => Number(m.id) === Number(item.id) ? item : m))); };
-  const deleteMaterial = (id: number) => { if (canWrite('manage_settings')) setMaterials(prev => sortCategoryItemsAZ(prev.filter(m => Number(m.id) !== Number(id)))); };
+  const updateMaterial = (item: CategoryItem) => { if (canWrite('manage_settings')) setMaterials(prev => sortCategoryItemsAZ(prev.map(m => String(m.id) === String(item.id) ? item : m))); };
+  const deleteMaterial = (id: number | string) => { if (canWrite('manage_settings')) setMaterials(prev => prev.filter(m => String(m.id) !== String(id))); };
 
   const addExpenseCat = (item: CategoryItem) => { if (canWrite('manage_settings')) setExpensesCat(prev => sortCategoryItemsAZ([...prev, item])); };
-  const updateExpenseCat = (item: CategoryItem) => { if (canWrite('manage_settings')) setExpensesCat(prev => sortCategoryItemsAZ(prev.map(e => Number(e.id) === Number(item.id) ? item : e))); };
-  const deleteExpenseCat = (id: number) => { if (canWrite('manage_settings')) setExpensesCat(prev => sortCategoryItemsAZ(prev.filter(e => Number(e.id) !== Number(id)))); };
+  const updateExpenseCat = (item: CategoryItem) => { if (canWrite('manage_settings')) setExpensesCat(prev => sortCategoryItemsAZ(prev.map(e => String(e.id) === String(item.id) ? item : e))); };
+  const deleteExpenseCat = (id: number | string) => { if (canWrite('manage_settings')) setExpensesCat(prev => prev.filter(e => String(e.id) !== String(id))); };
 
   const addOtherExpenseCat = (item: CategoryItem) => { if (canWrite('manage_settings')) setOtherExpensesCat(prev => sortCategoryItemsAZ([...prev, item])); };
-  const updateOtherExpenseCat = (item: CategoryItem) => { if (canWrite('manage_settings')) setOtherExpensesCat(prev => sortCategoryItemsAZ(prev.map(e => Number(e.id) === Number(item.id) ? item : e))); };
-  const deleteOtherExpenseCat = (id: number) => { if (canWrite('manage_settings')) setOtherExpensesCat(prev => sortCategoryItemsAZ(prev.filter(e => Number(e.id) !== Number(id)))); };
+  const updateOtherExpenseCat = (item: CategoryItem) => { if (canWrite('manage_settings')) setOtherExpensesCat(prev => sortCategoryItemsAZ(prev.map(e => String(e.id) === String(item.id) ? item : e))); };
+  const deleteOtherExpenseCat = (id: number | string) => { if (canWrite('manage_settings')) setOtherExpensesCat(prev => prev.filter(e => String(e.id) !== String(id))); };
 
   const addVehicle = (item: VehicleCategoryItem) => { if (canWrite('manage_settings')) setVehicles(prev => sortAZ([...prev, item], 'vehicleName')); };
-  const updateVehicle = (item: VehicleCategoryItem) => { if (canWrite('manage_settings')) setVehicles(prev => sortAZ(prev.map(v => Number(v.id) === Number(item.id) ? item : v), 'vehicleName')); };
-  const deleteVehicle = (id: number) => { if (canWrite('manage_settings')) setVehicles(prev => prev.filter(v => Number(v.id) !== Number(id))); };
+  const updateVehicle = (item: VehicleCategoryItem) => { if (canWrite('manage_settings')) setVehicles(prev => sortAZ(prev.map(v => String(v.id) === String(item.id) ? item : v), 'vehicleName')); };
+  const deleteVehicle = (id: number | string) => { if (canWrite('manage_settings')) setVehicles(prev => prev.filter(v => String(v.id) !== String(id))); };
 
   // XỬ LÝ PHIẾU KHO (ĐỒNG BỘ TRỰC TIẾP LÊN HỆ THỐNG & TỰ ĐỘNG LƯU SHEET)
   const getSlipWritePermission = (slip: SlipItem): Permission =>

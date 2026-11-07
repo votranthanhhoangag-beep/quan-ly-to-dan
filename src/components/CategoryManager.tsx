@@ -225,13 +225,13 @@ export default function CategoryManager() {
     setShowModal(false);
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = (id: number | string) => {
     if (!window.confirm('❓ Bạn có chắc chắn muốn xóa mục này không?')) return;
-    if (activeTab === 'hanghoa') deleteProduct(id);
-    else if (activeTab === 'nguyenvatlieu') deleteMaterial(id);
-    else if (activeTab === 'chiphi') deleteExpenseCat(id);
-    else if (activeTab === 'xe') deleteVehicle(id);
-    else if (activeTab === 'chikhac') deleteOtherExpenseCat(id);
+    if (activeTab === 'hanghoa') deleteProduct(id as number);
+    else if (activeTab === 'nguyenvatlieu') deleteMaterial(id as number);
+    else if (activeTab === 'chiphi') deleteExpenseCat(id as number);
+    else if (activeTab === 'xe') deleteVehicle(id as number);
+    else if (activeTab === 'chikhac') deleteOtherExpenseCat(id as number);
   };
 
   const handleRecordMaintenance = (vehicle: VehicleCategoryItem) => {
