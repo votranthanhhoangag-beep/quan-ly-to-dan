@@ -5,31 +5,47 @@ const getSupabaseClient = () => {
   return supabase;
 };
 
+const formatSupabaseError = (err: unknown): string => {
+  if (!err) return 'Lỗi không xác định từ Supabase.';
+  if (typeof err === 'object' && err !== null) {
+    const errorObj = err as Record<string, unknown>;
+    const message = errorObj.message ? String(errorObj.message) : '';
+    const details = errorObj.details ? String(errorObj.details) : '';
+    const hint = errorObj.hint ? String(errorObj.hint) : '';
+    const code = errorObj.code ? `[Mã: ${errorObj.code}]` : '';
+
+    const parts = [code, message, details, hint].filter(Boolean);
+    if (parts.length > 0) return parts.join(' - ');
+  }
+  return err instanceof Error ? err.message : String(err);
+};
+
 const pendingSaves = new Map<string, Promise<unknown[]>>();
 
-const queryDataStore = async (key: string, _userId?: string): Promise<unknown[]> => {
-  // Ưu tiên truy vấn theo shared key (primary key = key)
+const queryDataStore = async (key: string, userId?: string): Promise<unknown[]> => {
   const client = getSupabaseClient();
-  const { data, error } = await client
+
+  // 1. Nếu có userId, kiểm tra theo (user_id, key) hoặc key
+  let { data, error } = await client
     .from('app_data_stores')
     .select('data')
     .eq('key', key)
     .maybeSingle();
 
+  // 2. Nếu lỗi do cấu trúc bảng cần user_id
+  if (error && userId && (error.message?.includes('user_id') || error.code === 'PGRST116')) {
+    const fallback = await client
+      .from('app_data_stores')
+      .select('data')
+      .eq('user_id', userId)
+      .eq('key', key)
+      .maybeSingle();
+    error = fallback.error;
+    data = fallback.data;
+  }
+
   if (error) {
-    // Nếu database đang trong quá trình chuyển đổi còn cột user_id, fallback nhẹ
-    if (error.message?.includes('user_id') && _userId) {
-      const fallback = await client
-        .from('app_data_stores')
-        .select('data')
-        .eq('user_id', _userId)
-        .eq('key', key)
-        .maybeSingle();
-      if (fallback.error) throw fallback.error;
-      if (!fallback.data) return [];
-      return Array.isArray(fallback.data.data) ? fallback.data.data : [];
-    }
-    throw error;
+    throw new Error(formatSupabaseError(error));
   }
 
   if (!data) return [];
@@ -50,36 +66,41 @@ export async function saveDataStore(key: string, userId: string | undefined, ite
   const currentSave = (async () => {
     if (previousSave) await previousSave.catch(() => undefined);
     
-    // Thử lưu với mô hình chia sẻ chung (key là khóa chính)
     const client = getSupabaseClient();
-    const payload: Record<string, unknown> = {
-      key,
-      data: items,
-      updated_at: new Date().toISOString()
-    };
+    let saveError: unknown = null;
+
+    // Cách 1: Ghi với user_id (tương thích cả bảng cũ và bảng mới nếu có cột user_id)
     if (userId) {
-      payload.updated_by = userId;
-    }
-
-    let { error } = await client
-      .from('app_data_stores')
-      .upsert(payload, { onConflict: 'key' });
-
-    // Nếu bảng ở Supabase chưa chạy script gộp và vẫn yêu cầu (user_id, key)
-    if (error && error.message?.includes('user_id') && userId) {
-      const fallbackUpsert = await client
+      const { error: upsertWithUserError } = await client
         .from('app_data_stores')
         .upsert({
           user_id: userId,
           key,
           data: items,
           updated_at: new Date().toISOString()
-        }, { onConflict: 'user_id,key' });
-      error = fallbackUpsert.error;
+        });
+
+      if (!upsertWithUserError) {
+        return queryDataStore(key, userId);
+      }
+      saveError = upsertWithUserError;
     }
 
-    if (error) throw error;
-    return queryDataStore(key, userId);
+    // Cách 2: Nếu thất bại hoặc không có cột user_id, ghi theo key duy nhất
+    const { error: upsertKeyOnlyError } = await client
+      .from('app_data_stores')
+      .upsert({
+        key,
+        data: items,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'key' });
+
+    if (!upsertKeyOnlyError) {
+      return queryDataStore(key, userId);
+    }
+
+    // Nếu cả hai đều lỗi, ném ra thông tin chi tiết
+    throw new Error(formatSupabaseError(saveError || upsertKeyOnlyError));
   })();
 
   pendingSaves.set(key, currentSave);
