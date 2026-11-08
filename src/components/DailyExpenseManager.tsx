@@ -3,7 +3,10 @@ import { useApp,type ExpenseItem } from '../context/AppContext';
 
 export default function DailyExpenseManager() {
   const { expensesCat, otherExpensesCat, expenses, addExpense } = useApp();
-  const expenseCategories = [...expensesCat, ...otherExpensesCat];
+  const expenseCategories = [
+    ...(Array.isArray(expensesCat) ? expensesCat : []),
+    ...(Array.isArray(otherExpensesCat) ? otherExpensesCat : [])
+  ];
 
   const [expenseCode, setExpenseCode] = useState('');
   const [expenseName, setExpenseName] = useState('');
@@ -65,7 +68,7 @@ export default function DailyExpenseManager() {
             <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', marginBottom: '3px' }}>Khoản Chi (Từ Danh Mục):</label>
             <select value={expenseCode} onChange={e => handleSelectCat(e.target.value)} required style={{ width: '100%', padding: '7px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }}>
               <option value="">-- Chọn Khoản Chi Phí --</option>
-              {expenseCategories.map(c => <option key={c.code} value={c.code}>[{c.code}] {c.name}</option>)}
+              {(expenseCategories || []).map(c => <option key={c.code} value={c.code}>[{c.code}] {c.name}</option>)}
             </select>
           </div>
           <div>

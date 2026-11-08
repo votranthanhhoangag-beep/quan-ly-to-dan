@@ -202,6 +202,7 @@ export interface ContractItem {
   companyName?: string;
   partner?: string;
   craftGroupLeader?: string;
+  contractCode?: string;
   contractNo: string;
   productCode: string;
   productName: string;
@@ -432,7 +433,11 @@ interface AppContextType {
 
   addContract: (item: ContractItem) => void;
   updateContract: (item: ContractItem) => void;
-  deleteContract: (id: number | string) => void;
+  deleteContract: (
+    id: number | string,
+    contractCode?: string,
+    nextContracts?: ContractItem[]
+  ) => void;
   addKnittingExportSlip: (slip: KnittingExportSlip) => void;
   updateKnittingExportSlip: (slip: KnittingExportSlip) => void;
   deleteKnittingExportSlip: (id: number | string) => void;
@@ -451,8 +456,9 @@ const normalizeCategoryItem = (item: CategoryItem): CategoryItem => ({
   name: String(item.name || '').trim()
 });
 
-const sortCategoryItemsAZ = (items: CategoryItem[]) =>
-  items
+const sortCategoryItemsAZ = (items: CategoryItem[] = []) =>
+  (Array.isArray(items) ? items : [])
+    .filter((item): item is CategoryItem => Boolean(item) && typeof item === 'object')
     .map(normalizeCategoryItem)
     .sort((first, second) =>
       first.name.localeCompare(second.name, 'vi', { sensitivity: 'base', numeric: true }) ||
@@ -903,10 +909,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
     }
   };
-  const deleteContract = (id: number | string) => {
+  const deleteContract = (
+    id: number | string,
+    contractCode?: string,
+    nextContracts?: ContractItem[]
+  ) => {
     if (!canWrite('delete_contracts')) return;
-    const existing = contracts.find(item => String(item.id) === String(id));
-    setContracts(prev => prev.filter(c => String(c.id) !== String(id)));
+    const normalizedContractCode = String(contractCode || '').trim().toLocaleLowerCase('vi');
+    const matchesContract = (item: ContractItem) => {
+      const itemCode = String(item.contractCode || item.contractNo || '').trim().toLocaleLowerCase('vi');
+      return String(item.id) === String(id) ||
+        Boolean(normalizedContractCode && itemCode === normalizedContractCode);
+    };
+    const existing = contracts.find(matchesContract);
+    setContracts(prev => nextContracts ?? prev.filter(item => !matchesContract(item)));
     if (existing && user) logAction(user, 'DELETE', getContractModule(existing), `Xóa hợp đồng ${existing.contractNo}`, id);
   };
   const addKnittingExportSlip = (slip: KnittingExportSlip) => {

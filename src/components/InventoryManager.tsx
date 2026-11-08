@@ -67,6 +67,7 @@ export const InventoryManager: React.FC<Props> = ({ onNavigateToTab }) => {
   const { 
     contracts = [], 
     materials = [],
+    isDataLoaded,
     slips = [],
     inventoryLogs = [], 
     addInventoryLog, 
@@ -229,15 +230,20 @@ export const InventoryManager: React.FC<Props> = ({ onNavigateToTab }) => {
   }, [transType, partnerName, editingId, masterLogs]);
 
   const handleProductSelect = (code: string) => {
-    setSelectedProductCode(code);
-    if (!code.trim()) return;
+    const safeCode = typeof code === 'string' ? code : '';
+    setSelectedProductCode(safeCode);
+    if (!safeCode.trim()) {
+      setProductName('');
+      return;
+    }
+    if (!isDataLoaded) return;
 
-    const matched = parentContracts.find((c: any) => String(c.productCode || '').trim().toLowerCase() === code.trim().toLowerCase());
+    const matched = parentContracts.find((c: any) => String(c.productCode || '').trim().toLowerCase() === safeCode.trim().toLowerCase());
     
     if (matched) {
-      setProductName(matched.productName || '');
-      setContractNo(matched.contractNo || '');
-      if (matched.companyName && matched.companyName !== 'Nội bộ Tổ Đan') {
+      setProductName(typeof matched.productName === 'string' ? matched.productName : '');
+      setContractNo(typeof matched.contractNo === 'string' ? matched.contractNo : '');
+      if (typeof matched.companyName === 'string' && matched.companyName !== 'Nội bộ Tổ Đan') {
         setPartnerName(matched.companyName);
       }
     } else {
@@ -329,7 +335,7 @@ export const InventoryManager: React.FC<Props> = ({ onNavigateToTab }) => {
 
     let totalQtyNum = Number(quantity) || 0;
     let finalUnit = 'Cái';
-    let detailParts: string[] = [];
+    const detailParts: string[] = [];
 
     if (isSetProduct) {
       if (unitOption === 'BO') {
@@ -550,6 +556,7 @@ export const InventoryManager: React.FC<Props> = ({ onNavigateToTab }) => {
                 onChange={e => handleProductSelect(e.target.value)}
                 style={{ width: '100%', padding: '9px', borderRadius: '6px', border: '2px solid #7c3aed', fontWeight: 'bold', color: '#7c3aed', fontSize: '13px', boxSizing: 'border-box' }}
               />
+              {!isDataLoaded && <small style={{ display: 'block', marginTop: '4px', color: '#64748b' }}>Đang tải mã hàng...</small>}
             </div>
 
             <div>
@@ -651,11 +658,16 @@ export const InventoryManager: React.FC<Props> = ({ onNavigateToTab }) => {
                               type="button"
                               role="option"
                               onMouseDown={event => event.preventDefault()}
-                              onClick={() => setAccompanyingMaterials(rows => rows.map(item =>
-                                item.id === row.id
-                                  ? { ...item, materialId: material.id, materialCode: material.code, materialName: material.name, query: `${material.code} - ${material.name}`, isDropdownOpen: false }
-                                  : item
-                              ))}
+                              onClick={() => {
+                                if (material.id == null || typeof material.name !== 'string' || !material.name.trim()) return;
+                                const code = String(material.code || '');
+                                const name = material.name.trim();
+                                setAccompanyingMaterials(rows => rows.map(item =>
+                                  item.id === row.id
+                                    ? { ...item, materialId: material.id, materialCode: code, materialName: name, query: `${code} - ${name}`, isDropdownOpen: false }
+                                    : item
+                                ));
+                              }}
                               style={{ display: 'block', width: '100%', padding: '8px 10px', border: 0, borderBottom: '1px solid #e2e8f0', backgroundColor: '#fff', color: '#1e293b', textAlign: 'left', cursor: 'pointer' }}
                             >
                               <strong>{material.code}</strong> - {material.name}

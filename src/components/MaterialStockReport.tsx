@@ -63,20 +63,21 @@ const normalizeMaterialIdentity = (value: unknown) =>
     .replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
 
 const findCatalogMaterial = (line: MaterialLine, materials: CategoryItem[]) => {
+  const safeMaterials = Array.isArray(materials) ? materials : [];
   if (line.materialId !== undefined && line.materialId !== null) {
-    const byId = materials.find(material => String(material.id) === String(line.materialId));
+    const byId = safeMaterials.find(material => String(material.id) === String(line.materialId));
     if (byId) return byId;
   }
   const code = normalizeMaterialIdentity(line.materialCode);
   if (code) {
-    const byCode = materials.find(material => normalizeMaterialIdentity(material.code) === code);
+    const byCode = safeMaterials.find(material => normalizeMaterialIdentity(material.code) === code);
     if (byCode) return byCode;
   }
   const name = normalizeMaterialIdentity(line.materialName);
   if (!name) return undefined;
-  const exactMatch = materials.find(material => normalizeMaterialIdentity(material.name) === name);
+  const exactMatch = safeMaterials.find(material => normalizeMaterialIdentity(material.name) === name);
   if (exactMatch) return exactMatch;
-  const nameMatches = materials.filter(material => {
+  const nameMatches = safeMaterials.filter(material => {
     const catalogName = normalizeMaterialIdentity(material.name);
     return catalogName.length >= 3 && name.includes(catalogName);
   });
@@ -96,7 +97,11 @@ const formatNumber = (value: number) => value.toLocaleString('vi-VN', { maximumF
 const formatCurrency = (value: number) => `${Math.round(value).toLocaleString('vi-VN')} đ`;
 
 export default function MaterialStockReport() {
-  const { materials = [], slips = [], contracts = [], expenses = [] } = useApp();
+  const { materials: materialsData, slips = [], contracts = [], expenses = [] } = useApp();
+  const materials = useMemo(
+    () => Array.isArray(materialsData) ? materialsData : [],
+    [materialsData]
+  );
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
 
   const rows = useMemo(() => {
@@ -112,14 +117,14 @@ export default function MaterialStockReport() {
       if (!Array.isArray(lines)) return;
       lines.forEach(line => {
         const quantity = Number(line.quantity) || 0;
-        const catalogMaterial = findCatalogMaterial(line, materials as CategoryItem[]);
+        const catalogMaterial = findCatalogMaterial(line, materials);
         const name = String(line.materialName || catalogMaterial?.name || '').trim();
         if (quantity <= 0 || !name) return;
         const amount = Number(line.amount) > 0
           ? Number(line.amount)
           : quantity * (Number(line.unitPrice) || 0);
         movements.push({
-          key: getMaterialKey(line, materials as CategoryItem[]),
+          key: getMaterialKey(line, materials),
           name,
           code: String(catalogMaterial?.code || line.materialCode || ''),
           unit: String(line.unit || catalogMaterial?.unit || ''),
@@ -179,9 +184,9 @@ export default function MaterialStockReport() {
         const catalogMaterial = findCatalogMaterial({
           materialCode: item.sourceCode,
           materialName: itemName
-        }, materials as CategoryItem[]);
+        }, materials);
         const name = itemName || String(catalogMaterial?.name || '').trim();
-        const isMaterialCode = Boolean(item.sourceCode && (materials as CategoryItem[]).some(material =>
+        const isMaterialCode = Boolean(item.sourceCode && materials.some(material =>
           normalizeMaterialIdentity(material.code) === normalizeMaterialIdentity(item.sourceCode)
         ));
         const isRawMaterial = sourceType === 'Nguyên liệu' ||
@@ -214,12 +219,12 @@ export default function MaterialStockReport() {
       movement.direction === 'in' && movement.date && movement.date <= periodEnd
     );
     const materialKeys = new Set<string>([
-      ...materials.map((material: CategoryItem) => `id:${material.id}`),
+      ...(materials || []).map((material: CategoryItem) => `id:${material.id}`),
       ...movements.map(movement => movement.key)
     ]);
 
     return Array.from(materialKeys).map(key => {
-      const catalogMaterial = (materials as CategoryItem[]).find(material => `id:${material.id}` === key);
+      const catalogMaterial = (materials || []).find(material => `id:${material.id}` === key);
       const materialMovements = movements.filter(movement => movement.key === key);
       const purchases = purchaseMovements.filter(movement => movement.key === key);
       const currentMovements = materialMovements.filter(movement =>

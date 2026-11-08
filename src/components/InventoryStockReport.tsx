@@ -1758,7 +1758,7 @@ export default function InventoryStockReport() {
               </button>
             </div>
             <datalist id="nguyen-lieu-list">
-              {materials.map((material: CategoryItem) => (
+              {(materials || []).map((material: CategoryItem) => (
                 <option key={material.id} value={material.name} label={material.code} />
               ))}
             </datalist>
@@ -1786,17 +1786,18 @@ export default function InventoryStockReport() {
                           value={row.query}
                           onChange={event => {
                             const query = event.target.value;
-                            const selectedMaterial = materials.find(material =>
+                            const selectedMaterial = (materials || []).find(material =>
                               normalizeMaterialSearch(material.name) === normalizeMaterialSearch(query.trim())
                             );
                             setAccompanyingMaterials(rows => rows.map(item => item.id === row.id
-                              ? selectedMaterial
+                              ? selectedMaterial && selectedMaterial.id != null &&
+                                typeof selectedMaterial.name === 'string' && selectedMaterial.name.trim()
                                 ? {
                                   ...item,
                                   materialId: selectedMaterial.id,
-                                  materialCode: selectedMaterial.code,
-                                  materialName: selectedMaterial.name,
-                                  query: selectedMaterial.name,
+                                  materialCode: String(selectedMaterial.code || ''),
+                                  materialName: selectedMaterial.name.trim(),
+                                  query: selectedMaterial.name.trim(),
                                   unit: selectedMaterial.unit || item.unit,
                                   unitPrice: formatNumberInput(String(getLatestMaterialUnitPrice(selectedMaterial, slips, expenses) || '')),
                                   isDropdownOpen: false
@@ -1823,7 +1824,7 @@ export default function InventoryStockReport() {
                         ))}
                         style={inputStyle}
                       >
-                        {[...new Set(['kg', 'lọn', 'bó', 'cái', ...materials.map((material: CategoryItem) => material.unit).filter(Boolean), row.unit])].map(option => (
+                        {[...new Set(['kg', 'lọn', 'bó', 'cái', ...(materials || []).map((material: CategoryItem) => material.unit).filter(Boolean), row.unit])].map(option => (
                           <option key={option} value={option}>{option}</option>
                         ))}
                       </select>
@@ -2018,7 +2019,7 @@ export default function InventoryStockReport() {
           })}
           <datalist id="repair-stock-product-codes">
             {[...new Set([
-              ...products.map(product => product.code),
+              ...(products || []).map(product => product.code),
               ...contracts.map(contract => contract.productCode),
               ...slips.map(slip => slip.productCode),
               ...defectiveGoodsImportSlips.map(slip => slip.productCode)

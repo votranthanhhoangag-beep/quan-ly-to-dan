@@ -647,7 +647,7 @@ const handleSaveTransaction = (e: React.FormEvent) => {
 
     let totalQtyNum = Number(quantity) || 0;
     let finalUnit = 'Cái';
-    let detailParts: string[] = [];
+    const detailParts: string[] = [];
 
     if (isSetProduct) {
       if (unitOption === 'BO') {
@@ -1394,18 +1394,22 @@ const handleSaveTransaction = (e: React.FormEvent) => {
                             type="button"
                             role="option"
                             onMouseDown={event => event.preventDefault()}
-                            onClick={() => setAccompanyingMaterials(rows => rows.map(item => item.id === row.id
-                              ? {
-                                ...item,
-                                materialId: material.id,
-                                materialCode: material.code,
-                                materialName: material.name,
-                                query: material.name,
-                                unit: material.unit || item.unit,
-                                unitPrice: String(getLatestMaterialUnitPrice(material, slips, Array.isArray(appContext.expenses) ? appContext.expenses : []) || ''),
-                                isDropdownOpen: false
-                              }
-                              : item))}
+                            onClick={() => {
+                              if (material.id == null || typeof material.name !== 'string' || !material.name.trim()) return;
+                              const name = material.name.trim();
+                              setAccompanyingMaterials(rows => rows.map(item => item.id === row.id
+                                ? {
+                                  ...item,
+                                  materialId: material.id,
+                                  materialCode: String(material.code || ''),
+                                  materialName: name,
+                                  query: name,
+                                  unit: material.unit || item.unit,
+                                  unitPrice: String(getLatestMaterialUnitPrice(material, slips, Array.isArray(appContext.expenses) ? appContext.expenses : []) || ''),
+                                  isDropdownOpen: false
+                                }
+                                : item));
+                            }}
                             style={{ display: 'block', width: '100%', padding: '9px 10px', border: 0, borderBottom: '1px solid #e2e8f0', background: '#fff', color: '#1e293b', textAlign: 'left', cursor: 'pointer' }}
                           >
                             {material.name}

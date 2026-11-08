@@ -52,20 +52,21 @@ const normalizeMaterialIdentity = (value: unknown) =>
     .replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
 
 const findCatalogMaterial = (line: MaterialLine, materials: CategoryItem[]) => {
+  const safeMaterials = Array.isArray(materials) ? materials : [];
   if (line.materialId !== undefined && line.materialId !== null) {
-    const byId = materials.find(material => String(material.id) === String(line.materialId));
+    const byId = safeMaterials.find(material => String(material.id) === String(line.materialId));
     if (byId) return byId;
   }
   const code = normalizeMaterialIdentity(line.materialCode);
   if (code) {
-    const byCode = materials.find(material => normalizeMaterialIdentity(material.code) === code);
+    const byCode = safeMaterials.find(material => normalizeMaterialIdentity(material.code) === code);
     if (byCode) return byCode;
   }
   const name = normalizeMaterialIdentity(line.materialName);
   if (!name) return undefined;
-  const exactMatch = materials.find(material => normalizeMaterialIdentity(material.name) === name);
+  const exactMatch = safeMaterials.find(material => normalizeMaterialIdentity(material.name) === name);
   if (exactMatch) return exactMatch;
-  const nameMatches = materials.filter(material => {
+  const nameMatches = safeMaterials.filter(material => {
     const catalogName = normalizeMaterialIdentity(material.name);
     return catalogName.length >= 3 && name.includes(catalogName);
   });
@@ -91,6 +92,7 @@ export const getMaterialStockRows = (
   expenses: ExpenseItem[],
   selectedMonth: string
 ): MaterialStockRow[] => {
+  const safeMaterials = Array.isArray(materials) ? materials : [];
   const movements: Movement[] = [];
   const addLines = (
     lines: MaterialLine[] | undefined,
@@ -103,14 +105,14 @@ export const getMaterialStockRows = (
     if (!Array.isArray(lines)) return;
     lines.forEach(line => {
       const quantity = Number(line.quantity) || 0;
-      const catalogMaterial = findCatalogMaterial(line, materials);
+      const catalogMaterial = findCatalogMaterial(line, safeMaterials);
       const name = String(line.materialName || catalogMaterial?.name || '').trim();
       if (quantity <= 0 || !name) return;
       const amount = Number(line.amount) > 0
         ? Number(line.amount)
         : quantity * (Number(line.unitPrice) || 0);
       movements.push({
-        key: getMaterialKey(line, materials),
+        key: getMaterialKey(line, safeMaterials),
         name,
         code: String(catalogMaterial?.code || line.materialCode || ''),
         unit: String(line.unit || catalogMaterial?.unit || ''),
@@ -170,8 +172,8 @@ export const getMaterialStockRows = (
       const catalogMaterial = findCatalogMaterial({
         materialCode: item.sourceCode,
         materialName: name
-      }, materials);
-      const isMaterialCode = Boolean(item.sourceCode && materials.some(material =>
+      }, safeMaterials);
+      const isMaterialCode = Boolean(item.sourceCode && safeMaterials.some(material =>
         normalizeMaterialIdentity(material.code) === normalizeMaterialIdentity(item.sourceCode)
       ));
       const isRawMaterial = sourceType === 'Nguyên liệu' ||
@@ -204,12 +206,12 @@ export const getMaterialStockRows = (
     movement.direction === 'in' && movement.date && movement.date <= periodEnd
   );
   const materialKeys = new Set<string>([
-    ...materials.map(material => `id:${material.id}`),
+    ...safeMaterials.map(material => `id:${material.id}`),
     ...movements.map(movement => movement.key)
   ]);
 
   return Array.from(materialKeys).map(key => {
-    const catalogMaterial = materials.find(material => `id:${material.id}` === key);
+    const catalogMaterial = safeMaterials.find(material => `id:${material.id}` === key);
     const materialMovements = movements.filter(movement => movement.key === key);
     const purchases = purchaseMovements.filter(movement => movement.key === key);
     const currentMovements = materialMovements.filter(movement =>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useApp, type CategoryItem } from '../context/AppContext';
+import { useApp, type CategoryItem, type ContractItem } from '../context/AppContext';
 import { filterPhoneDigits, isValidVietnamMobileNumber } from '../utils/vietnamPhone';
 import { getLatestMaterialUnitPrice, matchesMaterialNameSearch } from '../utils/materialSearch';
 import { usePersistentFormDraft } from '../hooks/usePersistentFormDraft';
@@ -7,6 +7,7 @@ import { createUniqueId } from '../utils/uniqueId';
 import { useAuth } from '../context/AuthContext';
 import { logDailyAction } from '../utils/logger';
 import { ImageCaptureInput } from './ImageCaptureInput';
+import { saveDataStore } from '../services/supabaseDataService';
 
 type MaterialUnit = string;
 
@@ -94,6 +95,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     slips = [],
     expenses = [],
     depositSlips = [],
+    isDataLoaded,
     isRefreshing,
     dataLoadError,
     reloadData,
@@ -101,6 +103,12 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     updateContract,
     deleteContract
   } = appContext;
+  const productItems: CategoryItem[] = Array.isArray(products)
+    ? products.filter((item: unknown): item is CategoryItem => Boolean(item) && typeof item === 'object')
+    : [];
+  const materialItems: CategoryItem[] = Array.isArray(materials)
+    ? materials.filter((item: unknown): item is CategoryItem => Boolean(item) && typeof item === 'object')
+    : [];
   
   const today = new Date();
   const minDateString = today.toISOString().split('T')[0];
@@ -362,7 +370,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
 
   const uniqueProductCodeList = Array.from(new Set<string>(
     [
-      ...(products || []).map((p: any) => p.code || p.id),
+      ...productItems.map((p: CategoryItem) => p.code || p.id),
       ...(contracts || []).map((c: any) => c.productCode)
     ]
       .map(code => String(code || '').trim())
@@ -374,24 +382,28 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   );
 
   const handleProductCodeSelect = (codeStr: string) => {
-    setProductCode(codeStr);
-    setUnit(getUnitFromProductCode(codeStr) || 'Bộ');
-    const cleanCode = codeStr.trim().toLowerCase();
+    const safeCode = typeof codeStr === 'string' ? codeStr : '';
+    setProductCode(safeCode);
+    setUnit(getUnitFromProductCode(safeCode) || 'Bộ');
+    const cleanCode = safeCode.trim().toLowerCase();
     if (!cleanCode) {
       setProductName('');
       return;
     }
 
-    const matchedProduct = (products || []).find(
+    const matchedProduct = productItems.find(
       (p: any) => String(p.code || p.id || '').trim().toLowerCase() === cleanCode
     );
     const matchedContract = (contracts || []).find(
       (c: any) => String(c.productCode || '').trim().toLowerCase() === cleanCode
     );
 
-    if (matchedProduct && (matchedProduct.name || matchedProduct.productName)) {
-      setProductName(matchedProduct.name || matchedProduct.productName);
-    } else if (matchedContract && matchedContract.productName) {
+    const matchedProductName = matchedProduct && 'productName' in matchedProduct
+      ? matchedProduct.name || matchedProduct.productName
+      : matchedProduct?.name;
+    if (typeof matchedProductName === 'string' && matchedProductName.trim()) {
+      setProductName(matchedProductName);
+    } else if (typeof matchedContract?.productName === 'string' && matchedContract.productName) {
       setProductName(matchedContract.productName.split(' ')[0]);
     } else {
       setProductName('');
@@ -399,8 +411,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
 
     const matchedParent = parentContractsList.find((p: any) => String(p.productCode || '').trim().toLowerCase() === cleanCode);
     if (matchedParent) {
-      setSelectedParentNo(matchedParent.contractNo);
-      if (matchedParent.dueDate) {
+      setSelectedParentNo(typeof matchedParent.contractNo === 'string' ? matchedParent.contractNo : '');
+      if (typeof matchedParent.dueDate === 'string' && matchedParent.dueDate) {
         setDueDate(subtractDaysFromDate(formatInputDate(matchedParent.dueDate), 4) || minDateString);
       } else setDueDate(minDateString);
       if (matchedParent.unitPrice) setUnitPrice(String(matchedParent.unitPrice));
@@ -409,8 +421,9 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   };
 
   const handleSubProductCodeSelect = (codeStr: string) => {
-    setProductCode(codeStr);
-    const cleanCode = codeStr.trim().toLowerCase();
+    const safeCode = typeof codeStr === 'string' ? codeStr : '';
+    setProductCode(safeCode);
+    const cleanCode = safeCode.trim().toLowerCase();
     const matchedParent = (contracts || []).find(
       (contract: any) =>
         contract.contractType === 'PARENT' &&
@@ -424,10 +437,10 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       return;
     }
 
-    setSelectedParentNo(matchedParent.contractNo || '');
-    setProductName(matchedParent.productName || '');
-    setUnit(getUnitFromProductCode(codeStr) || matchedParent.unit || 'Bộ');
-    if (matchedParent.dueDate) {
+    setSelectedParentNo(typeof matchedParent.contractNo === 'string' ? matchedParent.contractNo : '');
+    setProductName(typeof matchedParent.productName === 'string' ? matchedParent.productName : '');
+    setUnit(getUnitFromProductCode(safeCode) || (typeof matchedParent.unit === 'string' ? matchedParent.unit : 'Bộ'));
+    if (typeof matchedParent.dueDate === 'string' && matchedParent.dueDate) {
       setDueDate(subtractDaysFromDate(formatInputDate(matchedParent.dueDate), 4) || minDateString);
     } else setDueDate(minDateString);
     if (matchedParent.unitPrice) setUnitPrice(String(matchedParent.unitPrice));
@@ -435,6 +448,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   };
 
   const selectProductCodeOption = (code: string) => {
+    if (typeof code !== 'string' || !code.trim()) return;
     if (activeTab === 'SUB') handleSubProductCodeSelect(code);
     else handleProductCodeSelect(code);
     setIsProductCodeDropdownOpen(false);
@@ -514,8 +528,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   );
 
   const generatedSubNo = () => {
-    let cleanParent = selectedParentNo ? selectedParentNo.replace(/[^a-zA-Z0-9]/g, '') : 'HDTD';
-    let cleanLeader = craftGroupLeader ? craftGroupLeader.trim().replace(/\s+/g, '').toUpperCase() : 'TO';
+    const cleanParent = selectedParentNo ? selectedParentNo.replace(/[^a-zA-Z0-9]/g, '') : 'HDTD';
+    const cleanLeader = craftGroupLeader ? craftGroupLeader.trim().replace(/\s+/g, '').toUpperCase() : 'TO';
     return `${cleanParent}-${cleanLeader}`;
   };
 
@@ -929,11 +943,47 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     onEditRequestHandled?.();
   }, [requestedEditContractId, contracts]);
 
-  const handleDelete = (item: any) => {
-    if (window.confirm(`Bạn có chắc chắn muốn xóa Hợp đồng [${item.contractNo}]?`)) {
-      deleteContract(item.id);
-      alert('🗑️ Đã xóa hợp đồng thành công!');
+  const handleDelete = async (item: ContractItem) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa Hợp đồng [${item.contractNo}]?`)) return;
+    if (!hasPermission('delete_contracts')) {
+      window.dispatchEvent(new CustomEvent('erp:permission-denied', {
+        detail: 'Tài khoản hiện tại không có quyền thực hiện thao tác này.'
+      }));
+      return;
+    }
+    if (!user?.id) {
+      alert('Không thể xóa hợp đồng vì chưa xác định được tài khoản đang đăng nhập.');
+      return;
+    }
+
+    const targetContractCode = String(item.contractCode || item.contractNo || '')
+      .trim()
+      .toLocaleLowerCase('vi');
+    const currentContracts: ContractItem[] = Array.isArray(contracts) ? contracts as ContractItem[] : [];
+    const nextContracts = currentContracts.filter(contract => {
+      const matchesId = item.id !== undefined && item.id !== null &&
+        String(contract.id) === String(item.id);
+      const contractCode = String(contract.contractCode || contract.contractNo || '')
+        .trim()
+        .toLocaleLowerCase('vi');
+      const matchesContractCode = Boolean(targetContractCode && contractCode === targetContractCode);
+      return !matchesId && !matchesContractCode;
+    });
+
+    if (nextContracts.length === currentContracts.length) {
+      alert('Không tìm thấy hợp đồng cần xóa trong danh sách hiện tại.');
+      return;
+    }
+
+    try {
+      await saveDataStore('contracts', user.id, nextContracts);
+      deleteContract(item.id, item.contractCode || item.contractNo, nextContracts);
+      alert('🗑️ Đã xóa hợp đồng và lưu thành công lên cơ sở dữ liệu!');
       if (editingId === item.id) resetForm();
+    } catch (error) {
+      console.error('Không thể lưu trạng thái xóa hợp đồng:', error);
+      const message = error instanceof Error ? error.message : String(error);
+      alert(`❌ Không thể xóa hợp đồng. Dữ liệu chưa được cập nhật trong cơ sở dữ liệu.\nChi tiết: ${message}`);
     }
   };
 
@@ -1217,9 +1267,9 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                     }}
                     style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '2px solid #2563eb', fontWeight: 'bold', boxSizing: 'border-box' }}
                   />
-                  {isProductCodeDropdownOpen && filteredProductCodeOptions.length > 0 && (
+                  {isProductCodeDropdownOpen && (!isDataLoaded || filteredProductCodeOptions.length > 0) && (
                     <div role="listbox" style={{ maxHeight: '200px', overflowY: 'auto', backgroundColor: '#fff', border: '1px solid #94a3b8', borderRadius: '6px', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.12)' }}>
-                      {filteredProductCodeOptions.map(code => (
+                      {!isDataLoaded ? <div style={{ padding: '9px 12px', color: '#64748b', fontSize: '12px' }}>Đang tải mã hàng...</div> : filteredProductCodeOptions.map(code => (
                         <button
                           key={code}
                           type="button"
@@ -1592,9 +1642,9 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                   }}
                   style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '2px solid #7c3aed', fontSize: '14px', fontWeight: 'bold', backgroundColor: '#fff', boxSizing: 'border-box' }}
                 />
-                {isProductCodeDropdownOpen && filteredProductCodeOptions.length > 0 && (
+                {isProductCodeDropdownOpen && (!isDataLoaded || filteredProductCodeOptions.length > 0) && (
                   <div role="listbox" style={{ maxHeight: '200px', overflowY: 'auto', backgroundColor: '#fff', border: '1px solid #94a3b8', borderRadius: '6px', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.12)' }}>
-                    {filteredProductCodeOptions.map(code => (
+                    {!isDataLoaded ? <div style={{ padding: '9px 12px', color: '#64748b', fontSize: '12px' }}>Đang tải mã hàng...</div> : filteredProductCodeOptions.map(code => (
                       <button
                         key={code}
                         type="button"
@@ -1821,7 +1871,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
               <span />
             </div>
             {subContractMaterials.map(row => {
-              const suggestions = (materials || []).filter((material: CategoryItem) =>
+              const suggestions = materialItems.filter((material: CategoryItem) =>
                 matchesMaterialNameSearch(material, row.query)
               );
               return (
@@ -1852,18 +1902,21 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                             type="button"
                             role="option"
                             onMouseDown={event => event.preventDefault()}
-                            onClick={() => setSubContractMaterials(rows => rows.map(item => item.id === row.id
-                              ? {
-                                ...item,
-                                materialId: material.id,
-                                materialCode: material.code,
-                                materialName: material.name,
-                                query: material.name,
-                                unit: material.unit || item.unit,
-                                unitPrice: String(getLatestMaterialUnitPrice(material, slips, expenses) || ''),
-                                isDropdownOpen: false
-                              }
-                              : item))}
+                            onClick={() => {
+                              if (material.id == null || typeof material.name !== 'string' || !material.name.trim()) return;
+                              setSubContractMaterials(rows => rows.map(item => item.id === row.id
+                                ? {
+                                  ...item,
+                                  materialId: material.id,
+                                  materialCode: String(material.code || ''),
+                                  materialName: material.name.trim(),
+                                  query: material.name.trim(),
+                                  unit: material.unit || item.unit,
+                                  unitPrice: String(getLatestMaterialUnitPrice(material, slips, expenses) || ''),
+                                  isDropdownOpen: false
+                                }
+                                : item));
+                            }}
                             style={{ display: 'block', width: '100%', padding: '9px 10px', border: 0, borderBottom: '1px solid #e2e8f0', background: '#fff', color: '#1e293b', textAlign: 'left', cursor: 'pointer' }}
                           >
                             {material.name}
@@ -1880,7 +1933,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                     ))}
                     style={{ width: '100%', padding: '9px', border: '1px solid #94a3b8', borderRadius: '5px', backgroundColor: '#fff' }}
                   >
-                    {[...new Set(['kg', 'lọn', 'bó', 'cái', ...materials.map((material: CategoryItem) => material.unit).filter(Boolean), row.unit])].map(option => (
+                    {[...new Set(['kg', 'lọn', 'bó', 'cái', ...materialItems.map((material: CategoryItem) => material.unit).filter(Boolean), row.unit])].map(option => (
                       <option key={option} value={option}>{option}</option>
                     ))}
                   </select>

@@ -9,7 +9,7 @@ type MaterialPriceLine = {
   amount?: number;
 };
 
-export const normalizeMaterialSearch = (value: string) => value
+export const normalizeMaterialSearch = (value: unknown) => String(value || '')
   .toLocaleLowerCase('vi')
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '')
@@ -34,10 +34,12 @@ export const getLatestMaterialUnitPrice = (
   expenses: ExpenseItem[]
 ) => {
   const priceLines: Array<{ date: string; unitPrice: number }> = [];
+  const materialCode = String(material.code || '').trim().toLocaleLowerCase('vi');
+  const materialName = String(material.name || '').trim().toLocaleLowerCase('vi');
   const matches = (line: MaterialPriceLine) => (
     (line.materialId !== undefined && String(line.materialId) === String(material.id)) ||
-    (Boolean(line.materialCode) && line.materialCode?.trim().toLocaleLowerCase('vi') === material.code.trim().toLocaleLowerCase('vi')) ||
-    String(line.materialName || '').trim().toLocaleLowerCase('vi') === material.name.trim().toLocaleLowerCase('vi')
+    (Boolean(line.materialCode) && line.materialCode?.trim().toLocaleLowerCase('vi') === materialCode) ||
+    String(line.materialName || '').trim().toLocaleLowerCase('vi') === materialName
   );
   const addPrice = (line: MaterialPriceLine, date: string) => {
     if (!matches(line)) return;
