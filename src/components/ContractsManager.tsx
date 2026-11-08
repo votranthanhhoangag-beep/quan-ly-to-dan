@@ -444,8 +444,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     if (typeof matchedParent.dueDate === 'string' && matchedParent.dueDate) {
       setDueDate(subtractDaysFromDate(formatInputDate(matchedParent.dueDate), 4) || minDateString);
     } else setDueDate(minDateString);
-    const maxUnitPrice = getSubcontractMaxUnitPrice(safeCode);
-    setUnitPrice(maxUnitPrice === null ? '' : String(maxUnitPrice));
+    const companyUnitPrice = Number(matchedParent.unitPrice);
+    setUnitPrice(companyUnitPrice > 0 ? String(Math.round(companyUnitPrice * 0.8)) : '');
     if (matchedParent.quantity) setContractQty(String(matchedParent.quantity));
   };
 
@@ -605,32 +605,24 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     }
   };
 
-  const getLowestCompanyUnitPrice = (code: string): number | null => {
-    if (!code) return null;
-    const cleanCode = code.trim().toLowerCase();
-    const matched = parentContractsList.filter((c: any) => String(c.productCode || '').trim().toLowerCase() === cleanCode && Number(c.unitPrice) > 0);
-    if (matched.length === 0) return null;
-    return Math.min(...matched.map((c: any) => Number(c.unitPrice)));
-  };
-
-  const getSubcontractMaxUnitPrice = (code: string) => {
-    const companyPrice = getLowestCompanyUnitPrice(code);
-    return companyPrice === null ? null : Math.round(companyPrice * 0.8);
-  };
-
   const handleSizePriceChange = (sizeName: string, value: string) => {
     const enteredPrice = Number(value.replace(/\D/g, '')) || 0;
-    const maxPrice = getSubcontractMaxUnitPrice(productCode);
-    const nextPrice = maxPrice !== null && enteredPrice > maxPrice ? maxPrice : enteredPrice;
-    if (maxPrice !== null && enteredPrice > maxPrice) {
-      alert('Đơn giá lẻ bộ không được cao hơn đơn giá nguyên bộ tổ đan');
+    const otherSizePrices = Object.entries(sizePrices)
+      .filter(([size]) => size !== sizeName)
+      .reduce((total, [, price]) => total + (Number(price) || 0), 0);
+    const remainingPrice = Math.max(0, (Number(unitPrice) || 0) - otherSizePrices);
+    const nextPrice = Math.min(enteredPrice, remainingPrice);
+    if (nextPrice < enteredPrice) {
+      alert('Tổng đơn giá chi tiết lẻ không được cao hơn đơn giá nguyên bộ tổ đan');
     }
     setSizePrices(current => ({ ...current, [sizeName]: String(nextPrice) }));
   };
 
-  const lowestCompanyPrice = getLowestCompanyUnitPrice(productCode);
-  const currentSubUnitPrice = Number(unitPrice) || 0;
-  const isPriceHigherThanCompany = lowestCompanyPrice !== null && currentSubUnitPrice >= lowestCompanyPrice;
+  const totalSizeUnitPrice = Object.values(sizePrices).reduce(
+    (total, price) => total + (Number(price) || 0),
+    0
+  );
+  const isSizeUnitPriceOverBundlePrice = totalSizeUnitPrice > (Number(unitPrice) || 0);
 
   const existingCompanyNames = Array.from(
     new Set((contracts || []).map((c: any) => c.companyName || c.company).filter((name: string) => name && name !== 'Nội bộ Tổ Đan'))
@@ -1510,16 +1502,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
           if (!productCode) { alert('Vui lòng nhập hoặc chọn Mã Hàng!'); return; }
           if (!selectedParentNo) { alert('Mã hàng này chưa được gắn với HĐ Cty nào. Vui lòng tạo HĐ Cty trước!'); return; }
           if (isSubDueDateInvalid) return;
-          if (isPriceHigherThanCompany) { alert('⚠️ Đơn giá giao tổ đan không được cao hơn giá cty!'); return; }
-          const maxPiecePrice = getSubcontractMaxUnitPrice(productCode);
-          if (maxPiecePrice !== null && Object.values(sizePrices).some(price => Number(price) > maxPiecePrice)) {
-            setSizePrices(current => Object.fromEntries(
-              Object.entries(current).map(([size, price]) => [
-                size,
-                String(Math.min(Number(price) || 0, maxPiecePrice))
-              ])
-            ));
-            alert('Đơn giá lẻ bộ không được cao hơn đơn giá nguyên bộ tổ đan');
+          if (isSizeUnitPriceOverBundlePrice) {
+            alert('Tổng đơn giá chi tiết lẻ không được cao hơn đơn giá nguyên bộ tổ đan');
             return;
           }
 
@@ -1761,6 +1745,11 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                   })}
                 </div>
               )}
+            </div>
+          )}
+          {isSizeUnitPriceOverBundlePrice && (
+            <div role="alert" style={{ color: '#b91c1c', fontSize: '12px', fontWeight: 700 }}>
+              Tổng đơn giá chi tiết lẻ không được cao hơn đơn giá nguyên bộ tổ đan.
             </div>
           )}
 
@@ -2030,7 +2019,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             </div>
           </div>
 
-          <button type="submit" disabled={isSubmitting || isPriceHigherThanCompany || isSubDueDateInvalid || isSubPhoneInvalid || isSubZaloInvalid} style={{ padding: '14px', backgroundColor: isSubmitting || isPriceHigherThanCompany || isSubDueDateInvalid || isSubPhoneInvalid || isSubZaloInvalid ? '#94a3b8' : '#7c3aed', color: '#fff', fontWeight: 'bold', fontSize: '15px', borderRadius: '8px', border: 'none', cursor: isSubmitting || isPriceHigherThanCompany || isSubDueDateInvalid || isSubPhoneInvalid || isSubZaloInvalid ? 'not-allowed' : 'pointer' }}>
+          <button type="submit" disabled={isSubmitting || isSizeUnitPriceOverBundlePrice || isSubDueDateInvalid || isSubPhoneInvalid || isSubZaloInvalid} style={{ padding: '14px', backgroundColor: isSubmitting || isSizeUnitPriceOverBundlePrice || isSubDueDateInvalid || isSubPhoneInvalid || isSubZaloInvalid ? '#94a3b8' : '#7c3aed', color: '#fff', fontWeight: 'bold', fontSize: '15px', borderRadius: '8px', border: 'none', cursor: isSubmitting || isSizeUnitPriceOverBundlePrice || isSubDueDateInvalid || isSubPhoneInvalid || isSubZaloInvalid ? 'not-allowed' : 'pointer' }}>
             {isSubmitting ? '⏳ Đang lưu...' : '💾 Lưu Hợp Đồng Tổ Đan'}
           </button>
         </form>
