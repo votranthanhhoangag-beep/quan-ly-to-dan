@@ -434,6 +434,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       setSelectedParentNo('');
       setProductName('');
       setDueDate(minDateString);
+      setUnitPrice('');
       return;
     }
 
@@ -443,7 +444,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     if (typeof matchedParent.dueDate === 'string' && matchedParent.dueDate) {
       setDueDate(subtractDaysFromDate(formatInputDate(matchedParent.dueDate), 4) || minDateString);
     } else setDueDate(minDateString);
-    if (matchedParent.unitPrice) setUnitPrice(String(matchedParent.unitPrice));
+    const maxUnitPrice = getSubcontractMaxUnitPrice(safeCode);
+    setUnitPrice(maxUnitPrice === null ? '' : String(maxUnitPrice));
     if (matchedParent.quantity) setContractQty(String(matchedParent.quantity));
   };
 
@@ -609,6 +611,21 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     const matched = parentContractsList.filter((c: any) => String(c.productCode || '').trim().toLowerCase() === cleanCode && Number(c.unitPrice) > 0);
     if (matched.length === 0) return null;
     return Math.min(...matched.map((c: any) => Number(c.unitPrice)));
+  };
+
+  const getSubcontractMaxUnitPrice = (code: string) => {
+    const companyPrice = getLowestCompanyUnitPrice(code);
+    return companyPrice === null ? null : Math.round(companyPrice * 0.8);
+  };
+
+  const handleSizePriceChange = (sizeName: string, value: string) => {
+    const enteredPrice = Number(value.replace(/\D/g, '')) || 0;
+    const maxPrice = getSubcontractMaxUnitPrice(productCode);
+    const nextPrice = maxPrice !== null && enteredPrice > maxPrice ? maxPrice : enteredPrice;
+    if (maxPrice !== null && enteredPrice > maxPrice) {
+      alert('Đơn giá lẻ bộ không được cao hơn đơn giá nguyên bộ tổ đan');
+    }
+    setSizePrices(current => ({ ...current, [sizeName]: String(nextPrice) }));
   };
 
   const lowestCompanyPrice = getLowestCompanyUnitPrice(productCode);
@@ -1494,6 +1511,17 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
           if (!selectedParentNo) { alert('Mã hàng này chưa được gắn với HĐ Cty nào. Vui lòng tạo HĐ Cty trước!'); return; }
           if (isSubDueDateInvalid) return;
           if (isPriceHigherThanCompany) { alert('⚠️ Đơn giá giao tổ đan không được cao hơn giá cty!'); return; }
+          const maxPiecePrice = getSubcontractMaxUnitPrice(productCode);
+          if (maxPiecePrice !== null && Object.values(sizePrices).some(price => Number(price) > maxPiecePrice)) {
+            setSizePrices(current => Object.fromEntries(
+              Object.entries(current).map(([size, price]) => [
+                size,
+                String(Math.min(Number(price) || 0, maxPiecePrice))
+              ])
+            ));
+            alert('Đơn giá lẻ bộ không được cao hơn đơn giá nguyên bộ tổ đan');
+            return;
+          }
 
           if (isSubPhoneInvalid || isSubZaloInvalid) {
             alert('⚠️ Số điện thoại và Zalo phải có đúng 10 chữ số, bắt đầu bằng đầu số di động hợp lệ tại Việt Nam!');
@@ -1724,7 +1752,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                             pattern="[0-9.,]*"
                             placeholder="Đơn giá cái..."
                             value={sizePrices[sName] ? formatCurrency(sizePrices[sName]) : ''}
-                            onChange={e => setSizePrices({ ...sizePrices, [sName]: e.target.value.replace(/\D/g, '') })}
+                            onChange={e => handleSizePriceChange(sName, e.target.value)}
                             style={{ width: '50%', padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }}
                           />
                         </div>
