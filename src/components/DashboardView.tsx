@@ -473,6 +473,7 @@ export default function DashboardView() {
                     </thead>
                     <tbody>
                       {group.rows.map(({ contract, contractKind, deadlineDate, daysRemaining, contactName, contactPhone }) => {
+                        const phoneNumber = String(contactPhone || '').replace(/\D/g, '');
                         const status = daysRemaining < 0
                           ? `Trễ ${formatNumber(Math.abs(daysRemaining))} ngày`
                           : daysRemaining === 0
@@ -490,16 +491,14 @@ export default function DashboardView() {
                             <td style={{ padding: '9px 10px', whiteSpace: 'nowrap' }}>{formatScheduleDate(deadlineDate)}</td>
                             <td style={{ padding: '9px 10px', color: group.color, fontWeight: 800 }}>{status}</td>
                             <td style={{ padding: '9px 10px' }}>
-                              <button
-                                type="button"
-                                title={contactPhone ? `Gọi ${contactPhone}` : 'Gọi điện cho đối tác'}
-                                onClick={() => {
-                                  const phoneNumber = String(contactPhone || '').replace(/\D/g, '');
-                                  if (!phoneNumber) {
-                                    window.alert('Chưa có số điện thoại liên hệ!');
-                                    return;
-                                  }
-                                  window.location.href = `tel:${phoneNumber}`;
+                              <a
+                                href={phoneNumber ? `tel:${phoneNumber}` : '#'}
+                                target="_self"
+                                title={phoneNumber ? `Gọi ${contactPhone}` : 'Gọi điện cho đối tác'}
+                                onClick={event => {
+                                  if (phoneNumber) return;
+                                  event.preventDefault();
+                                  window.alert('Chưa có số điện thoại!');
                                 }}
                                 style={{
                                   padding: '6px 9px',
@@ -509,11 +508,13 @@ export default function DashboardView() {
                                   color: '#fff',
                                   fontWeight: 700,
                                   cursor: 'pointer',
-                                  whiteSpace: 'nowrap'
+                                  whiteSpace: 'nowrap',
+                                  textDecoration: 'none',
+                                  display: 'inline-block'
                                 }}
                               >
                                 📞 Gọi điện
-                              </button>
+                              </a>
                             </td>
                           </tr>
                         );
