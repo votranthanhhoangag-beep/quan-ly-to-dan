@@ -103,6 +103,9 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     updateContract,
     deleteContract
   } = appContext;
+  const contractItems: ContractItem[] = Array.isArray(contracts)
+    ? contracts.filter((item: unknown): item is ContractItem => Boolean(item) && typeof item === 'object')
+    : [];
   const productItems: CategoryItem[] = Array.isArray(products)
     ? products.filter((item: unknown): item is CategoryItem => Boolean(item) && typeof item === 'object')
     : [];
@@ -240,7 +243,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     `contracts-${activeTab === 'SUB' ? 'sub' : 'parent'}`
   );
   const [listTab, setListTab] = useState<'PARENT_LIST' | 'SUB_LIST'>(isWarehouseUser ? 'SUB_LIST' : 'PARENT_LIST');
-  const [contractViewMode, setContractViewMode] = useState<'AUTO' | 'CARD' | 'TABLE'>('AUTO');
+  const [contractViewMode, setContractViewMode] = useState<'CARD' | 'TABLE'>('CARD');
   const [editingId, setEditingId] = useState<string | number | null>(null);
   const [depositTrackingProductFilter, setDepositTrackingProductFilter] = useState('');
   const [depositTrackingSubContractFilter, setDepositTrackingSubContractFilter] = useState('');
@@ -284,6 +287,16 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   const [subContractMaterials, setSubContractMaterials] = useState<AccompanyingMaterialFormRow[]>([
     createAccompanyingMaterialRow()
   ]);
+  const safeSizeQuantities = sizeQuantities && typeof sizeQuantities === 'object' && !Array.isArray(sizeQuantities)
+    ? sizeQuantities
+    : {};
+  const safeSizePrices = sizePrices && typeof sizePrices === 'object' && !Array.isArray(sizePrices)
+    ? sizePrices
+    : {};
+  const safeSubContractMaterials = Array.isArray(subContractMaterials)
+    ? subContractMaterials.filter((row): row is AccompanyingMaterialFormRow =>
+      Boolean(row) && typeof row === 'object')
+    : [];
 
   const [unit, setUnit] = useState<string>('Bộ');
   const [quantity, setQuantity] = useState<string>('');
@@ -350,8 +363,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   const parentRemainingAmount = Math.max(0, parentTotalAmount - parentDepositNum);
 
   // Danh sách hợp đồng
-  const parentContractsList = (contracts || []).filter((c: any) => c.contractType === 'PARENT' || !c.contractType);
-  const subContractsList = (contracts || []).filter((c: any) => c.contractType === 'SUB');
+  const parentContractsList = contractItems.filter((c: any) => c.contractType === 'PARENT' || !c.contractType);
+  const subContractsList = contractItems.filter((c: any) => c.contractType === 'SUB');
   const selectedParentContract = parentContractsList.find(
     (contract: any) => String(contract.contractNo || '') === String(selectedParentNo)
   );
@@ -362,7 +375,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   const isSubPhoneInvalid = !isValidVietnamMobileNumber(phone);
   const isSubZaloInvalid = !isValidVietnamMobileNumber(zalo);
   const parentProductCodeList = Array.from(new Set<string>(
-    (contracts || [])
+    contractItems
       .filter((contract: any) => contract.contractType === 'PARENT')
       .map((contract: any) => String(contract.productCode || '').trim())
       .filter(Boolean)
@@ -371,7 +384,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   const uniqueProductCodeList = Array.from(new Set<string>(
     [
       ...productItems.map((p: CategoryItem) => p.code || p.id),
-      ...(contracts || []).map((c: any) => c.productCode)
+      ...contractItems.map((c: any) => c.productCode)
     ]
       .map(code => String(code || '').trim())
       .filter(Boolean)
@@ -382,6 +395,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   );
 
   const handleProductCodeSelect = (codeStr: string) => {
+    try {
     const safeCode = typeof codeStr === 'string' ? codeStr : '';
     setProductCode(safeCode);
     setUnit(getUnitFromProductCode(safeCode) || 'Bộ');
@@ -394,8 +408,9 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     const matchedProduct = productItems.find(
       (p: any) => String(p.code || p.id || '').trim().toLowerCase() === cleanCode
     );
-    const matchedContract = (contracts || []).find(
-      (c: any) => String(c.productCode || '').trim().toLowerCase() === cleanCode
+    const matchedContract = contractItems.find(
+      (c: any) => c.contractType === 'PARENT' &&
+        String(c.productCode || '').trim().toLowerCase() === cleanCode
     );
 
     const matchedProductName = matchedProduct && 'productName' in matchedProduct
@@ -403,75 +418,106 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       : matchedProduct?.name;
     if (typeof matchedProductName === 'string' && matchedProductName.trim()) {
       setProductName(matchedProductName);
-    } else if (typeof matchedContract?.productName === 'string' && matchedContract.productName) {
-      setProductName(matchedContract.productName.split(' ')[0]);
+    } else if (typeof matchedContract?.productName === 'string' && matchedContract?.productName) {
+      setProductName(matchedContract?.productName.split(' ')[0] || '');
     } else {
       setProductName('');
     }
 
     const matchedParent = parentContractsList.find((p: any) => String(p.productCode || '').trim().toLowerCase() === cleanCode);
     if (matchedParent) {
-      setSelectedParentNo(typeof matchedParent.contractNo === 'string' ? matchedParent.contractNo : '');
-      if (typeof matchedParent.dueDate === 'string' && matchedParent.dueDate) {
-        setDueDate(subtractDaysFromDate(formatInputDate(matchedParent.dueDate), 4) || minDateString);
+      setSelectedParentNo(typeof matchedParent?.contractNo === 'string' ? matchedParent?.contractNo : '');
+      if (typeof matchedParent?.dueDate === 'string' && matchedParent?.dueDate) {
+        setDueDate(subtractDaysFromDate(formatInputDate(matchedParent?.dueDate), 4) || minDateString);
       } else setDueDate(minDateString);
-      if (matchedParent.unitPrice) setUnitPrice(String(matchedParent.unitPrice));
-      if (matchedParent.quantity) setContractQty(String(matchedParent.quantity));
+      if (matchedParent?.unitPrice) setUnitPrice(String(matchedParent?.unitPrice));
+      if (matchedParent?.quantity) setContractQty(String(matchedParent?.quantity));
+    }
+    } catch (error) {
+      console.error('Không thể đối chiếu mã hàng hợp đồng công ty:', error);
+      window.alert('Không thể đối chiếu mã hàng. Vui lòng kiểm tra lại dữ liệu hợp đồng và thử lại.');
+      setProductName('');
     }
   };
 
   const handleSubProductCodeSelect = (codeStr: string) => {
+    try {
     const safeCode = typeof codeStr === 'string' ? codeStr : '';
     setProductCode(safeCode);
     const cleanCode = safeCode.trim().toLowerCase();
-    const matchedParent = (contracts || []).find(
+    const matchedParent = contractItems.find(
       (contract: any) =>
         contract.contractType === 'PARENT' &&
         String(contract.productCode || '').trim().toLowerCase() === cleanCode
     );
 
-    if (!matchedParent) {
+    if (!cleanCode || !matchedParent) {
       setSelectedParentNo('');
       setProductName('');
       setDueDate(minDateString);
       setUnitPrice('');
+      setUnit(getUnitFromProductCode(safeCode) || 'Bộ');
+      setContractQty('1000');
       return;
     }
 
-    setSelectedParentNo(typeof matchedParent.contractNo === 'string' ? matchedParent.contractNo : '');
-    setProductName(typeof matchedParent.productName === 'string' ? matchedParent.productName : '');
-    setUnit(getUnitFromProductCode(safeCode) || (typeof matchedParent.unit === 'string' ? matchedParent.unit : 'Bộ'));
-    if (typeof matchedParent.dueDate === 'string' && matchedParent.dueDate) {
-      setDueDate(subtractDaysFromDate(formatInputDate(matchedParent.dueDate), 4) || minDateString);
+    setSelectedParentNo(typeof matchedParent?.contractNo === 'string' ? matchedParent?.contractNo : '');
+    setProductName(typeof matchedParent?.productName === 'string' ? matchedParent?.productName : '');
+    setUnit(getUnitFromProductCode(safeCode) || (typeof matchedParent?.unit === 'string' ? matchedParent?.unit : 'Bộ'));
+    if (typeof matchedParent?.dueDate === 'string' && matchedParent?.dueDate) {
+      setDueDate(subtractDaysFromDate(formatInputDate(matchedParent?.dueDate), 4) || minDateString);
     } else setDueDate(minDateString);
-    const companyUnitPrice = Number(matchedParent.unitPrice);
+    const companyUnitPrice = Number(matchedParent?.unitPrice);
     setUnitPrice(companyUnitPrice > 0 ? String(Math.round(companyUnitPrice * 0.8)) : '');
-    if (matchedParent.quantity) setContractQty(String(matchedParent.quantity));
+    if (matchedParent?.quantity) setContractQty(String(matchedParent?.quantity));
+    } catch (error) {
+      console.error('Không thể tính đơn giá hợp đồng tổ đan:', error);
+      window.alert('Không thể tính đơn giá hoặc đối chiếu hợp đồng. Vui lòng kiểm tra dữ liệu mã hàng.');
+      setSelectedParentNo('');
+      setProductName('');
+      setDueDate(minDateString);
+      setUnitPrice('');
+    }
   };
 
   const selectProductCodeOption = (code: string) => {
+    try {
     if (typeof code !== 'string' || !code.trim()) return;
     if (activeTab === 'SUB') handleSubProductCodeSelect(code);
     else handleProductCodeSelect(code);
     setIsProductCodeDropdownOpen(false);
+    } catch (error) {
+      console.error('Không thể chọn mã hàng:', error);
+      window.alert('Không thể chọn mã hàng. Vui lòng thử lại.');
+    }
   };
 
   useEffect(() => {
     if (productCode && isSetItem) {
       const max = getMaxSizesFromCode(productCode);
-      const newQtyMap: { [key: string]: string } = {};
-      const newPriceMap: { [key: string]: string } = {};
-      for (let i = 1; i <= max; i++) {
-        const sName = `Cái ${i}`;
-        newQtyMap[sName] = sizeQuantities[sName] || '';
-        newPriceMap[sName] = sizePrices[sName] || '';
-      }
-      setSizeQuantities(newQtyMap);
-      setSizePrices(newPriceMap);
+      setSizeQuantities(current => {
+        const currentQuantities = current && typeof current === 'object' ? current : {};
+        const nextQuantities: { [key: string]: string } = {};
+        for (let i = 1; i <= max; i++) {
+          const sizeName = `Cái ${i}`;
+          nextQuantities[sizeName] = currentQuantities[sizeName] || '';
+        }
+        return nextQuantities;
+      });
+      setSizePrices(current => {
+        const currentPrices = current && typeof current === 'object' ? current : {};
+        const nextPrices: { [key: string]: string } = {};
+        for (let i = 1; i <= max; i++) {
+          const sizeName = `Cái ${i}`;
+          nextPrices[sizeName] = currentPrices[sizeName] || '';
+        }
+        return nextPrices;
+      });
     }
   }, [productCode, isSetItem]);
 
   const calculateExactTotal = () => {
+    try {
     const defaultUnitPrice = Number(unitPrice) || 0;
     const targetQty = Number(contractQty) || 0;
 
@@ -483,7 +529,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       };
     }
 
-    const sizes = Object.keys(sizeQuantities);
+    const sizes = Object.keys(safeSizeQuantities);
     let totalCaiMoney = 0;
     const summaryParts: string[] = [];
 
@@ -493,10 +539,10 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     }
 
     sizes.forEach(s => {
-      const qty = Number(sizeQuantities[s]) || 0;
+      const qty = Number(safeSizeQuantities[s]) || 0;
       if (qty > 0) {
         summaryParts.push(`${qty} ${s.toLowerCase()}`);
-        const p = Number(sizePrices[s]) > 0 ? Number(sizePrices[s]) : defaultUnitPrice;
+        const p = Number(safeSizePrices[s]) > 0 ? Number(safeSizePrices[s]) : defaultUnitPrice;
         totalCaiMoney += qty * p;
       }
     });
@@ -506,10 +552,15 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     const summaryText = summaryParts.length > 0 ? summaryParts.join(', ') : `${targetQty} bộ`;
 
     return { summaryText, totalAmount: totalAmount || (targetQty * defaultUnitPrice) };
+    } catch (error) {
+      console.error('Không thể tính thành tiền hợp đồng tổ đan:', error);
+      window.alert('Dữ liệu số lượng hoặc đơn giá không hợp lệ. Vui lòng kiểm tra lại hợp đồng.');
+      return { summaryText: '0 bộ', totalAmount: 0 };
+    }
   };
 
   const { summaryText, totalAmount: calculatedTotalAmount } = calculateExactTotal();
-  const accompanyingMaterialTotal = subContractMaterials.reduce(
+  const accompanyingMaterialTotal = safeSubContractMaterials.reduce(
     (total, row) => total + (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0),
     0
   );
@@ -574,40 +625,78 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     });
   };
 
-  const handleShareSubContractSlipToZalo = async () => {
+  const handleShareSubContractSlipToZalo = () => {
     if (!subContractSlipData) return;
 
-    const formData = subContractSlipData;
-    const phoneNumber = formData.phone.replace(/\D/g, '');
-    if (phoneNumber) window.open(`https://zalo.me/${phoneNumber}`, '_blank', 'noopener,noreferrer');
-
-    const shareText = [
-      'PHIẾU HỢP ĐỒNG TỔ ĐAN - LỤC BÌNH CRAFTS',
-      `Ngày lập: ${formData.createdAt.toLocaleDateString('vi-VN')}`,
-      `Số HĐ Cty truy vết: ${formData.parentContractNo || '—'}`,
-      `Mã hàng: ${formData.productCode || '—'}`,
-      `Tên sản phẩm: ${formData.productName || '—'}`,
-      `Tên tổ đan: ${formData.groupName || '—'}`,
-      `SĐT: ${formData.phone || '—'}${formData.zalo ? ` | Zalo: ${formData.zalo}` : ''}`,
-      `Số lượng giao: ${formatCurrency(formData.quantity)} ${formData.quantityUnit}`,
-      `Số lượng đã nhận: ${formatCurrency(formData.receivedQuantity)} ${formData.quantityUnit}`,
-      `Số lượng còn lại: ${formatCurrency(formData.remainingQuantity)} ${formData.quantityUnit}`,
-      `Đơn giá: ${formatCurrency(formData.unitPrice)} VNĐ`,
-      `Tiền cọc: ${formatCurrency(formData.deposit)} VNĐ`,
-      `Thành tiền: ${formatCurrency(formData.totalAmount)} VNĐ`
-    ].join('\n');
-
     try {
-      await navigator.clipboard.writeText(shareText);
-      alert('Đã copy nội dung phiếu. Bạn có thể dán vào cuộc trò chuyện Zalo.');
-    } catch {
-      alert('Không thể sao chép phiếu. Vui lòng kiểm tra quyền truy cập Clipboard của trình duyệt.');
+      const formData = subContractSlipData;
+      const enteredPhone = window.prompt(
+        'Nhập số điện thoại Zalo người nhận (có thể thay đổi số gợi ý):',
+        formData.zalo || formData.phone || ''
+      );
+      if (enteredPhone === null) return;
+
+      const phoneNumber = enteredPhone.replace(/\D/g, '');
+      if (!phoneNumber) {
+        window.alert('Vui lòng nhập số điện thoại Zalo hợp lệ.');
+        return;
+      }
+
+      const shareText = [
+        'PHIẾU HỢP ĐỒNG TỔ ĐAN - LỤC BÌNH CRAFTS',
+        `Ngày lập: ${formData.createdAt.toLocaleDateString('vi-VN')}`,
+        `Số HĐ Cty truy vết: ${formData.parentContractNo || '—'}`,
+        `Mã hàng: ${formData.productCode || '—'}`,
+        `Tên sản phẩm: ${formData.productName || '—'}`,
+        `Tên tổ đan: ${formData.groupName || '—'}`,
+        `SĐT: ${formData.phone || '—'}${formData.zalo ? ` | Zalo: ${formData.zalo}` : ''}`,
+        `Số lượng giao: ${formatCurrency(formData.quantity)} ${formData.quantityUnit}`,
+        `Số lượng đã nhận: ${formatCurrency(formData.receivedQuantity)} ${formData.quantityUnit}`,
+        `Số lượng còn lại: ${formatCurrency(formData.remainingQuantity)} ${formData.quantityUnit}`,
+        `Đơn giá: ${formatCurrency(formData.unitPrice)} VNĐ`,
+        `Tiền cọc: ${formatCurrency(formData.deposit)} VNĐ`,
+        `Thành tiền: ${formatCurrency(formData.totalAmount)} VNĐ`
+      ].join('\n');
+
+      const zaloWindow = window.open(`https://zalo.me/${phoneNumber}`, '_blank');
+      let copied = false;
+      const temporaryTextarea = document.createElement('textarea');
+      temporaryTextarea.value = shareText;
+      temporaryTextarea.setAttribute('readonly', '');
+      temporaryTextarea.style.position = 'fixed';
+      temporaryTextarea.style.left = '-9999px';
+      temporaryTextarea.style.top = '0';
+      document.body.appendChild(temporaryTextarea);
+
+      try {
+        temporaryTextarea.focus();
+        temporaryTextarea.select();
+        copied = document.execCommand('copy');
+      } finally {
+        temporaryTextarea.remove();
+      }
+
+      if (copied) {
+        window.alert('Đã sao chép nội dung phiếu. Hãy dán vào cuộc trò chuyện Zalo.');
+      } else {
+        window.prompt('Không thể tự sao chép. Hãy sao chép nội dung phiếu bên dưới:', shareText);
+      }
+
+      if (zaloWindow) {
+        zaloWindow.opener = null;
+      } else {
+        window.location.assign(`https://zalo.me/${phoneNumber}`);
+      }
+    } catch (error) {
+      console.error('Không thể gửi phiếu qua Zalo:', error);
+      window.alert('Không thể mở Zalo hoặc sao chép nội dung phiếu. Vui lòng thử lại.');
     }
   };
 
   const handleSizePriceChange = (sizeName: string, value: string) => {
+    try {
     const enteredPrice = Number(value.replace(/\D/g, '')) || 0;
-    const otherSizePrices = Object.entries(sizePrices)
+    const otherSizePrices = Object.entries(safeSizePrices)
       .filter(([size]) => size !== sizeName)
       .reduce((total, [, price]) => total + (Number(price) || 0), 0);
     const remainingPrice = Math.max(0, (Number(unitPrice) || 0) - otherSizePrices);
@@ -616,16 +705,31 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       alert('Tổng đơn giá chi tiết lẻ không được cao hơn đơn giá nguyên bộ tổ đan');
     }
     setSizePrices(current => ({ ...current, [sizeName]: String(nextPrice) }));
+    } catch (error) {
+      console.error('Không thể kiểm tra đơn giá đan lẻ:', error);
+      window.alert('Không thể kiểm tra đơn giá đan lẻ. Vui lòng nhập lại đơn giá.');
+    }
   };
 
-  const totalSizeUnitPrice = Object.values(sizePrices).reduce(
-    (total, price) => total + (Number(price) || 0),
-    0
-  );
-  const isSizeUnitPriceOverBundlePrice = totalSizeUnitPrice > (Number(unitPrice) || 0);
+  const isSizeUnitPriceOverBundlePrice = (() => {
+    try {
+      const totalSizeUnitPrice = Object.values(safeSizePrices).reduce(
+        (total, price) => total + (Number(price) || 0),
+        0
+      );
+      return totalSizeUnitPrice > (Number(unitPrice) || 0);
+    } catch (error) {
+      console.error('Không thể kiểm tra đơn giá đan lẻ:', error);
+      window.alert('Không thể kiểm tra đơn giá đan lẻ. Vui lòng kiểm tra lại dữ liệu giá.');
+      return false;
+    }
+  })();
 
   const existingCompanyNames = Array.from(
-    new Set((contracts || []).map((c: any) => c.companyName || c.company).filter((name: string) => name && name !== 'Nội bộ Tổ Đan'))
+    new Set(contractItems
+      .map((c: any) => c.companyName || c.company)
+      .filter((name: unknown): name is string =>
+        typeof name === 'string' && Boolean(name.trim()) && name !== 'Nội bộ Tổ Đan'))
   );
 
   const autoGenerateParentNo = (compName: string = companyName): string => {
@@ -885,6 +989,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   };
 
   const handleEdit = (item: any) => {
+    try {
     setEditingId(item.id);
     if (item.contractType === 'SUB') {
       setActiveTab('SUB');
@@ -903,8 +1008,12 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       setSizeQuantities(item.sizeQuantities || {});
       setSizePrices(item.sizePrices || {});
       setBoQuantity(item.boQuantity || '');
-      setSubContractMaterials(Array.isArray(item.accompanyingMaterials) && item.accompanyingMaterials.length > 0
-        ? item.accompanyingMaterials.map((material: AccompanyingMaterial, index: number) => ({
+      const savedMaterials = Array.isArray(item.accompanyingMaterials)
+        ? item.accompanyingMaterials.filter((material: unknown): material is AccompanyingMaterial =>
+          Boolean(material) && typeof material === 'object')
+        : [];
+      setSubContractMaterials(savedMaterials.length > 0
+        ? savedMaterials.map((material: AccompanyingMaterial, index: number) => ({
           id: `${item.id}-material-${index}`,
           materialId: material.materialId,
           materialCode: material.materialCode,
@@ -936,12 +1045,17 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     setContractImage(item.contractImage || '');
     setNote(item.note || '');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+      console.error('Không thể tải hợp đồng để chỉnh sửa:', error);
+      window.alert('Không thể mở hợp đồng để chỉnh sửa do dữ liệu không hợp lệ.');
+    }
   };
 
   useEffect(() => {
     if (requestedEditContractId === undefined || requestedEditContractId === null) return;
-    const contract = (contracts || []).find(
-      (item: any) => String(item.id) === String(requestedEditContractId)
+    const contract = (Array.isArray(contracts) ? contracts : []).find(
+      (item: any) => item && typeof item === 'object' &&
+        String(item.id) === String(requestedEditContractId)
     );
     if (!contract) {
       onEditRequestHandled?.();
@@ -968,7 +1082,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     const targetContractCode = String(item.contractCode || item.contractNo || '')
       .trim()
       .toLocaleLowerCase('vi');
-    const currentContracts: ContractItem[] = Array.isArray(contracts) ? contracts as ContractItem[] : [];
+    const currentContracts = contractItems;
     const nextContracts = currentContracts.filter(contract => {
       const matchesId = item.id !== undefined && item.id !== null &&
         String(contract.id) === String(item.id);
@@ -1186,8 +1300,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
           try {
           const qty = Number(quantity) || 0;
           const price = Number(unitPrice) || 0;
-          const safeContracts = Array.isArray(contracts) ? contracts : [];
-          const existingParent = safeContracts.find((item: any) =>
+          const existingParent = contractItems.find((item: any) =>
             (item && String(item.id) === String(editingId)) ||
             (!editingId && item && String(item.contractNo || '') === String(parentContractNo || ''))
           );
@@ -1402,7 +1515,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
           </button>
         </form>
       )}
-{/* 📋 Danh Sách Hợp Đồng CTY Đã Tạo ({Array.isArray(contracts) ? contracts.filter((c: any) => c.contractType === 'PARENT').length : 0})
+{/* 📋 Danh Sách Hợp Đồng CTY Đã Tạo ({contractItems.filter((c: any) => c.contractType === 'PARENT').length})
         </h3>
 
         <div style={{ overflowX: 'auto' }}>
@@ -1422,7 +1535,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             </thead>
             <tbody>
               {(() => {
-                const parentList = Array.isArray(contracts) ? contracts.filter((c: any) => c.contractType === 'PARENT') : [];
+                const parentList = contractItems.filter((c: any) => c.contractType === 'PARENT');
 
                 if (parentList.length === 0) {
                   return (
@@ -1522,8 +1635,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             return;
           }
 
-          const safeMaterialRows = Array.isArray(subContractMaterials) ? subContractMaterials : [];
-          const materialRowsWithInput = safeMaterialRows.filter(row => row &&
+          const materialRowsWithInput = safeSubContractMaterials.filter(row => row &&
             (String(row.query ?? '').trim() ||
               String(row.quantity ?? '').trim() ||
               (row.materialId !== null && row.materialId !== undefined))
@@ -1561,7 +1673,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
           }
           
           const existingSubContract = editingId
-            ? (Array.isArray(contracts) ? contracts : []).find((contract: any) => contract && String(contract.id) === String(editingId))
+            ? contractItems.find((contract: any) => contract && String(contract.id) === String(editingId))
             : null;
           const existingDepositLogs: DepositLog[] = Array.isArray(existingSubContract?.depositLogs)
             ? existingSubContract.depositLogs
@@ -1726,7 +1838,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                             inputMode="numeric"
                             pattern="[0-9]*"
                             placeholder="SL cái..."
-                            value={sizeQuantities[sName] || ''}
+                            value={safeSizeQuantities[sName] || ''}
                             onChange={e => setSizeQuantities({ ...sizeQuantities, [sName]: e.target.value })}
                             style={{ width: '50%', padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }}
                           />
@@ -1735,7 +1847,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                             inputMode="decimal"
                             pattern="[0-9.,]*"
                             placeholder="Đơn giá cái..."
-                            value={sizePrices[sName] ? formatCurrency(sizePrices[sName]) : ''}
+                            value={safeSizePrices[sName] ? formatCurrency(safeSizePrices[sName]) : ''}
                             onChange={e => handleSizePriceChange(sName, e.target.value)}
                             style={{ width: '50%', padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }}
                           />
@@ -1887,7 +1999,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
               <span>Thành tiền (VNĐ)</span>
               <span />
             </div>
-            {subContractMaterials.map(row => {
+            {safeSubContractMaterials.map(row => {
               const suggestions = materialItems.filter((material: CategoryItem) =>
                 matchesMaterialNameSearch(material, row.query)
               );
@@ -2449,19 +2561,19 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             <div style={{ display: 'inline-flex', border: '1px solid #cbd5e1', borderRadius: '6px', overflow: 'hidden', backgroundColor: '#f1f5f9' }}>
               <button
                 type="button"
-                onClick={() => setContractViewMode(prev => prev === 'CARD' ? 'TABLE' : prev === 'TABLE' ? 'AUTO' : 'CARD')}
+                onClick={() => setContractViewMode(prev => prev === 'CARD' ? 'TABLE' : 'CARD')}
                 style={{
                   padding: '6px 12px',
                   fontSize: '12px',
                   fontWeight: 'bold',
                   border: 'none',
-                  backgroundColor: contractViewMode === 'CARD' ? '#2563eb' : contractViewMode === 'TABLE' ? '#7c3aed' : '#e2e8f0',
-                  color: contractViewMode === 'AUTO' ? '#334155' : '#fff',
+                  backgroundColor: contractViewMode === 'CARD' ? '#2563eb' : '#7c3aed',
+                  color: '#fff',
                   cursor: 'pointer'
                 }}
                 title="Bấm để đổi giữa Xem dạng Thẻ (vừa màn hình điện thoại) và Xem dạng Bảng"
               >
-                {contractViewMode === 'CARD' ? '📱 Đang xem: Thẻ' : contractViewMode === 'TABLE' ? '📊 Đang xem: Bảng' : '📱 Chế độ Thẻ (Co giãn)'}
+                {contractViewMode === 'CARD' ? '📱 Đang xem: Thẻ' : '📊 Đang xem: Bảng'}
               </button>
             </div>
             <input type="text" placeholder="Tìm theo Mã hàng / HĐ..." value={searchKeyword} onChange={e => setSearchKeyword(e.target.value)} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '200px' }} />
@@ -2471,7 +2583,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
         {listTab === 'PARENT_LIST' && !isWarehouseUser && (
           <>
             {/* GIAO DIỆN DẠNG THẺ (CARD) - TỰ ĐỘNG VỪA KHÍT 100% MÀN HÌNH ĐIỆN THOẠI */}
-            <div className={contractViewMode === 'TABLE' ? 'hidden' : contractViewMode === 'CARD' ? 'grid grid-cols-1 md:grid-cols-2 gap-3' : 'grid grid-cols-1 md:grid-cols-2 gap-3 md:hidden'}>
+            {contractViewMode === 'CARD' && <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {filteredParentContracts.map((item: any) => {
                 const tAmt = Number(item.totalAmount) || (Number(item.quantity) * Number(item.unitPrice)) || 0;
                 const depAmt = Number(item.requiredDeposit) || 0;
@@ -2588,11 +2700,11 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                   </div>
                 );
               })}
-            </div>
+            </div>}
 
             {/* GIAO DIỆN DẠNG BẢNG (TABLE) - DÀNH CHO MÁY TÍNH HOẶC KHI BẬT DẠNG BẢNG */}
-            <div
-              className={contractViewMode === 'CARD' ? 'hidden' : contractViewMode === 'TABLE' ? 'block erp-table-scroll w-full' : 'hidden md:block erp-table-scroll w-full'}
+            {contractViewMode === 'TABLE' && <div
+              className="block erp-table-scroll w-full"
               role="region"
               aria-label="Danh sách hợp đồng công ty, cuộn ngang để xem đầy đủ"
               tabIndex={0}
@@ -2717,14 +2829,14 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                 })}
               </tbody>
             </table>
-          </div>
+          </div>}
         </>
         )}
 
         {listTab === 'SUB_LIST' && (
           <>
             {/* GIAO DIỆN DẠNG THẺ (CARD) - TỰ ĐỘNG VỪA KHÍT 100% MÀN HÌNH ĐIỆN THOẠI */}
-            <div className={contractViewMode === 'TABLE' ? 'hidden' : contractViewMode === 'CARD' ? 'grid grid-cols-1 md:grid-cols-2 gap-3' : 'grid grid-cols-1 md:grid-cols-2 gap-3 md:hidden'}>
+            {contractViewMode === 'CARD' && <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {filteredSubContracts.map((item: any) => {
                 const grossIssued = getFrameReceiptTotal(item);
                 const returnedFrames = getReturnedFrameTotal(item);
@@ -2892,10 +3004,10 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                   </div>
                 );
               })}
-            </div>
+            </div>}
 
             {/* GIAO DIỆN DẠNG BẢNG (TABLE) */}
-            <div className={contractViewMode === 'CARD' ? 'hidden' : contractViewMode === 'TABLE' ? 'block erp-table-scroll w-full shadow-sm rounded-lg border border-gray-200' : 'hidden md:block erp-table-scroll w-full shadow-sm rounded-lg border border-gray-200'} style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            {contractViewMode === 'TABLE' && <div className="block erp-table-scroll w-full shadow-sm rounded-lg border border-gray-200" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
   <table style={{ width: '100%', minWidth: isWarehouseUser ? '750px' : '1050px', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }} className="w-full">
               <thead>
                 <tr style={{ backgroundColor: '#faf5ff', borderBottom: '2px solid #d8b4fe' }}>
@@ -3069,7 +3181,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                 })}
               </tbody>
             </table>
-          </div>
+          </div>}
         </>
         )}
       </div>

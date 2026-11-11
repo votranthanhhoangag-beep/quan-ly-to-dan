@@ -34,7 +34,19 @@ const cardStyle = {
 } as const;
 
 export default function DashboardView() {
-  const { contracts = [], slips = [], materials = [], expenses = [], vehicles = [], mileageLogs = [], updateVehicle } = useApp();
+  const {
+    contracts: loadedContracts = [],
+    slips: loadedSlips = [],
+    materials: loadedMaterials = [],
+    expenses: loadedExpenses = [],
+    vehicles = [],
+    mileageLogs = [],
+    updateVehicle
+  } = useApp();
+  const contracts = Array.isArray(loadedContracts) ? loadedContracts : [];
+  const slips = Array.isArray(loadedSlips) ? loadedSlips : [];
+  const materials = Array.isArray(loadedMaterials) ? loadedMaterials : [];
+  const expenses = Array.isArray(loadedExpenses) ? loadedExpenses : [];
   const today = new Date();
   const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
   const lowStockMaterials = getMaterialStockRows(
@@ -102,6 +114,25 @@ export default function DashboardView() {
         !slip.sourceContractId && !slip.craftGroupLeader);
   };
   const frameReceipts = slips.filter(isCompanyFrameReceipt);
+  const getContractContactPhone = (contract: typeof contracts[number]) => {
+    const contactFields = contract as typeof contract & {
+      companyPhone?: unknown;
+      partnerPhone?: unknown;
+      contactPhone?: unknown;
+      companyZalo?: unknown;
+      partnerZalo?: unknown;
+    };
+    const phone = [
+      contract.zalo,
+      contract.phone,
+      contactFields.companyZalo,
+      contactFields.partnerZalo,
+      contactFields.companyPhone,
+      contactFields.partnerPhone,
+      contactFields.contactPhone
+    ].find(value => typeof value === 'string' && value.trim());
+    return typeof phone === 'string' ? phone.replace(/\D/g, '') : '';
+  };
   const getParentReceivedQuantity = (contract: typeof parentContracts[number]) => {
     const contractNo = String(contract.contractNo || '').trim().toLowerCase();
     const productCode = String(contract.productCode || '').trim().toLowerCase();
@@ -117,7 +148,7 @@ export default function DashboardView() {
       })
       .reduce((sum, slip) => sum + (Number(slip.quantity) || 0), 0);
   };
-  const todayDate = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+  const todayDate = new Date().setHours(0, 0, 0, 0);
   const getDeadlineRow = (
     contract: typeof contracts[number],
     deadlineType: string,
@@ -127,14 +158,21 @@ export default function DashboardView() {
     if (!deadlineDate) return [];
     const parsedDate = parseScheduleDate(deadlineDate);
     if (!parsedDate) return [];
-    const daysRemaining = Math.round((parsedDate.getTime() - todayDate.getTime()) / 86400000);
+    const deadlineDay = new Date(
+      parsedDate.getUTCFullYear(),
+      parsedDate.getUTCMonth(),
+      parsedDate.getUTCDate()
+    ).setHours(0, 0, 0, 0);
+    const daysRemaining = Math.round((deadlineDay - todayDate) / 86400000);
     if (daysRemaining > 3) return [];
     return [{
       contract,
       deadlineType,
       deadlineDate,
       daysRemaining,
-      contactName
+      contactName,
+      contractKind: contract.contractType === 'SUB' ? 'HĐ Tổ Đan' : 'HĐ Công ty',
+      contactPhone: getContractContactPhone(contract)
     }];
   };
   const companyDeadlineRows = parentContracts.flatMap(contract => {
@@ -174,12 +212,12 @@ export default function DashboardView() {
     String(first.contract.contractNo || '').localeCompare(String(second.contract.contractNo || ''), 'vi')
   );
   const overdueDeliveryDeadlines = deliveryDeadlineRows.filter(row => row.daysRemaining < 0);
-  const dueTodayDeliveryDeadlines = deliveryDeadlineRows.filter(row => row.daysRemaining === 0);
-  const upcomingDeliveryDeadlines = deliveryDeadlineRows.filter(row => row.daysRemaining > 0);
+  const upcomingDeliveryDeadlines = deliveryDeadlineRows.filter(row =>
+    row.daysRemaining >= 0 && row.daysRemaining <= 3
+  );
   const deliveryDeadlineGroups = [
-    { label: 'SẮP TỚI HẠN · 1–3 NGÀY', rows: upcomingDeliveryDeadlines, color: '#a16207', backgroundColor: '#fef3c7', borderColor: '#fcd34d' },
-    { label: 'TỚI HẠN · HÔM NAY', rows: dueTodayDeliveryDeadlines, color: '#c2410c', backgroundColor: '#ffedd5', borderColor: '#fdba74' },
-    { label: 'TRỄ HẠN', rows: overdueDeliveryDeadlines, color: '#b91c1c', backgroundColor: '#fee2e2', borderColor: '#fca5a5' }
+    { label: '🚨 CẢNH BÁO TRỄ HẠN', rows: overdueDeliveryDeadlines, color: '#b91c1c', backgroundColor: '#fee2e2', borderColor: '#fca5a5' },
+    { label: '⚠️ CẢNH BÁO SẮP TỚI HẠN · HÔM NAY ĐẾN 3 NGÀY TỚI', rows: upcomingDeliveryDeadlines, color: '#a16207', backgroundColor: '#fef3c7', borderColor: '#fcd34d' }
   ];
   const parentContractsByNo = new Map<string, typeof parentContracts[number]>();
   parentContracts.forEach(contract => {
@@ -428,26 +466,52 @@ export default function DashboardView() {
                   <table style={{ width: '100%', minWidth: '850px', borderCollapse: 'collapse', fontSize: '12px' }} className="min-w-[950px] w-full">
                     <thead>
                       <tr>
-                        {['Mã Hợp Đồng', 'Tên Tổ Đan', 'Số Điện Thoại / Zalo', 'Mốc Hạn', 'Ngày Hết Hạn', 'Trạng Thái / Số Ngày'].map(header => (
+                        {['Loại hợp đồng', 'Số hợp đồng', 'Công ty / Tổ đan', 'Số lượng', 'Điện thoại / Zalo', 'Ngày giao', 'Trạng thái', 'Liên hệ'].map(header => (
                           <th key={header} style={{ padding: '9px 10px', backgroundColor: '#f8fafc', color: '#475569', textAlign: 'left', fontSize: '12px' }}>{header}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {group.rows.map(({ contract, deadlineType, deadlineDate, daysRemaining, contactName }) => {
+                      {group.rows.map(({ contract, contractKind, deadlineDate, daysRemaining, contactName, contactPhone }) => {
                         const status = daysRemaining < 0
                           ? `Trễ ${formatNumber(Math.abs(daysRemaining))} ngày`
                           : daysRemaining === 0
                             ? 'Đến hạn hôm nay · 0 ngày'
                             : `Còn ${formatNumber(daysRemaining)} ngày`;
                         return (
-                          <tr key={`${contract.id}-${deadlineType}`} style={{ borderTop: '1px solid #e2e8f0' }}>
+                          <tr key={`${contract.id}-${contractKind}-${deadlineDate}`} style={{ borderTop: '1px solid #e2e8f0' }}>
+                            <td style={{ padding: '9px 10px', fontWeight: 700 }}>{contractKind}</td>
                             <td style={{ padding: '9px 10px', fontWeight: 800 }}>{contract.contractNo || '—'}</td>
                             <td style={{ padding: '9px 10px' }}>{contactName}</td>
-                            <td style={{ padding: '9px 10px' }}>{contract.zalo || contract.phone || '—'}</td>
-                            <td style={{ padding: '9px 10px', fontWeight: 700 }}>{deadlineType}</td>
+                            <td style={{ padding: '9px 10px', whiteSpace: 'nowrap' }}>
+                              {formatNumber(Number(contract.quantity) || 0)} {contract.unit || 'sản phẩm'}
+                            </td>
+                            <td style={{ padding: '9px 10px' }}>{contactPhone || '—'}</td>
                             <td style={{ padding: '9px 10px', whiteSpace: 'nowrap' }}>{formatScheduleDate(deadlineDate)}</td>
                             <td style={{ padding: '9px 10px', color: group.color, fontWeight: 800 }}>{status}</td>
+                            <td style={{ padding: '9px 10px' }}>
+                              <button
+                                type="button"
+                                disabled={!contactPhone}
+                                title={contactPhone ? 'Mở Zalo để nhắn đối tác' : 'Hợp đồng chưa có số điện thoại/Zalo'}
+                                onClick={() => {
+                                  if (!contactPhone) return;
+                                  window.open(`https://zalo.me/${contactPhone}`, '_blank', 'noopener,noreferrer');
+                                }}
+                                style={{
+                                  padding: '6px 9px',
+                                  border: 0,
+                                  borderRadius: '5px',
+                                  backgroundColor: contactPhone ? '#0284c7' : '#cbd5e1',
+                                  color: '#fff',
+                                  fontWeight: 700,
+                                  cursor: contactPhone ? 'pointer' : 'not-allowed',
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
+                                💬 Nhắn Zalo
+                              </button>
+                            </td>
                           </tr>
                         );
                       })}
