@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import html2canvas from 'html2canvas';
 import { useApp, type CategoryItem, type ContractItem } from '../context/AppContext';
 import { filterPhoneDigits, isValidVietnamMobileNumber } from '../utils/vietnamPhone';
 import { getLatestMaterialUnitPrice, matchesMaterialNameSearch } from '../utils/materialSearch';
@@ -315,7 +316,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
 
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   const [subContractSlipData, setSubContractSlipData] = useState<SubContractSlipData | null>(null);
-  const [isDownloadingSubContractSlipImage, setIsDownloadingSubContractSlipImage] = useState(false);
+  const [isProcessingSubContractSlipImage, setIsProcessingSubContractSlipImage] = useState(false);
   const subContractSlipImageRef = useRef<HTMLDivElement>(null);
   const isSubContractSlipOpen = subContractSlipData !== null;
 
@@ -628,141 +629,128 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     });
   };
 
-  const handleShareSubContractSlipToZalo = () => {
-    if (!subContractSlipData) return;
+  const createSubContractSlipImageFile = async (): Promise<File> => {
+    if (!subContractSlipData) throw new Error('Không tìm thấy dữ liệu phiếu để xuất ảnh.');
 
-    try {
-      const formData = subContractSlipData;
-      const enteredPhone = window.prompt(
-        'Nhập số điện thoại Zalo người nhận (có thể thay đổi số gợi ý):',
-        formData.zalo || formData.phone || ''
-      );
-      if (enteredPhone === null) return;
+    await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    const slipContent = subContractSlipImageRef.current;
+    if (!slipContent) throw new Error('Không tìm thấy nội dung phiếu để xuất ảnh.');
 
-      const phoneNumber = enteredPhone.replace(/\D/g, '');
-      if (!phoneNumber) {
-        window.alert('Vui lòng nhập số điện thoại Zalo hợp lệ.');
-        return;
+    const canvas = await html2canvas(slipContent, {
+      scale: Math.min(2, Math.max(1, window.devicePixelRatio || 1)),
+      backgroundColor: '#ffffff',
+      logging: false,
+      onclone: clonedDocument => {
+        const clonedSlip = clonedDocument.querySelector<HTMLElement>('.sub-contract-slip-image-content');
+        if (!clonedSlip) return;
+
+        const clonedPaper = clonedSlip.closest<HTMLElement>('.sub-contract-slip-paper');
+        if (clonedPaper) {
+          clonedPaper.style.width = '820px';
+          clonedPaper.style.maxWidth = 'none';
+          clonedPaper.style.maxHeight = 'none';
+          clonedPaper.style.height = 'auto';
+          clonedPaper.style.overflow = 'visible';
+          clonedPaper.style.padding = '0';
+          clonedPaper.style.scrollbarWidth = 'none';
+        }
+
+        clonedSlip.style.width = '820px';
+        clonedSlip.style.maxWidth = '820px';
+        clonedSlip.style.maxHeight = 'none';
+        clonedSlip.style.height = 'auto';
+        clonedSlip.style.overflow = 'visible';
+        clonedSlip.style.padding = '40px 48px';
+        clonedSlip.style.scrollbarWidth = 'none';
+
+        clonedSlip.querySelectorAll<HTMLElement>('.erp-table-scroll').forEach(tableWrapper => {
+          tableWrapper.style.overflow = 'visible';
+          tableWrapper.style.scrollbarWidth = 'none';
+        });
+        clonedSlip.querySelectorAll<HTMLTableElement>('table').forEach(table => {
+          table.style.minWidth = '0';
+          table.style.width = '100%';
+          table.style.tableLayout = 'fixed';
+        });
+
+        const scrollbarStyles = clonedDocument.createElement('style');
+        scrollbarStyles.textContent = '*::-webkit-scrollbar { display: none !important; }';
+        clonedDocument.head.appendChild(scrollbarStyles);
       }
+    });
+    const imageBlob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(blob => blob
+        ? resolve(blob)
+        : reject(new Error('Trình duyệt không tạo được ảnh PNG từ phiếu.')), 'image/png');
+    });
 
-      const shareText = [
-        'PHIẾU HỢP ĐỒNG TỔ ĐAN - LỤC BÌNH CRAFTS',
-        `Ngày lập: ${formData.createdAt.toLocaleDateString('vi-VN')}`,
-        `Số HĐ Cty truy vết: ${formData.parentContractNo || '—'}`,
-        `Mã hàng: ${formData.productCode || '—'}`,
-        `Tên sản phẩm: ${formData.productName || '—'}`,
-        `Tên tổ đan: ${formData.groupName || '—'}`,
-        `SĐT: ${formData.phone || '—'}${formData.zalo ? ` | Zalo: ${formData.zalo}` : ''}`,
-        `Số lượng giao: ${formatCurrency(formData.quantity)} ${formData.quantityUnit}`,
-        `Số lượng đã nhận: ${formatCurrency(formData.receivedQuantity)} ${formData.quantityUnit}`,
-        `Số lượng còn lại: ${formatCurrency(formData.remainingQuantity)} ${formData.quantityUnit}`,
-        `Đơn giá: ${formatCurrency(formData.unitPrice)} VNĐ`,
-        `Tiền cọc: ${formatCurrency(formData.deposit)} VNĐ`,
-        `Thành tiền: ${formatCurrency(formData.totalAmount)} VNĐ`
-      ].join('\n');
+    const productCode = subContractSlipData.productCode.replace(/[^\w-]+/g, '_').replace(/^_+|_+$/g, '') || 'ma-hang';
+    const createdAt = subContractSlipData.createdAt;
+    const date = [
+      createdAt.getFullYear(),
+      String(createdAt.getMonth() + 1).padStart(2, '0'),
+      String(createdAt.getDate()).padStart(2, '0')
+    ].join('-');
 
-      const zaloWindow = window.open(`https://zalo.me/${phoneNumber}`, '_blank');
-      let copied = false;
-      const temporaryTextarea = document.createElement('textarea');
-      temporaryTextarea.value = shareText;
-      temporaryTextarea.setAttribute('readonly', '');
-      temporaryTextarea.style.position = 'fixed';
-      temporaryTextarea.style.left = '-9999px';
-      temporaryTextarea.style.top = '0';
-      document.body.appendChild(temporaryTextarea);
+    return new File([imageBlob], `Phieu_To_Dan_${productCode}_${date}.png`, { type: 'image/png' });
+  };
 
-      try {
-        temporaryTextarea.focus();
-        temporaryTextarea.select();
-        copied = document.execCommand('copy');
-      } finally {
-        temporaryTextarea.remove();
-      }
-
-      if (copied) {
-        window.alert('Đã sao chép nội dung phiếu. Hãy dán vào cuộc trò chuyện Zalo.');
-      } else {
-        window.prompt('Không thể tự sao chép. Hãy sao chép nội dung phiếu bên dưới:', shareText);
-      }
-
-      if (zaloWindow) {
-        zaloWindow.opener = null;
-      } else {
-        window.location.assign(`https://zalo.me/${phoneNumber}`);
-      }
-    } catch (error) {
-      console.error('Không thể gửi phiếu qua Zalo:', error);
-      window.alert('Không thể mở Zalo hoặc sao chép nội dung phiếu. Vui lòng thử lại.');
-    }
+  const downloadSubContractSlipImage = (imageFile: File) => {
+    const imageUrl = URL.createObjectURL(imageFile);
+    const downloadLink = document.createElement('a');
+    downloadLink.href = imageUrl;
+    downloadLink.download = imageFile.name;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    downloadLink.remove();
+    window.setTimeout(() => URL.revokeObjectURL(imageUrl), 1000);
   };
 
   const handleDownloadSubContractSlipImage = async () => {
-    if (!subContractSlipData || isDownloadingSubContractSlipImage) return;
+    if (!subContractSlipData || isProcessingSubContractSlipImage) return;
 
-    setIsDownloadingSubContractSlipImage(true);
+    setIsProcessingSubContractSlipImage(true);
     try {
-      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-      const slipContent = subContractSlipImageRef.current;
-      if (!slipContent) throw new Error('Không tìm thấy nội dung phiếu để xuất ảnh.');
-
-      const { default: html2canvas } = await import('html2canvas');
-      const canvas = await html2canvas(slipContent, {
-        scale: Math.min(2, Math.max(1, window.devicePixelRatio || 1)),
-        backgroundColor: '#ffffff',
-        logging: false,
-        onclone: clonedDocument => {
-          const clonedSlip = clonedDocument.querySelector<HTMLElement>('.sub-contract-slip-image-content');
-          if (!clonedSlip) return;
-
-          const clonedPaper = clonedSlip.closest<HTMLElement>('.sub-contract-slip-paper');
-          if (clonedPaper) {
-            clonedPaper.style.width = '820px';
-            clonedPaper.style.maxWidth = 'none';
-            clonedPaper.style.maxHeight = 'none';
-            clonedPaper.style.height = 'auto';
-            clonedPaper.style.overflow = 'visible';
-            clonedPaper.style.padding = '0';
-          }
-
-          clonedSlip.style.width = '820px';
-          clonedSlip.style.maxWidth = '820px';
-          clonedSlip.style.maxHeight = 'none';
-          clonedSlip.style.height = 'auto';
-          clonedSlip.style.overflow = 'visible';
-          clonedSlip.style.padding = '40px 48px';
-
-          clonedSlip.querySelectorAll<HTMLElement>('.erp-table-scroll').forEach(tableWrapper => {
-            tableWrapper.style.overflow = 'visible';
-          });
-          clonedSlip.querySelectorAll<HTMLTableElement>('table').forEach(table => {
-            table.style.minWidth = '0';
-            table.style.width = '100%';
-            table.style.tableLayout = 'fixed';
-          });
-        }
-      });
-      const imageBlob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob(blob => blob
-          ? resolve(blob)
-          : reject(new Error('Trình duyệt không tạo được ảnh PNG từ phiếu.')), 'image/png');
-      });
-
-      const contractNumber = subContractSlipData.parentContractNo.replace(/[^\w-]+/g, '_') || 'hop-dong';
-      const imageUrl = URL.createObjectURL(imageBlob);
-      const downloadLink = document.createElement('a');
-      downloadLink.href = imageUrl;
-      downloadLink.download = `phieu-hop-dong-to-dan-${contractNumber}.png`;
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      downloadLink.remove();
-      window.setTimeout(() => URL.revokeObjectURL(imageUrl), 1000);
+      downloadSubContractSlipImage(await createSubContractSlipImageFile());
     } catch (error) {
       console.error('Không thể tải ảnh phiếu hợp đồng tổ đan:', error);
       window.alert(error instanceof Error
         ? `Không thể tạo ảnh phiếu: ${error.message}`
         : 'Không thể tạo ảnh phiếu. Vui lòng thử lại.');
     } finally {
-      setIsDownloadingSubContractSlipImage(false);
+      setIsProcessingSubContractSlipImage(false);
+    }
+  };
+
+  const handleShareSubContractSlipImage = async () => {
+    if (!subContractSlipData || isProcessingSubContractSlipImage) return;
+
+    setIsProcessingSubContractSlipImage(true);
+    try {
+      const imageFile = await createSubContractSlipImageFile();
+      const canShareImage = typeof navigator.share === 'function'
+        && typeof navigator.canShare === 'function'
+        && navigator.canShare({ files: [imageFile] });
+
+      if (!canShareImage) {
+        downloadSubContractSlipImage(imageFile);
+        window.alert('Trình duyệt không hỗ trợ chia sẻ ảnh trực tiếp. Ảnh phiếu đã được tải xuống.');
+        return;
+      }
+
+      await navigator.share({
+        files: [imageFile],
+        title: 'Phiếu Hợp Đồng Tổ Đan',
+        text: 'Gửi phiếu hợp đồng tổ đan'
+      });
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') return;
+      console.error('Không thể chia sẻ ảnh phiếu hợp đồng tổ đan:', error);
+      window.alert(error instanceof Error
+        ? `Không thể chia sẻ ảnh phiếu: ${error.message}`
+        : 'Không thể chia sẻ ảnh phiếu. Vui lòng thử lại.');
+    } finally {
+      setIsProcessingSubContractSlipImage(false);
     }
   };
 
@@ -2323,11 +2311,13 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             </div>
 
             <div className="sub-contract-slip-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', flexWrap: 'wrap', marginTop: '32px', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
-              <button type="button" onClick={handleDownloadSubContractSlipImage} disabled={isDownloadingSubContractSlipImage} style={{ padding: '9px 14px', backgroundColor: isDownloadingSubContractSlipImage ? '#94a3b8' : '#15803d', color: '#fff', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: isDownloadingSubContractSlipImage ? 'wait' : 'pointer' }}>
-                {isDownloadingSubContractSlipImage ? '⏳ Đang tạo ảnh...' : '📥 Tải Ảnh Phiếu'}
+              <button type="button" onClick={handleShareSubContractSlipImage} disabled={isProcessingSubContractSlipImage} style={{ padding: '9px 14px', backgroundColor: isProcessingSubContractSlipImage ? '#94a3b8' : '#2563eb', color: '#fff', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: isProcessingSubContractSlipImage ? 'wait' : 'pointer' }}>
+                {isProcessingSubContractSlipImage ? '⏳ Đang tạo ảnh...' : '📤 Chia sẻ Zalo'}
+              </button>
+              <button type="button" onClick={handleDownloadSubContractSlipImage} disabled={isProcessingSubContractSlipImage} style={{ padding: '9px 14px', backgroundColor: isProcessingSubContractSlipImage ? '#94a3b8' : '#15803d', color: '#fff', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: isProcessingSubContractSlipImage ? 'wait' : 'pointer' }}>
+                {isProcessingSubContractSlipImage ? '⏳ Đang tạo ảnh...' : '📥 Tải Ảnh Phiếu'}
               </button>
               <button type="button" onClick={() => window.print()} style={{ padding: '9px 14px', backgroundColor: '#475569', color: '#fff', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🖨️ In Phiếu / Lưu PDF</button>
-              <button type="button" onClick={handleShareSubContractSlipToZalo} style={{ padding: '9px 14px', backgroundColor: '#2563eb', color: '#fff', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📲 Gửi Zalo (Mở Chat &amp; Copy)</button>
               <button type="button" onClick={() => setSubContractSlipData(null)} style={{ padding: '9px 14px', backgroundColor: '#dc2626', color: '#fff', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>❌ Đóng</button>
             </div>
           </section>
