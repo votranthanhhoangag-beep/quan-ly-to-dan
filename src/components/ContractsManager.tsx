@@ -99,6 +99,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     isRefreshing,
     dataLoadError,
     reloadData,
+    reloadDataInBackground,
     addContract,
     updateContract,
     deleteContract
@@ -314,6 +315,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
 
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   const [subContractSlipData, setSubContractSlipData] = useState<SubContractSlipData | null>(null);
+  const [isDownloadingSubContractSlipImage, setIsDownloadingSubContractSlipImage] = useState(false);
+  const subContractSlipImageRef = useRef<HTMLDivElement>(null);
   const isSubContractSlipOpen = subContractSlipData !== null;
 
   useEffect(() => {
@@ -690,6 +693,76 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     } catch (error) {
       console.error('Không thể gửi phiếu qua Zalo:', error);
       window.alert('Không thể mở Zalo hoặc sao chép nội dung phiếu. Vui lòng thử lại.');
+    }
+  };
+
+  const handleDownloadSubContractSlipImage = async () => {
+    if (!subContractSlipData || isDownloadingSubContractSlipImage) return;
+
+    setIsDownloadingSubContractSlipImage(true);
+    try {
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      const slipContent = subContractSlipImageRef.current;
+      if (!slipContent) throw new Error('Không tìm thấy nội dung phiếu để xuất ảnh.');
+
+      const { default: html2canvas } = await import('html2canvas');
+      const canvas = await html2canvas(slipContent, {
+        scale: Math.min(2, Math.max(1, window.devicePixelRatio || 1)),
+        backgroundColor: '#ffffff',
+        logging: false,
+        onclone: clonedDocument => {
+          const clonedSlip = clonedDocument.querySelector<HTMLElement>('.sub-contract-slip-image-content');
+          if (!clonedSlip) return;
+
+          const clonedPaper = clonedSlip.closest<HTMLElement>('.sub-contract-slip-paper');
+          if (clonedPaper) {
+            clonedPaper.style.width = '820px';
+            clonedPaper.style.maxWidth = 'none';
+            clonedPaper.style.maxHeight = 'none';
+            clonedPaper.style.height = 'auto';
+            clonedPaper.style.overflow = 'visible';
+            clonedPaper.style.padding = '0';
+          }
+
+          clonedSlip.style.width = '820px';
+          clonedSlip.style.maxWidth = '820px';
+          clonedSlip.style.maxHeight = 'none';
+          clonedSlip.style.height = 'auto';
+          clonedSlip.style.overflow = 'visible';
+          clonedSlip.style.padding = '40px 48px';
+
+          clonedSlip.querySelectorAll<HTMLElement>('.erp-table-scroll').forEach(tableWrapper => {
+            tableWrapper.style.overflow = 'visible';
+          });
+          clonedSlip.querySelectorAll<HTMLTableElement>('table').forEach(table => {
+            table.style.minWidth = '0';
+            table.style.width = '100%';
+            table.style.tableLayout = 'fixed';
+          });
+        }
+      });
+      const imageBlob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(blob => blob
+          ? resolve(blob)
+          : reject(new Error('Trình duyệt không tạo được ảnh PNG từ phiếu.')), 'image/png');
+      });
+
+      const contractNumber = subContractSlipData.parentContractNo.replace(/[^\w-]+/g, '_') || 'hop-dong';
+      const imageUrl = URL.createObjectURL(imageBlob);
+      const downloadLink = document.createElement('a');
+      downloadLink.href = imageUrl;
+      downloadLink.download = `phieu-hop-dong-to-dan-${contractNumber}.png`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      downloadLink.remove();
+      window.setTimeout(() => URL.revokeObjectURL(imageUrl), 1000);
+    } catch (error) {
+      console.error('Không thể tải ảnh phiếu hợp đồng tổ đan:', error);
+      window.alert(error instanceof Error
+        ? `Không thể tạo ảnh phiếu: ${error.message}`
+        : 'Không thể tạo ảnh phiếu. Vui lòng thử lại.');
+    } finally {
+      setIsDownloadingSubContractSlipImage(false);
     }
   };
 
@@ -1101,6 +1174,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     try {
       await saveDataStore('contracts', user.id, nextContracts);
       deleteContract(item.id, item.contractCode || item.contractNo, nextContracts);
+      reloadDataInBackground();
       alert('🗑️ Đã xóa hợp đồng và lưu thành công lên cơ sở dữ liệu!');
       if (editingId === item.id) resetForm();
     } catch (error) {
@@ -2167,12 +2241,32 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
               }
               .sub-contract-slip-actions { display: none !important; }
             }
+            @media screen and (max-width: 600px) {
+              .sub-contract-slip-overlay {
+                align-items: flex-start !important;
+                overflow-y: auto !important;
+                padding: 8px !important;
+              }
+              .sub-contract-slip-paper {
+                max-height: calc(100vh - 16px) !important;
+                max-height: calc(100dvh - 16px) !important;
+                padding: 20px 16px !important;
+              }
+              .sub-contract-slip-info-grid { grid-template-columns: 1fr !important; }
+              .sub-contract-slip-actions { justify-content: stretch !important; }
+              .sub-contract-slip-actions button { flex: 1 1 100%; }
+            }
           `}</style>
           <section
             className="sub-contract-slip-paper"
             onClick={e => e.stopPropagation()}
             style={{ width: '100%', maxWidth: '820px', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', backgroundColor: '#fff', padding: '40px 48px', borderRadius: '8px', boxShadow: '0 20px 50px rgba(15, 23, 42, 0.3)', color: '#172033', boxSizing: 'border-box' }}
           >
+            <div
+              ref={subContractSlipImageRef}
+              className="sub-contract-slip-image-content"
+              style={{ width: '100%', backgroundColor: '#fff', boxSizing: 'border-box' }}
+            >
             <header style={{ textAlign: 'center', borderBottom: '2px solid #1e293b', paddingBottom: '18px', marginBottom: '24px' }}>
               <div style={{ fontSize: '15px', fontWeight: '800', letterSpacing: '2px' }}>LỤC BÌNH CRAFTS</div>
               <h2 style={{ fontSize: '25px', fontWeight: '800', margin: '14px 0 8px', letterSpacing: '1px' }}>PHIẾU HỢP ĐỒNG TỔ ĐAN</h2>
@@ -2181,7 +2275,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
 
             <section style={{ marginBottom: '24px' }}>
               <h3 style={{ fontSize: '15px', fontWeight: '800', borderBottom: '1px solid #cbd5e1', paddingBottom: '8px', marginBottom: '12px' }}>I. THÔNG TIN HỢP ĐỒNG</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px', fontSize: '14px' }}>
+              <div className="sub-contract-slip-info-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px', fontSize: '14px' }}>
                 <div><strong>Số hợp đồng công ty truy vết:</strong> {subContractSlipData.parentContractNo || '—'}</div>
                 <div><strong>Mã hàng:</strong> {subContractSlipData.productCode || '—'}</div>
                 <div><strong>Tên sản phẩm:</strong> {subContractSlipData.productName || '—'}</div>
@@ -2226,8 +2320,12 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                 <div>{subContractSlipData.groupName || '............................'}</div>
               </div>
             </section>
+            </div>
 
             <div className="sub-contract-slip-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', flexWrap: 'wrap', marginTop: '32px', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
+              <button type="button" onClick={handleDownloadSubContractSlipImage} disabled={isDownloadingSubContractSlipImage} style={{ padding: '9px 14px', backgroundColor: isDownloadingSubContractSlipImage ? '#94a3b8' : '#15803d', color: '#fff', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: isDownloadingSubContractSlipImage ? 'wait' : 'pointer' }}>
+                {isDownloadingSubContractSlipImage ? '⏳ Đang tạo ảnh...' : '📥 Tải Ảnh Phiếu'}
+              </button>
               <button type="button" onClick={() => window.print()} style={{ padding: '9px 14px', backgroundColor: '#475569', color: '#fff', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🖨️ In Phiếu / Lưu PDF</button>
               <button type="button" onClick={handleShareSubContractSlipToZalo} style={{ padding: '9px 14px', backgroundColor: '#2563eb', color: '#fff', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📲 Gửi Zalo (Mở Chat &amp; Copy)</button>
               <button type="button" onClick={() => setSubContractSlipData(null)} style={{ padding: '9px 14px', backgroundColor: '#dc2626', color: '#fff', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>❌ Đóng</button>

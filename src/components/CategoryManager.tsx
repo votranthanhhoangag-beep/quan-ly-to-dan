@@ -54,7 +54,8 @@ export default function CategoryManager() {
     deleteOtherExpenseCat,
     addVehicle,
     updateVehicle,
-    deleteVehicle
+    deleteVehicle,
+    reloadDataInBackground
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'hanghoa' | 'nguyenvatlieu' | 'chiphi' | 'xe' | 'chikhac'>('hanghoa');
@@ -278,6 +279,7 @@ export default function CategoryManager() {
     try {
       await saveDataStore(sheetName, user.id, nextItems);
       deleteItem();
+      reloadDataInBackground();
       alert('✅ Đã xóa mục và lưu thành công lên cơ sở dữ liệu.');
     } catch (error) {
       console.error(`Không thể lưu trạng thái xóa (${sheetName}):`, error);

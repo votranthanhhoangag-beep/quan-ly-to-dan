@@ -391,6 +391,7 @@ interface AppContextType {
   isRefreshing: boolean;
   dataLoadError: string;
   reloadData: () => void;
+  reloadDataInBackground: () => void;
   isSystemConfigurationLoaded: boolean;
 
   addProduct: (item: CategoryItem) => void;
@@ -505,6 +506,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const persistenceEffectsMounted = useRef(false);
   const suppressedSaveSnapshots = useRef(new Map<string, unknown>());
   const [loadAttempt, setLoadAttempt] = useState(0);
+  const [isBackgroundLoad, setIsBackgroundLoad] = useState(false);
 
   const applySheetSnapshot = useCallback((sheetName: string, rawValue: unknown[]) => {
     if (!user?.id) return;
@@ -603,18 +605,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     let active = true;
+    let fetchInFlight = false;
     const userId = user?.id;
 
-    async function initData() {
+    async function initData(isBackground = false) {
+      if (fetchInFlight) return;
+      fetchInFlight = true;
       const wasLoaded = isLoaded.current && loadedUserId.current === userId;
-      setIsRefreshing(true);
-      if (!wasLoaded) setIsDataLoaded(false);
-      setDataLoadError('');
-      setIsSystemConfigurationLoaded(false);
+      if (!isBackground) {
+        setIsRefreshing(true);
+        if (!wasLoaded) setIsDataLoaded(false);
+        setDataLoadError('');
+        setIsSystemConfigurationLoaded(false);
+      }
       if (!userId) {
         isLoaded.current = false;
         loadedUserId.current = null;
-        setIsRefreshing(false);
+        if (!isBackground) setIsRefreshing(false);
+        fetchInFlight = false;
         return;
       }
       if (!wasLoaded) {
@@ -630,6 +638,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ));
         if (!active) return;
         applyAvailableSnapshots(new Map(entries));
+        setDataLoadError('');
       } catch (e) {
         if (!active) return;
         failed = true;
@@ -642,7 +651,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }));
         }
       } finally {
-        if (active) setIsRefreshing(false);
+        fetchInFlight = false;
+        if (active && !isBackground) setIsRefreshing(false);
       }
 
       if (!active || failed) return;
@@ -651,13 +661,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsDataLoaded(true);
       setIsSystemConfigurationLoaded(true);
     }
-    void initData();
+    void initData(isBackgroundLoad);
+
+    const intervalId = userId
+      ? window.setInterval(() => {
+        if (document.visibilityState === 'visible' && navigator.onLine) void initData(true);
+      }, 5000)
+      : null;
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine) void initData(true);
+    };
+    if (userId) document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       active = false;
+      if (intervalId !== null) window.clearInterval(intervalId);
+      if (userId) document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [applyAvailableSnapshots, loadAttempt, user?.id]);
+  }, [applyAvailableSnapshots, isBackgroundLoad, loadAttempt, user?.id]);
 
-  const reloadData = useCallback(() => setLoadAttempt(attempt => attempt + 1), []);
+  const reloadData = useCallback(() => {
+    setIsBackgroundLoad(false);
+    setLoadAttempt(attempt => attempt + 1);
+  }, []);
+  const reloadDataInBackground = useCallback(() => {
+    setIsBackgroundLoad(true);
+    setLoadAttempt(attempt => attempt + 1);
+  }, []);
 
   const shouldPersistSnapshot = useCallback((sheetName: string, value: unknown) => {
     if (!user?.id || !isLoaded.current || !persistenceEffectsMounted.current) return false;
@@ -972,7 +1002,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         products, materials, expensesCat, otherExpensesCat, vehicles,
         slips, 
         inventoryLogs: slips, // CHÍNH XÁC: Liên kết inventoryLogs với slips
-        expenses, expenseAllocations, mileageLogs, depositSlips, contracts, frameExports, knittingExportSlips, defectiveGoodsImportSlips, systemConfiguration, isDataLoaded, isRefreshing, dataLoadError, reloadData, isSystemConfigurationLoaded,
+        expenses, expenseAllocations, mileageLogs, depositSlips, contracts, frameExports, knittingExportSlips, defectiveGoodsImportSlips, systemConfiguration, isDataLoaded, isRefreshing, dataLoadError, reloadData, reloadDataInBackground, isSystemConfigurationLoaded,
         addProduct, updateProduct, deleteProduct,
         addMaterial, updateMaterial, deleteMaterial,
         addExpenseCat, updateExpenseCat, deleteExpenseCat,

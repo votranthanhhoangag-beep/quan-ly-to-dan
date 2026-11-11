@@ -492,24 +492,27 @@ export default function DashboardView() {
                             <td style={{ padding: '9px 10px' }}>
                               <button
                                 type="button"
-                                disabled={!contactPhone}
-                                title={contactPhone ? 'Mở Zalo để nhắn đối tác' : 'Hợp đồng chưa có số điện thoại/Zalo'}
+                                title={contactPhone ? `Gọi ${contactPhone}` : 'Gọi điện cho đối tác'}
                                 onClick={() => {
-                                  if (!contactPhone) return;
-                                  window.open(`https://zalo.me/${contactPhone}`, '_blank', 'noopener,noreferrer');
+                                  const phoneNumber = String(contactPhone || '').replace(/\D/g, '');
+                                  if (!phoneNumber) {
+                                    window.alert('Chưa có số điện thoại liên hệ!');
+                                    return;
+                                  }
+                                  window.location.href = `tel:${phoneNumber}`;
                                 }}
                                 style={{
                                   padding: '6px 9px',
                                   border: 0,
                                   borderRadius: '5px',
-                                  backgroundColor: contactPhone ? '#0284c7' : '#cbd5e1',
+                                  backgroundColor: '#0068ff',
                                   color: '#fff',
                                   fontWeight: 700,
-                                  cursor: contactPhone ? 'pointer' : 'not-allowed',
+                                  cursor: 'pointer',
                                   whiteSpace: 'nowrap'
                                 }}
                               >
-                                💬 Nhắn Zalo
+                                📞 Gọi điện
                               </button>
                             </td>
                           </tr>
