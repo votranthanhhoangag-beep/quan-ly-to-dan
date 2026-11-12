@@ -709,13 +709,13 @@ const handleSaveTransaction = (e: React.FormEvent) => {
     const quantityToValidate = trackedFrameReceiptMode ? currentReturnQuantity : totalQtyNum;
     const allowedMax = remainingQty;
     if ((transType === 'NK' || transType === 'NK_KHUNG') &&
-      totalContractQty > 0 && quantityToValidate > allowedMax + (returnSlipReceiptMode ? 1e-8 : 0)) {
+      totalContractQty > 0 && quantityToValidate > allowedMax) {
       alert(
         `❌ KHÔNG THỂ LƯU PHIẾU!\n\n` +
         `• Tổng số lượng theo Hợp đồng: ${totalContractQty}\n` +
         `• Đã nhận trước đó: ${totalReceivedQty}\n` +
         `• Còn lại chưa nhận: ${remainingQty}\n\n` +
-        `Số lượng bạn nhập vượt quá hạn mức còn lại của hợp đồng!`
+        `Số lượng bạn nhập vượt quá số khung còn lại đã xuất cho hợp đồng!`
       );
       return;
     }
@@ -1304,7 +1304,7 @@ const handleSaveTransaction = (e: React.FormEvent) => {
                 </div>
                 {isFrameReceiptOverLimit && (
                   <div role="alert" style={{ marginTop: '9px', color: '#b91c1c', fontSize: '13px', fontWeight: 800 }}>
-                    Số lượng nhập ({currentReturnQuantity.toLocaleString()}) vượt quá số còn trên {returnSlipReceiptMode ? 'phiếu trả khung' : 'hợp đồng tổ đan'} ({remainingQty.toLocaleString()} {receiptUnitLabel}). Không thể lưu phiếu.
+                    Số lượng nhập ({currentReturnQuantity.toLocaleString()}) vượt quá số khung còn lại đã xuất trên {returnSlipReceiptMode ? 'phiếu trả khung' : 'hợp đồng tổ đan'} ({remainingQty.toLocaleString()} {receiptUnitLabel}). Không thể lưu phiếu.
                   </div>
                 )}
               </div>

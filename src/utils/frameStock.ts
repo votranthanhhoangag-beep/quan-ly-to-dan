@@ -8,6 +8,7 @@ export interface FrameStockRow {
   outbound: number;
   closing: number;
   note: string;
+  exceedsArtisanExports: boolean;
 }
 
 interface FrameMovement {
@@ -17,6 +18,8 @@ interface FrameMovement {
   direction: 'in' | 'out';
   quantity: number;
   note: string;
+  reconciliationContractId?: string;
+  reconciliationDirection?: 'in' | 'out';
 }
 
 const normalize = (value: unknown) => String(value || '').trim().toLocaleLowerCase('vi');
@@ -80,6 +83,23 @@ const isFrameReceipt = (slip: SlipItem) => {
     slipNo.startsWith('NK') || slipNo.startsWith('KS');
 };
 
+const getArtisanContractForReceipt = (contracts: ContractItem[], slip: SlipItem) => {
+  if (slip.sourceReturnSlipId) return undefined;
+  const productCode = normalize(slip.productCode);
+  return contracts.find(contract => {
+    if (contract.contractType !== 'SUB' && !contract.craftGroupLeader) return false;
+    if (normalize(contract.productCode) !== productCode) return false;
+    if (slip.sourceContractId !== undefined) {
+      return String(contract.id) === String(slip.sourceContractId);
+    }
+    if (slip.contractNo) {
+      return normalize(contract.contractNo) === normalize(slip.contractNo);
+    }
+    const artisanName = normalize(slip.craftGroupLeader || slip.partnerName || slip.partner);
+    return Boolean(artisanName) && normalize(contract.craftGroupLeader) === artisanName;
+  });
+};
+
 const getMovements = (contracts: ContractItem[], slips: SlipItem[]): FrameMovement[] => {
   const movements: FrameMovement[] = [];
 
@@ -122,12 +142,15 @@ const getMovements = (contracts: ContractItem[], slips: SlipItem[]): FrameMoveme
 
     if (!isFrameReceipt(slip)) return;
     if (!slip.productCode) return;
+    const artisanContract = getArtisanContractForReceipt(contracts, slip);
     movements.push({
       productCode: slip.productCode,
       productName: slip.productName || '',
       date: normalizeDate(slip.date),
       direction: 'in',
       quantity: getSlipQuantity(slip, slip.productCode),
+      reconciliationContractId: artisanContract ? String(artisanContract.id) : undefined,
+      reconciliationDirection: artisanContract ? 'in' : undefined,
       note: describeSizes(
         slip.sizeQuantities,
         'in',
@@ -147,6 +170,8 @@ const getMovements = (contracts: ContractItem[], slips: SlipItem[]): FrameMoveme
         date,
         direction: 'out',
         quantity: Number(log.actualQty) || 0,
+        reconciliationContractId: String(contract.id),
+        reconciliationDirection: 'out',
         note: log.note?.trim() || `Xuất khung cho tổ ${contract.craftGroupLeader || ''}`.trim()
       });
     });
@@ -202,14 +227,24 @@ export const getFrameStockRows = (
       inbound: 0,
       outbound: 0,
       closing: 0,
-      note: ''
+      note: '',
+      exceedsArtisanExports: false
     });
   });
   const notesByProduct = new Map<string, Set<string>>();
+  const artisanProgress = new Map<string, { productKey: string; received: number; exported: number }>();
 
   movements.forEach(movement => {
     const key = normalize(movement.productCode);
     const row = rows.get(key);
+    if (movement.date && movement.reconciliationContractId && movement.reconciliationDirection &&
+      movement.date.slice(0, 7) <= month) {
+      const progressKey = movement.reconciliationContractId;
+      const progress = artisanProgress.get(progressKey) || { productKey: key, received: 0, exported: 0 };
+      if (movement.reconciliationDirection === 'in') progress.received += movement.quantity;
+      else progress.exported += movement.quantity;
+      artisanProgress.set(progressKey, progress);
+    }
     if (!row || !normalizeDate(movement.date)) return;
     if (movement.date < periodStart) {
       row.opening += movement.direction === 'in' ? movement.quantity : -movement.quantity;
@@ -226,6 +261,13 @@ export const getFrameStockRows = (
         notes.add(note);
         notesByProduct.set(key, notes);
       }
+    }
+  });
+
+  artisanProgress.forEach(progress => {
+    if (progress.received > progress.exported) {
+      const row = rows.get(progress.productKey);
+      if (row) row.exceedsArtisanExports = true;
     }
   });
 

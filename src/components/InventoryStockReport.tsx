@@ -11,6 +11,12 @@ interface RepairFormLine {
   quantity: string;
   bundleQuantity: string;
   sizeQuantities: Record<string, string>;
+  goodQuantity?: string;
+  goodBundleQuantity?: string;
+  goodSizeQuantities?: Record<string, string>;
+  defectiveQuantity?: string;
+  defectiveBundleQuantity?: string;
+  defectiveSizeQuantities?: Record<string, string>;
   bundleUnitPrice: string;
   sizeUnitPrices: Record<string, string>;
   itemTypeOption: 'CAI' | 'CA_HAI';
@@ -24,6 +30,12 @@ interface RepairStockLine {
   quantity: number;
   bundleQuantity: number;
   sizeQuantities: Record<string, number>;
+  goodQuantity?: number;
+  goodBundleQuantity?: number;
+  goodSizeQuantities?: Record<string, number>;
+  defectiveQuantity?: number;
+  defectiveBundleQuantity?: number;
+  defectiveSizeQuantities?: Record<string, number>;
   unitPrice: number;
   bundleUnitPrice?: number;
   sizeUnitPrices?: Record<string, number>;
@@ -62,7 +74,51 @@ interface StockCounts {
   sizes: Record<string, number>;
 }
 
+type StockQuality = 'qualified' | 'defective';
+
+type QualityStockBucket = Record<StockQuality, Map<string, StockCounts>>;
+
 type InventoryReportTab = 'stock' | 'repair-export' | 'repair-receipt';
+
+const getStockQuality = (value: unknown, fallback: StockQuality): StockQuality => {
+  if (!value || typeof value !== 'object') return fallback;
+  const record = value as Record<string, unknown>;
+  const qualifiedFlag = record.is_qualified ?? record.isQualified;
+  if (typeof qualifiedFlag === 'boolean') return qualifiedFlag ? 'qualified' : 'defective';
+  if (qualifiedFlag === 1 || qualifiedFlag === 0) return qualifiedFlag === 1 ? 'qualified' : 'defective';
+  if (typeof qualifiedFlag === 'string') {
+    const normalizedFlag = qualifiedFlag.trim().toLocaleLowerCase('vi');
+    if (['true', '1', 'yes'].includes(normalizedFlag)) return 'qualified';
+    if (['false', '0', 'no'].includes(normalizedFlag)) return 'defective';
+  }
+  const status = String(record.quality || record.qualityStatus || record.quality_status || record.status || '')
+    .trim()
+    .toLocaleLowerCase('vi');
+  if (['đạt', 'dat', 'hàng đạt', 'hang dat', 'qualified', 'good'].includes(status)) return 'qualified';
+  if (['loại', 'loai', 'hàng loại', 'hang loai', 'lỗi', 'loi', 'defective', 'rejected', 'không đạt', 'khong dat'].includes(status)) {
+    return 'defective';
+  }
+  return fallback;
+};
+
+const getReceiptQuantityInContractUnits = (
+  contract: ContractItem,
+  receipt: NonNullable<ContractItem['receivedGoodsLogs']>[number]
+) => {
+  const quantity = Number(receipt.quantity) || 0;
+  const sizeCounts = Object.entries(receipt.sizeQuantities || {})
+    .filter(([size]) => size !== 'Bộ')
+    .map(([, count]) => Number(count) || 0);
+  const completeSets = sizeCounts.length ? Math.min(...sizeCounts) : 0;
+  const hasExplicitBundles = Object.prototype.hasOwnProperty.call(receipt.sizeQuantities || {}, 'Bộ');
+  const bundles = hasExplicitBundles
+    ? Number(receipt.sizeQuantities?.['Bộ']) || 0
+    : quantity;
+  const itemTypeOption = receipt.itemTypeOption || contract.itemTypeOption;
+  if (itemTypeOption === 'CAI') return completeSets || quantity;
+  if (itemTypeOption === 'CA_HAI') return bundles + completeSets;
+  return bundles;
+};
 
 const getToday = () => {
   const today = new Date();
@@ -395,6 +451,22 @@ export default function InventoryStockReport() {
             sizeQuantities,
             Array.from({ length: getPiecesPerSet(String(line.productCode || '')) }, (_, sizeIndex) => `Cái ${sizeIndex + 1}`)
           ),
+          goodQuantity: line.goodQuantity === undefined ? undefined : Number(line.goodQuantity) || 0,
+          goodBundleQuantity: line.goodBundleQuantity === undefined ? undefined : Number(line.goodBundleQuantity) || 0,
+          goodSizeQuantities: line.goodSizeQuantities
+            ? normalizeSizeCounts(
+              line.goodSizeQuantities,
+              Array.from({ length: getPiecesPerSet(String(line.productCode || '')) }, (_, sizeIndex) => `Cái ${sizeIndex + 1}`)
+            )
+            : undefined,
+          defectiveQuantity: line.defectiveQuantity === undefined ? undefined : Number(line.defectiveQuantity) || 0,
+          defectiveBundleQuantity: line.defectiveBundleQuantity === undefined ? undefined : Number(line.defectiveBundleQuantity) || 0,
+          defectiveSizeQuantities: line.defectiveSizeQuantities
+            ? normalizeSizeCounts(
+              line.defectiveSizeQuantities,
+              Array.from({ length: getPiecesPerSet(String(line.productCode || '')) }, (_, sizeIndex) => `Cái ${sizeIndex + 1}`)
+            )
+            : undefined,
           unitPrice: Number(line.unitPrice) || 0,
           bundleUnitPrice: line.bundleUnitPrice === undefined ? undefined : Number(line.bundleUnitPrice) || 0,
           sizeUnitPrices: sizeUnitPrices
@@ -530,23 +602,36 @@ export default function InventoryStockReport() {
     });
   };
 
-  const getReceiptLineBreakdown = (line: RepairFormLine) => {
+  const getReceiptQualityBreakdown = (line: RepairFormLine, quality: 'good' | 'defective') => {
     const sizeCount = getPiecesPerSet(line.productCode);
+    const hasQualitySplit = line.goodQuantity !== undefined ||
+      line.goodBundleQuantity !== undefined ||
+      line.goodSizeQuantities !== undefined ||
+      line.defectiveQuantity !== undefined ||
+      line.defectiveBundleQuantity !== undefined ||
+      line.defectiveSizeQuantities !== undefined;
+    const isGood = quality === 'good';
     if (sizeCount === 1) {
+      const quantity = hasQualitySplit
+        ? Number(isGood ? line.goodQuantity : line.defectiveQuantity) || 0
+        : isGood ? Number(line.quantity) || 0 : 0;
       return {
         bundleQuantity: 0,
-        sizeQuantities: { 'Cái 1': Number(line.quantity) || 0 },
-        quantity: Number(line.quantity) || 0
+        sizeQuantities: { 'Cái 1': quantity },
+        quantity
       };
     }
     const sizeKeys = Array.from({ length: sizeCount }, (_, index) => `Cái ${index + 1}`);
-    const looseSizes = Object.fromEntries(sizeKeys.map(size => [
-      size,
-      Math.max(0, Number(line.sizeQuantities?.[size]) || 0)
-    ]));
+    const qualitySizes = isGood
+      ? line.goodSizeQuantities || (hasQualitySplit ? {} : line.sizeQuantities)
+      : line.defectiveSizeQuantities || {};
+    const looseSizes = Object.fromEntries(sizeKeys.map(size => [size, Math.max(0, Number(qualitySizes?.[size]) || 0)]));
     const groupedBundles = Math.min(...Object.values(looseSizes));
+    const savedBundles = isGood
+      ? line.goodBundleQuantity
+      : line.defectiveBundleQuantity;
     const directBundles = line.itemTypeOption === 'CA_HAI'
-      ? Math.max(0, Number(line.bundleQuantity) || 0)
+      ? Math.max(0, Number(savedBundles ?? (!hasQualitySplit && isGood ? line.bundleQuantity : 0)) || 0)
       : 0;
     const sizeQuantities = Object.fromEntries(sizeKeys.map(size => [
       size,
@@ -557,6 +642,21 @@ export default function InventoryStockReport() {
       bundleQuantity,
       sizeQuantities,
       quantity: bundleQuantity * sizeCount + Object.values(sizeQuantities).reduce((sum, value) => sum + value, 0)
+    };
+  };
+
+  const getReceiptLineBreakdown = (line: RepairFormLine) => {
+    const good = getReceiptQualityBreakdown(line, 'good');
+    const defective = getReceiptQualityBreakdown(line, 'defective');
+    const sizeKeys = Array.from({ length: getPiecesPerSet(line.productCode) }, (_, index) => `Cái ${index + 1}`);
+    const sizeQuantities = Object.fromEntries(sizeKeys.map(size => [
+      size,
+      (good.sizeQuantities[size] || 0) + (defective.sizeQuantities[size] || 0)
+    ]));
+    return {
+      bundleQuantity: good.bundleQuantity + defective.bundleQuantity,
+      sizeQuantities,
+      quantity: good.quantity + defective.quantity
     };
   };
 
@@ -610,10 +710,14 @@ export default function InventoryStockReport() {
         entry.sizes[size] += count * factor;
       });
     };
+    const createQualityBucket = (): QualityStockBucket => ({
+      qualified: new Map<string, StockCounts>(),
+      defective: new Map<string, StockCounts>()
+    });
     const buckets = {
-      opening: new Map<string, StockCounts>(),
-      incoming: new Map<string, StockCounts>(),
-      outgoing: new Map<string, StockCounts>()
+      opening: createQualityBucket(),
+      incoming: createQualityBucket(),
+      outgoing: createQualityBucket()
     };
     products.forEach(product => getEntry(product.code, product.name));
     contracts.forEach(contract => getEntry(contract.productCode, contract.productName, contract));
@@ -623,18 +727,20 @@ export default function InventoryStockReport() {
     defectiveGoodsImportSlips.forEach(slip => getEntry(slip.productCode, slip.productName));
 
     const addMovement = (
-      bucket: Map<string, StockCounts>,
+      bucket: QualityStockBucket,
       code: string,
       name: string,
       contract: ContractItem | undefined,
       quantities: Record<string, number>,
       bundles: number,
       ordinaryQuantity: number,
-      direction: number
+      direction: number,
+      quality: StockQuality
     ) => {
       const entry = getEntry(code, name, contract);
       if (!entry) return;
-      const target = bucket.get(code.toLowerCase()) || {
+      const qualityBucket = bucket[quality];
+      const target = qualityBucket.get(code.toLowerCase()) || {
         ...entry,
         sizes: Object.fromEntries(Object.keys(entry.sizes).map(size => [size, 0]))
       };
@@ -644,7 +750,7 @@ export default function InventoryStockReport() {
       } else {
         target.sizes['Cái 1'] = (target.sizes['Cái 1'] || 0) + ordinaryQuantity * direction;
       }
-      bucket.set(code.toLowerCase(), target);
+      qualityBucket.set(code.toLowerCase(), target);
     };
 
     contracts.forEach(contract => {
@@ -663,7 +769,17 @@ export default function InventoryStockReport() {
             ? Number(log.quantity) || 0
             : detailCount > 0 ? 0 : Number(log.quantity) || 0)
           : 0;
-        addMovement(bucket, contract.productCode, contract.productName, contract, sizes, bundles, Number(log.quantity) || 0, 1);
+        addMovement(
+          bucket,
+          contract.productCode,
+          contract.productName,
+          contract,
+          sizes,
+          bundles,
+          Number(log.quantity) || 0,
+          1,
+          getStockQuality(log, 'qualified')
+        );
       });
     });
 
@@ -678,24 +794,44 @@ export default function InventoryStockReport() {
       const sizeKeys = getSizeKeys(contract, sizeCount);
       const goodSizes = normalizeSizeCounts(slip.goodSizeQuantities, sizeKeys);
       const defectiveSizes = normalizeSizeCounts(slip.defectiveSizeQuantities, sizeKeys);
-      const combinedSizes = Object.fromEntries(Object.keys(goodSizes).map(size => [
-        size,
-        (goodSizes[size] || 0) + (defectiveSizes[size] || 0)
-      ]));
-      const bundles = (Number(slip.goodBundles) || 0) + (Number(slip.defectiveBundles) || 0);
-      const legacyPieces = !slip.goodSizeQuantities && !slip.defectiveSizeQuantities
-        ? (Number(slip.goodPieces) || 0) + (Number(slip.defectivePieces) || 0)
-        : 0;
-      const ordinaryExport = sizeCount === 1
-        ? Object.values(slip.goodSizeQuantities || {}).reduce((sum, count) => sum + (Number(count) || 0), 0) +
-          Object.values(slip.defectiveSizeQuantities || {}).reduce((sum, count) => sum + (Number(count) || 0), 0) ||
-          (Number(slip.goodPieces) || 0) + (Number(slip.defectivePieces) || 0)
-        : legacyPieces;
-      if (sizeCount > 1 && legacyPieces > 0 && bundles === 0) {
-        const eachSize = legacyPieces / sizeCount;
-        Object.keys(combinedSizes).forEach(size => { combinedSizes[size] += eachSize; });
+      const goodPieces = Number(slip.goodPieces) || 0;
+      const defectivePieces = Number(slip.defectivePieces) || 0;
+      if (sizeCount > 1) {
+        if (!slip.goodSizeQuantities && goodPieces > 0) {
+          Object.keys(goodSizes).forEach(size => { goodSizes[size] += goodPieces / sizeCount; });
+        }
+        if (!slip.defectiveSizeQuantities && defectivePieces > 0) {
+          Object.keys(defectiveSizes).forEach(size => { defectiveSizes[size] += defectivePieces / sizeCount; });
+        }
       }
-      addMovement(bucket, slip.productCode, slip.productName, contract, combinedSizes, bundles, ordinaryExport, 1);
+      const goodOrdinary = sizeCount === 1
+        ? Object.values(goodSizes).reduce((sum, count) => sum + count, 0) || goodPieces
+        : 0;
+      const defectiveOrdinary = sizeCount === 1
+        ? Object.values(defectiveSizes).reduce((sum, count) => sum + count, 0) || defectivePieces
+        : 0;
+      addMovement(
+        bucket,
+        slip.productCode,
+        slip.productName,
+        contract,
+        goodSizes,
+        Number(slip.goodBundles) || 0,
+        goodOrdinary,
+        1,
+        'qualified'
+      );
+      addMovement(
+        bucket,
+        slip.productCode,
+        slip.productName,
+        contract,
+        defectiveSizes,
+        Number(slip.defectiveBundles) || 0,
+        defectiveOrdinary,
+        1,
+        'defective'
+      );
     });
 
     defectiveGoodsImportSlips.forEach(slip => {
@@ -715,7 +851,8 @@ export default function InventoryStockReport() {
         sizes,
         Number(slip.bundleQuantity) || 0,
         sizeCount === 1 ? Number(slip.quantity) || 0 : 0,
-        1
+        1,
+        'defective'
       );
     });
 
@@ -754,7 +891,8 @@ export default function InventoryStockReport() {
           sizes,
           bundles,
           ordinaryQuantity,
-          1
+          1,
+          getStockQuality(line, getStockQuality(slip, 'qualified'))
         );
       });
     });
@@ -770,7 +908,17 @@ export default function InventoryStockReport() {
         );
         const sizeCount = getPiecesPerSet(line.productCode);
         const sizes = normalizeSizeCounts(line.sizeQuantities, getSizeKeys(contract, sizeCount));
-        addMovement(bucket, line.productCode, line.productName, contract, sizes, line.bundleQuantity, line.quantity, 1);
+        addMovement(
+          bucket,
+          line.productCode,
+          line.productName,
+          contract,
+          sizes,
+          line.bundleQuantity,
+          line.quantity,
+          1,
+          getStockQuality(slip, 'defective')
+        );
       });
     });
 
@@ -784,29 +932,97 @@ export default function InventoryStockReport() {
           String(item.productCode || '').trim().toLowerCase() === line.productCode.trim().toLowerCase()
         );
         const sizeCount = getPiecesPerSet(line.productCode);
-        const sizes = normalizeSizeCounts(line.sizeQuantities, getSizeKeys(contract, sizeCount));
-        addMovement(bucket, line.productCode, line.productName, contract, sizes, line.bundleQuantity, line.quantity, 1);
+        const sizeKeys = getSizeKeys(contract, sizeCount);
+        const hasQualitySplit = line.goodQuantity !== undefined ||
+          line.goodBundleQuantity !== undefined ||
+          line.goodSizeQuantities !== undefined ||
+          line.defectiveQuantity !== undefined ||
+          line.defectiveBundleQuantity !== undefined ||
+          line.defectiveSizeQuantities !== undefined;
+        const goodSizes = normalizeSizeCounts(
+          hasQualitySplit ? line.goodSizeQuantities : line.sizeQuantities,
+          sizeKeys
+        );
+        const defectiveSizes = normalizeSizeCounts(line.defectiveSizeQuantities, sizeKeys);
+        addMovement(
+          bucket,
+          line.productCode,
+          line.productName,
+          contract,
+          goodSizes,
+          Number(line.goodBundleQuantity ?? (!hasQualitySplit ? line.bundleQuantity : 0)) || 0,
+          sizeCount === 1
+            ? Number(line.goodQuantity ?? (!hasQualitySplit ? line.quantity : 0)) || 0
+            : 0,
+          1,
+          'qualified'
+        );
+        addMovement(
+          bucket,
+          line.productCode,
+          line.productName,
+          contract,
+          defectiveSizes,
+          Number(line.defectiveBundleQuantity) || 0,
+          sizeCount === 1 ? Number(line.defectiveQuantity) || 0 : 0,
+          1,
+          'defective'
+        );
       });
+    });
+
+    const contractsExceedingFrameExport = new Set<string>();
+    contracts.forEach(contract => {
+      if (contract.contractType !== 'SUB' && !contract.craftGroupLeader) return;
+      const receivedQualified = (Array.isArray(contract.receivedGoodsLogs) ? contract.receivedGoodsLogs : [])
+        .filter(log => getStockQuality(log, 'qualified') === 'qualified')
+        .reduce((sum, log) => sum + getReceiptQuantityInContractUnits(contract, log), 0);
+      const loggedExports = (Array.isArray(contract.exportLogs) ? contract.exportLogs : [])
+        .reduce((sum, log) => sum + (Number(log.actualQty) || 0), 0);
+      const exportedFrames = Math.max(Number(contract.totalActualExported) || 0, loggedExports);
+      if (receivedQualified > exportedFrames) {
+        contractsExceedingFrameExport.add(contract.productCode.trim().toLowerCase());
+      }
     });
 
     const result = Array.from(stock.values()).map(entry => {
       const key = entry.productCode.toLowerCase();
-      const opening = buckets.opening.get(key)?.sizes || {};
-      const incoming = buckets.incoming.get(key)?.sizes || {};
-      const outgoing = buckets.outgoing.get(key)?.sizes || {};
+      const openingQualifiedSizes = buckets.opening.qualified.get(key)?.sizes || {};
+      const openingDefectiveSizes = buckets.opening.defective.get(key)?.sizes || {};
+      const incomingQualifiedSizes = buckets.incoming.qualified.get(key)?.sizes || {};
+      const incomingDefectiveSizes = buckets.incoming.defective.get(key)?.sizes || {};
+      const outgoingQualifiedSizes = buckets.outgoing.qualified.get(key)?.sizes || {};
+      const outgoingDefectiveSizes = buckets.outgoing.defective.get(key)?.sizes || {};
+      const endingQualifiedSizes = Object.fromEntries(Object.keys(entry.sizes).map(size => [
+        size,
+        (openingQualifiedSizes[size] || 0) +
+          (incomingQualifiedSizes[size] || 0) -
+          (outgoingQualifiedSizes[size] || 0)
+      ]));
+      const endingDefectiveSizes = Object.fromEntries(Object.keys(entry.sizes).map(size => [
+        size,
+        (openingDefectiveSizes[size] || 0) +
+          (incomingDefectiveSizes[size] || 0) -
+          (outgoingDefectiveSizes[size] || 0)
+      ]));
       const endingSizes = Object.fromEntries(Object.keys(entry.sizes).map(size => [
         size,
-        (opening[size] || 0) + (incoming[size] || 0) - (outgoing[size] || 0)
+        (endingQualifiedSizes[size] || 0) + (endingDefectiveSizes[size] || 0)
       ]));
-      const openingTotal = Object.values(opening).reduce((sum, count) => sum + count, 0);
-      const incomingTotal = Object.values(incoming).reduce((sum, count) => sum + count, 0);
-      const outgoingTotal = Object.values(outgoing).reduce((sum, count) => sum + count, 0);
+      const total = (sizes: Record<string, number>) =>
+        Object.values(sizes).reduce((sum, count) => sum + count, 0);
       return {
         ...entry,
-        opening: openingTotal,
-        incoming: incomingTotal,
-        outgoing: outgoingTotal,
-        endingSizes
+        openingQualified: total(openingQualifiedSizes),
+        openingDefective: total(openingDefectiveSizes),
+        incomingQualified: total(incomingQualifiedSizes),
+        incomingDefective: total(incomingDefectiveSizes),
+        outgoingQualified: total(outgoingQualifiedSizes),
+        outgoingDefective: total(outgoingDefectiveSizes),
+        endingQualifiedSizes,
+        endingDefectiveSizes,
+        endingSizes,
+        exceedsFrameExport: contractsExceedingFrameExport.has(key)
       };
     }).sort((first, second) => first.productCode.localeCompare(second.productCode, 'vi', { numeric: true }));
 
@@ -927,6 +1143,12 @@ export default function InventoryStockReport() {
         quantity: '',
         bundleQuantity: '',
         sizeQuantities: Object.fromEntries(Array.from({ length: sizeCount }, (_, index) => [`Cái ${index + 1}`, ''])),
+        goodQuantity: '',
+        goodBundleQuantity: '',
+        goodSizeQuantities: Object.fromEntries(Array.from({ length: sizeCount }, (_, index) => [`Cái ${index + 1}`, ''])),
+        defectiveQuantity: '',
+        defectiveBundleQuantity: '',
+        defectiveSizeQuantities: Object.fromEntries(Array.from({ length: sizeCount }, (_, index) => [`Cái ${index + 1}`, ''])),
         bundleUnitPrice: formatNumberInput(String(line.bundleUnitPrice || 0)),
         sizeUnitPrices: Object.fromEntries(Array.from({ length: sizeCount }, (_, index) => {
           const size = `Cái ${index + 1}`;
@@ -949,15 +1171,36 @@ export default function InventoryStockReport() {
     setReceiptDate(slip.date || getToday());
     setReceiptDueDate(slip.repairDueDate || '');
     setReceiptPaymentNote(slip.repairPaymentNote || slip.note || '');
-    setReceiptLines(getRepairLines(slip).map(line => ({
+    setReceiptLines(getRepairLines(slip).map(line => {
+      const sizeCount = getPiecesPerSet(line.productCode);
+      const hasQualitySplit = line.goodQuantity !== undefined ||
+        line.goodBundleQuantity !== undefined ||
+        line.goodSizeQuantities !== undefined ||
+        line.defectiveQuantity !== undefined ||
+        line.defectiveBundleQuantity !== undefined ||
+        line.defectiveSizeQuantities !== undefined;
+      return {
       id: line.id,
       productCode: line.productCode,
       productName: line.productName,
-      quantity: String(getPiecesPerSet(line.productCode) === 1 ? line.quantity : 0),
+      quantity: String(sizeCount === 1 ? line.quantity : 0),
       bundleQuantity: String(line.bundleQuantity || 0),
       sizeQuantities: Object.fromEntries(
         Object.entries(line.sizeQuantities || {}).map(([size, quantity]) => [size, String(quantity)])
       ),
+      goodQuantity: String(line.goodQuantity ?? (!hasQualitySplit && sizeCount === 1 ? line.quantity : 0)),
+      goodBundleQuantity: String(line.goodBundleQuantity ?? (!hasQualitySplit ? line.bundleQuantity : 0)),
+      goodSizeQuantities: Object.fromEntries(Array.from({ length: sizeCount }, (_, index) => {
+        const size = `Cái ${index + 1}`;
+        const values = hasQualitySplit ? line.goodSizeQuantities : line.sizeQuantities;
+        return [size, String(values?.[size] || 0)];
+      })),
+      defectiveQuantity: String(line.defectiveQuantity || 0),
+      defectiveBundleQuantity: String(line.defectiveBundleQuantity || 0),
+      defectiveSizeQuantities: Object.fromEntries(Array.from({ length: sizeCount }, (_, index) => {
+        const size = `Cái ${index + 1}`;
+        return [size, String(line.defectiveSizeQuantities?.[size] || 0)];
+      })),
       bundleUnitPrice: formatNumberInput(String(
         line.bundleUnitPrice ?? (Number(line.unitPrice) || 0) * getPiecesPerSet(line.productCode)
       )),
@@ -969,7 +1212,8 @@ export default function InventoryStockReport() {
         }
       )),
       itemTypeOption: line.bundleQuantity > 0 ? 'CA_HAI' : 'CAI'
-    })));
+      };
+    }));
     setReceiptError('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -997,6 +1241,8 @@ export default function InventoryStockReport() {
     const parsedLines = receiptLines.map(line => {
       const sizeCount = getPiecesPerSet(line.productCode);
       const breakdown = getReceiptLineBreakdown(line);
+      const goodBreakdown = getReceiptQualityBreakdown(line, 'good');
+      const defectiveBreakdown = getReceiptQualityBreakdown(line, 'defective');
       const { bundleQuantity, sizeQuantities, quantity } = breakdown;
       const sizeUnitPrices = Object.fromEntries(Array.from({ length: sizeCount }, (_, index) => {
         const size = `Cái ${index + 1}`;
@@ -1010,12 +1256,31 @@ export default function InventoryStockReport() {
         quantity,
         bundleQuantity,
         sizeQuantities,
+        goodQuantity: goodBreakdown.quantity,
+        goodBundleQuantity: goodBreakdown.bundleQuantity,
+        goodSizeQuantities: goodBreakdown.sizeQuantities,
+        defectiveQuantity: defectiveBreakdown.quantity,
+        defectiveBundleQuantity: defectiveBreakdown.bundleQuantity,
+        defectiveSizeQuantities: defectiveBreakdown.sizeQuantities,
         sizeUnitPrices,
         bundleUnitPrice,
         unitPrice: sizeUnitPrices['Cái 1'] || 0,
         amount
       };
     });
+    const invalidQualityQuantities = receiptLines.some(line => [
+      line.goodQuantity,
+      line.goodBundleQuantity,
+      ...Object.values(line.goodSizeQuantities || {}),
+      line.defectiveQuantity,
+      line.defectiveBundleQuantity,
+      ...Object.values(line.defectiveSizeQuantities || {})
+    ].some(value => value !== undefined && value.trim() !== '' &&
+      (!Number.isFinite(Number(value)) || Number(value) < 0)));
+    if (invalidQualityQuantities) {
+      setReceiptError('Số lượng Đạt/Loại phải là số hợp lệ và không được âm.');
+      return;
+    }
     if (parsedLines.some(line =>
       line.quantity < 0 ||
       line.bundleQuantity < 0 ||
@@ -1056,6 +1321,12 @@ export default function InventoryStockReport() {
       quantity: line.quantity,
       bundleQuantity: line.bundleQuantity,
       sizeQuantities: line.sizeQuantities,
+      goodQuantity: line.goodQuantity,
+      goodBundleQuantity: line.goodBundleQuantity,
+      goodSizeQuantities: line.goodSizeQuantities,
+      defectiveQuantity: line.defectiveQuantity,
+      defectiveBundleQuantity: line.defectiveBundleQuantity,
+      defectiveSizeQuantities: line.defectiveSizeQuantities,
       unitPrice: line.unitPrice,
       bundleUnitPrice: line.bundleUnitPrice,
       sizeUnitPrices: line.sizeUnitPrices,
@@ -1631,26 +1902,33 @@ export default function InventoryStockReport() {
         <div className="w-full overflow-x-auto shadow rounded-lg erp-table-scroll">
           <table className="w-full min-w-max text-xs sm:text-sm" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
             <colgroup>
-              <col style={{ width: '12%' }} />
-              <col style={{ width: '18%' }} />
               <col style={{ width: '10%' }} />
-              <col style={{ width: '10%' }} />
-              <col style={{ width: '10%' }} />
-              <col style={{ width: '10%' }} />
-              <col style={{ width: '10%' }} />
-              <col style={{ width: '20%' }} />
+              <col style={{ width: '16%' }} />
+              {Array.from({ length: 8 }).map((_, index) => <col key={`quantity-${index}`} style={{ width: '6.5%' }} />)}
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '14%' }} />
             </colgroup>
             <thead>
               <tr>
-                {['Mã Hàng', 'Tên Hàng', 'Tồn Đầu', 'Nhập', 'Xuất', 'Tồn Cuối (Bộ)', 'Lẻ Của Bộ (Cái)', 'Ghi Chú'].map((label, index) => (
+                <th rowSpan={2} className="report-sticky-column" scope="col" style={{ ...tableHeaderStyle, backgroundColor: '#f1f5f9' }}>Mã Hàng</th>
+                <th rowSpan={2} scope="col" style={tableHeaderStyle}>Tên Hàng</th>
+                <th colSpan={2} scope="colgroup" style={{ ...tableHeaderStyle, textAlign: 'center' }}>Tồn Đầu</th>
+                <th colSpan={2} scope="colgroup" style={{ ...tableHeaderStyle, textAlign: 'center' }}>Nhập</th>
+                <th colSpan={2} scope="colgroup" style={{ ...tableHeaderStyle, textAlign: 'center' }}>Xuất</th>
+                <th colSpan={2} scope="colgroup" style={{ ...tableHeaderStyle, textAlign: 'center' }}>Tồn Cuối (Bộ)</th>
+                <th rowSpan={2} scope="col" style={{ ...tableHeaderStyle, textAlign: 'right' }}>Lẻ (Cái)</th>
+                <th rowSpan={2} scope="col" style={tableHeaderStyle}>Ghi Chú</th>
+              </tr>
+              <tr>
+                {['Đạt', 'Loại', 'Đạt', 'Loại', 'Đạt', 'Loại', 'Đạt', 'Loại'].map((label, index) => (
                   <th
-                    key={label}
-                    className={index === 0 ? 'report-sticky-column' : undefined}
+                    key={`${label}-${index}`}
                     scope="col"
                     style={{
                       ...tableHeaderStyle,
-                      textAlign: index >= 2 && index <= 6 ? 'right' : 'left',
-                      backgroundColor: index === 0 ? '#f1f5f9' : undefined
+                      textAlign: 'right',
+                      color: index % 2 === 0 ? '#166534' : '#b91c1c',
+                      backgroundColor: index % 2 === 0 ? '#f0fdf4' : '#fef2f2'
                     }}
                   >
                     {label}
@@ -1660,29 +1938,56 @@ export default function InventoryStockReport() {
             </thead>
             <tbody>
               {report.rows.length === 0 ? (
-                <tr><td colSpan={8} style={{ padding: '18px', textAlign: 'center', color: '#64748b' }}>Chưa có dữ liệu nhập, xuất hoặc tồn.</td></tr>
+                <tr><td colSpan={12} style={{ padding: '18px', textAlign: 'center', color: '#64748b' }}>Chưa có dữ liệu nhập, xuất hoặc tồn.</td></tr>
               ) : report.rows.map(row => {
-                const sizes = Object.entries(row.endingSizes);
-                const allEnding = sizes.reduce((sum, [, count]) => sum + count, 0);
+                const qualifiedSizes = Object.entries(row.endingQualifiedSizes);
+                const defectiveSizes = Object.entries(row.endingDefectiveSizes);
                 const hasSet = row.sizeCount > 1;
-                const completeSets = hasSet ? Math.max(0, Math.floor(Math.min(...sizes.map(([, count]) => count)) + Number.EPSILON)) : 0;
-                const loose = hasSet ? Object.fromEntries(sizes.map(([size, count]) => [size, Math.max(0, count - completeSets)])) : {};
-                const looseCount = Object.values(loose).reduce((sum, count) => sum + count, 0);
-                const looseDescription = Object.entries(loose)
+                const getEndingQuantity = (sizes: [string, number][]) => {
+                  if (hasSet) return Math.max(0, Math.floor(Math.min(...sizes.map(([, count]) => count)) + Number.EPSILON));
+                  return sizes.reduce((sum, [, count]) => sum + count, 0);
+                };
+                const qualifiedCompleteSets = getEndingQuantity(qualifiedSizes);
+                const defectiveCompleteSets = getEndingQuantity(defectiveSizes);
+                const getLooseSizes = (sizes: [string, number][], completeSets: number) => hasSet
+                  ? Object.fromEntries(sizes.map(([size, count]) => [size, Math.max(0, count - completeSets)]))
+                  : {};
+                const qualifiedLoose = getLooseSizes(qualifiedSizes, qualifiedCompleteSets);
+                const defectiveLoose = getLooseSizes(defectiveSizes, defectiveCompleteSets);
+                const looseCount = [...Object.values(qualifiedLoose), ...Object.values(defectiveLoose)]
+                  .reduce((sum, count) => sum + count, 0);
+                const getLooseDescription = (quality: string, looseSizes: Record<string, number>) => Object.entries(looseSizes)
                   .filter(([, count]) => count > 0)
-                  .map(([size, count]) => `${formatNumber(count)} cái (Size ${size.replace('Cái ', '')})`)
+                  .map(([size, count]) => `${quality}: ${formatNumber(count)} cái (Size ${size.replace('Cái ', '')})`)
                   .join(', ');
+                const looseDescription = [
+                  getLooseDescription('Đạt', qualifiedLoose),
+                  getLooseDescription('Loại', defectiveLoose)
+                ].filter(Boolean).join(' · ');
                 const unit = hasSet ? 'Bộ' : 'Cái';
                 return (
                   <tr key={row.productCode} style={{ borderTop: '1px solid #e2e8f0' }}>
                     <td className="report-sticky-column" style={{ padding: '9px', fontWeight: 700 }}>{row.productCode}</td>
                     <td style={{ padding: '9px' }}>{row.productName || '—'}</td>
-                    <td style={{ padding: '9px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.opening / row.sizeCount)} {unit}</td>
-                    <td style={{ padding: '9px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.incoming / row.sizeCount)} {unit}</td>
-                    <td style={{ padding: '9px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.outgoing / row.sizeCount)} {unit}</td>
-                    <td style={{ padding: '9px', textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{hasSet ? `${formatNumber(completeSets)} Bộ` : `${formatNumber(allEnding)} Cái`}</td>
+                    <td style={{ padding: '9px', textAlign: 'right', color: '#166534', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.openingQualified / row.sizeCount)} {unit}</td>
+                    <td style={{ padding: '9px', textAlign: 'right', color: '#b91c1c', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.openingDefective / row.sizeCount)} {unit}</td>
+                    <td style={{ padding: '9px', textAlign: 'right', color: '#166534', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.incomingQualified / row.sizeCount)} {unit}</td>
+                    <td style={{ padding: '9px', textAlign: 'right', color: '#b91c1c', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.incomingDefective / row.sizeCount)} {unit}</td>
+                    <td style={{ padding: '9px', textAlign: 'right', color: '#166534', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.outgoingQualified / row.sizeCount)} {unit}</td>
+                    <td style={{ padding: '9px', textAlign: 'right', color: '#b91c1c', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.outgoingDefective / row.sizeCount)} {unit}</td>
+                    <td style={{ padding: '9px', textAlign: 'right', color: '#166534', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatNumber(qualifiedCompleteSets)} {unit}</td>
+                    <td style={{ padding: '9px', textAlign: 'right', color: '#b91c1c', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatNumber(defectiveCompleteSets)} {unit}</td>
                     <td style={{ padding: '9px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{hasSet ? formatNumber(looseCount) : '—'}</td>
-                    <td style={{ padding: '9px', textAlign: 'left', color: looseDescription ? '#b45309' : '#64748b', overflowWrap: 'anywhere' }}>{looseDescription ? `Tồn lẻ: ${looseDescription}` : '—'}</td>
+                    <td style={{ padding: '9px', textAlign: 'left', overflowWrap: 'anywhere' }}>
+                      {row.exceedsFrameExport && (
+                        <strong style={{ display: 'block', marginBottom: looseDescription ? '4px' : 0, color: '#b91c1c' }}>
+                          ⚠️ Nhập (Đạt) vượt số khung xuất theo hợp đồng
+                        </strong>
+                      )}
+                      {looseDescription
+                        ? <span style={{ color: '#b45309' }}>Tồn lẻ: {looseDescription}</span>
+                        : !row.exceedsFrameExport ? '—' : null}
+                    </td>
                   </tr>
                 );
               })}
@@ -2123,22 +2428,25 @@ export default function InventoryStockReport() {
                   const sourceLine = sourceRepairLines.find(item => item.productCode.trim().toLowerCase() === line.productCode.trim().toLowerCase());
                   const prior = receiptProgress.get(line.productCode.trim().toLowerCase()) || { bundles: 0, sizes: {} };
                   const breakdown = getReceiptLineBreakdown(line);
-                  const directBundles = line.itemTypeOption === 'CA_HAI' ? Number(line.bundleQuantity) || 0 : 0;
+                  const goodBreakdown = getReceiptQualityBreakdown(line, 'good');
+                  const defectiveBreakdown = getReceiptQualityBreakdown(line, 'defective');
                   const maxBundles = Math.max(0, (sourceLine?.bundleQuantity || 0) - prior.bundles);
                   const missingBundlesAfterThis = Math.max(0, (sourceLine?.bundleQuantity || 0) - prior.bundles - breakdown.bundleQuantity);
-                  const returnedUnits = breakdown.quantity;
-                  const quantityBreakdown = [
-                    ...(sizeCount > 1 && breakdown.bundleQuantity > 0
-                      ? [`${formatNumber(breakdown.bundleQuantity)} bộ`]
-                      : []),
-                    ...(sizeCount > 1
-                      ? sizeKeys
-                        .filter(size => (Number(breakdown.sizeQuantities[size]) || 0) > 0)
-                        .map(size => `${formatNumber(Number(breakdown.sizeQuantities[size]))} ${size.replace('Cái ', 'cái Size ')}`)
-                      : returnedUnits > 0
-                        ? [`${formatNumber(returnedUnits)} cái Size 1`]
-                        : [])
-                  ];
+                  const describeBreakdown = (label: string, value: ReturnType<typeof getReceiptQualityBreakdown>) => {
+                    const details = [
+                      ...(sizeCount > 1 && value.bundleQuantity > 0
+                        ? [`${formatNumber(value.bundleQuantity)} bộ`]
+                        : []),
+                      ...(sizeCount > 1
+                        ? sizeKeys
+                          .filter(size => (Number(value.sizeQuantities[size]) || 0) > 0)
+                          .map(size => `${formatNumber(Number(value.sizeQuantities[size]))} ${size.replace('Cái ', 'cái Size ')}`)
+                        : value.quantity > 0
+                          ? [`${formatNumber(value.quantity)} cái`]
+                          : [])
+                    ];
+                    return `${label}: ${details.join(' + ') || '0'}`;
+                  };
                   return (
                     <div key={line.id} style={{ display: 'grid', gap: '9px', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '7px', backgroundColor: '#fff' }}>
                       <strong>{line.productCode} · {line.productName}</strong>
@@ -2162,37 +2470,31 @@ export default function InventoryStockReport() {
                           </div>
                           {line.itemTypeOption === 'CA_HAI' && (
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '8px' }}>
-                              {(() => {
-                                const bundleProgress = prior.bundles + breakdown.bundleQuantity;
-                                const bundleDetails = [
-                                  ...(bundleProgress > 0 ? [`Lũy kế: ${formatNumber(bundleProgress)} bộ`] : []),
-                                  ...(missingBundlesAfterThis > 0 ? [`Còn thiếu: ${formatNumber(missingBundlesAfterThis)} bộ`] : [])
-                                ];
-                                return <label style={{ display: 'grid', gap: '4px', fontSize: '12px', fontWeight: 700 }}>Số bộ nhận
-                                <input type="number" min="0" max={maxBundles} step="any" value={line.bundleQuantity} onChange={event => updateReceiptLine(line.id, { bundleQuantity: event.target.value })} style={inputStyle} />
-                                {bundleDetails.length > 0 && <small>{bundleDetails.join(' · ')}</small>}
-                              </label>;
-                              })()}
+                              <label style={{ display: 'grid', gap: '4px', fontSize: '12px', fontWeight: 700, color: '#166534' }}>Số bộ Đạt
+                                <input type="number" min="0" max={maxBundles} step="any" value={line.goodBundleQuantity || ''} onChange={event => updateReceiptLine(line.id, { goodBundleQuantity: event.target.value })} style={{ ...inputStyle, borderColor: '#86efac' }} />
+                              </label>
+                              <label style={{ display: 'grid', gap: '4px', fontSize: '12px', fontWeight: 700, color: '#b91c1c' }}>Số bộ Loại
+                                <input type="number" min="0" max={maxBundles} step="any" value={line.defectiveBundleQuantity || ''} onChange={event => updateReceiptLine(line.id, { defectiveBundleQuantity: event.target.value })} style={{ ...inputStyle, borderColor: '#fca5a5' }} />
+                              </label>
+                              {missingBundlesAfterThis > 0 && (
+                                <small style={{ gridColumn: '1 / -1', color: '#64748b' }}>
+                                  Còn thiếu để nhận đủ: {formatNumber(missingBundlesAfterThis)} bộ
+                                </small>
+                              )}
                             </div>
                           )}
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '8px' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '8px' }}>
                             {sizeKeys.map(size => {
                               const exported = (sourceLine?.bundleQuantity || 0) + (sourceLine?.sizeQuantities[size] || 0);
                               const alreadyReceived = prior.bundles + (prior.sizes[size] || 0);
-                              const missing = Math.max(0, exported - alreadyReceived - directBundles);
-                              const cumulativeReceived = alreadyReceived +
-                                breakdown.bundleQuantity +
-                                (Number(breakdown.sizeQuantities[size]) || 0);
-                              const missingAfterThis = Math.max(0, exported - cumulativeReceived);
-                              const sizeDetails = [
-                                ...(cumulativeReceived > 0 ? [`Lũy kế: ${formatNumber(cumulativeReceived)}`] : []),
-                                ...(missingAfterThis > 0 ? [`Còn thiếu: ${formatNumber(missingAfterThis)}`] : [])
-                              ];
+                              const missing = Math.max(0, exported - alreadyReceived);
                               return (
-                                <div key={size}>
-                                  <label style={{ display: 'grid', gap: '4px', fontSize: '12px', fontWeight: 700 }}>Nhận cái lẻ {size.replace('Cái ', 'Size ')}
-                                    <input type="number" min="0" max={missing} step="any" value={line.sizeQuantities[size] || ''} onChange={event => updateReceiptLine(line.id, { sizeQuantities: { ...line.sizeQuantities, [size]: event.target.value } })} style={inputStyle} />
-                                    {sizeDetails.length > 0 && <small>{sizeDetails.join(' · ')}</small>}
+                                <div key={size} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                  <label style={{ display: 'grid', gap: '4px', fontSize: '12px', fontWeight: 700, color: '#166534' }}>Đạt · {size}
+                                    <input type="number" min="0" max={missing} step="any" value={line.goodSizeQuantities?.[size] || ''} onChange={event => updateReceiptLine(line.id, { goodSizeQuantities: { ...line.goodSizeQuantities, [size]: event.target.value } })} style={{ ...inputStyle, borderColor: '#86efac' }} />
+                                  </label>
+                                  <label style={{ display: 'grid', gap: '4px', fontSize: '12px', fontWeight: 700, color: '#b91c1c' }}>Loại · {size}
+                                    <input type="number" min="0" max={missing} step="any" value={line.defectiveSizeQuantities?.[size] || ''} onChange={event => updateReceiptLine(line.id, { defectiveSizeQuantities: { ...line.defectiveSizeQuantities, [size]: event.target.value } })} style={{ ...inputStyle, borderColor: '#fca5a5' }} />
                                   </label>
                                 </div>
                               );
@@ -2201,22 +2503,17 @@ export default function InventoryStockReport() {
                         </>
                       ) : (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px' }}>
-                          {(() => {
-                            const cumulative = (prior.sizes['Cái 1'] || 0) + (Number(line.quantity) || 0);
-                            const missing = Math.max(0, (sourceLine?.quantity || 0) - cumulative);
-                            const singleSizeDetails = [
-                              ...(cumulative > 0 ? [`Lũy kế: ${formatNumber(cumulative)}`] : []),
-                              ...(missing > 0 ? [`Còn thiếu: ${formatNumber(missing)}`] : [])
-                            ];
-                            return <label style={{ display: 'grid', gap: '4px', fontSize: '12px', fontWeight: 700 }}>Số lượng nhận
-                            <input type="number" min="0" max={Math.max(0, (sourceLine?.quantity || 0) - (prior.sizes['Cái 1'] || 0))} step="any" value={line.quantity} onChange={event => updateReceiptLine(line.id, { quantity: event.target.value })} style={inputStyle} />
-                            {singleSizeDetails.length > 0 && <small>{singleSizeDetails.join(' · ')}</small>}
-                          </label>;
-                          })()}
+                          <label style={{ display: 'grid', gap: '4px', fontSize: '12px', fontWeight: 700, color: '#166534' }}>Số lượng Đạt
+                            <input type="number" min="0" max={Math.max(0, (sourceLine?.quantity || 0) - (prior.sizes['Cái 1'] || 0))} step="any" value={line.goodQuantity || ''} onChange={event => updateReceiptLine(line.id, { goodQuantity: event.target.value })} style={{ ...inputStyle, borderColor: '#86efac' }} />
+                          </label>
+                          <label style={{ display: 'grid', gap: '4px', fontSize: '12px', fontWeight: 700, color: '#b91c1c' }}>Số lượng Loại
+                            <input type="number" min="0" max={Math.max(0, (sourceLine?.quantity || 0) - (prior.sizes['Cái 1'] || 0))} step="any" value={line.defectiveQuantity || ''} onChange={event => updateReceiptLine(line.id, { defectiveQuantity: event.target.value })} style={{ ...inputStyle, borderColor: '#fca5a5' }} />
+                          </label>
                         </div>
                       )}
                       <div style={{ textAlign: 'right', fontSize: '12px', color: '#475569' }}>
-                        Số lượng nhận đợt này: {quantityBreakdown.join(' + ') || '—'} · Thành tiền: <strong>{formatCurrency(getReceiptLineAmount(line))}</strong>
+                        {describeBreakdown('Đạt', goodBreakdown)} · {describeBreakdown('Loại', defectiveBreakdown)} ·
+                        {' '}Tổng nhận: {formatNumber(breakdown.quantity)} cái · Thành tiền: <strong>{formatCurrency(getReceiptLineAmount(line))}</strong>
                       </div>
                     </div>
                   );

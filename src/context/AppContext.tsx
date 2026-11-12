@@ -63,6 +63,12 @@ export interface SlipItem {
     quantity: number;
     bundleQuantity: number;
     sizeQuantities: Record<string, number>;
+    goodQuantity?: number;
+    goodBundleQuantity?: number;
+    goodSizeQuantities?: Record<string, number>;
+    defectiveQuantity?: number;
+    defectiveBundleQuantity?: number;
+    defectiveSizeQuantities?: Record<string, number>;
     unitPrice: number;
     bundleUnitPrice?: number;
     sizeUnitPrices?: Record<string, number>;
@@ -322,6 +328,12 @@ export interface KnittingExportSlip {
   sourceContractId: number | string;
   sourceContractNo: string;
   sourceReceiptId: string;
+  sourceAllocations?: Array<{
+    sourceContractId: number | string;
+    sourceContractNo: string;
+    sourceReceiptId: string;
+    quantityPieces: number;
+  }>;
   parentContractNo: string;
   parentCompanyName: string;
   companyBContractId?: number | string;
@@ -338,6 +350,8 @@ export interface KnittingExportSlip {
   piecesPerSet: number;
   goodContractQuantity: number;
   defectiveContractQuantity: number;
+  is_graded?: boolean;
+  totalExportedPieces?: number;
   note: string;
   attachments?: Array<{
     id: string;

@@ -19,7 +19,7 @@ interface RevenueContractRow {
   grossAmount: number;
   depositAmount: number;
   amount: number;
-  completionDate: string;
+  latestExportDate: string;
   exports: Array<{ slip: KnittingExportSlip; quantity: number; amount: number }>;
 }
 
@@ -97,55 +97,39 @@ const getRevenueRows = (
 ): RevenueContractRow[] => contracts
   .filter(contract => contract.contractType !== 'SUB')
   .flatMap(contract => {
-    const targetQuantity = Number(contract.quantity) || 0;
-    if (targetQuantity <= 0) return [];
-
     const contractExports = exports
-      .filter(slip => String(findCompanyContract(contracts, slip)?.id) === String(contract.id))
+      .filter(slip =>
+        isInMonth(slip.date, month) &&
+        String(findCompanyContract(contracts, slip)?.id) === String(contract.id)
+      )
       .slice()
       .sort((first, second) =>
         String(first.date).localeCompare(String(second.date)) ||
         String(first.slipNo).localeCompare(String(second.slipNo), 'vi', { numeric: true })
       );
-    const exportedQuantity = contractExports.reduce(
-      (sum, slip) => sum + Math.max(0, Number(slip.goodContractQuantity) || 0),
-      0
-    );
-    if (exportedQuantity < targetQuantity) return [];
-
-    let completedQuantity = 0;
-    let completionDate = '';
-    for (const slip of contractExports) {
-      completedQuantity += Math.max(0, Number(slip.goodContractQuantity) || 0);
-      if (completedQuantity >= targetQuantity) {
-        completionDate = String(slip.date || '');
-        break;
-      }
-    }
-    if (!isInMonth(completionDate, month)) return [];
-
     const unitPrice = Number(contract.unitPrice) || 0;
-    const grossAmount = targetQuantity * unitPrice;
-    const depositAmount = getReceivedDeposit(contract);
-    let remainingQuantity = targetQuantity;
     const details = contractExports.flatMap(slip => {
-      const quantity = Math.min(remainingQuantity, Math.max(0, Number(slip.goodContractQuantity) || 0));
-      remainingQuantity -= quantity;
+      const quantity = Math.max(0, Number(slip.goodContractQuantity) || 0);
       return quantity > 0 ? [{ slip, quantity, amount: quantity * unitPrice }] : [];
     });
+    if (details.length === 0) return [];
+
+    const quantity = details.reduce((sum, detail) => sum + detail.quantity, 0);
+    const grossAmount = details.reduce((sum, detail) => sum + detail.amount, 0);
+    const depositAmount = getReceivedDeposit(contract);
 
     return [{
       contract,
-      quantity: targetQuantity,
+      quantity,
       unitPrice,
       grossAmount,
       depositAmount,
-      amount: grossAmount - depositAmount,
-      completionDate,
+      amount: grossAmount,
+      latestExportDate: String(details[details.length - 1].slip.date || ''),
       exports: details
     }];
   })
-  .sort((first, second) => second.completionDate.localeCompare(first.completionDate));
+  .sort((first, second) => second.latestExportDate.localeCompare(first.latestExportDate));
 
 const getExpenseLines = (
   contracts: ContractItem[],
@@ -447,7 +431,7 @@ export default function TaxExpenseManager() {
                     <td style={cellStyle}>{formatCurrency(revenue?.depositAmount || getReceivedDeposit(contract))}</td>
                     <td style={cellStyle}>{formatCurrency(revenue?.grossAmount || 0)}</td>
                     <td style={{ ...cellStyle, color: contractProfit >= 0 ? '#166534' : '#b91c1c' }}>{formatCurrency(contractProfit)}</td>
-                    <td style={cellStyle}>{contract.note?.trim() || (revenue ? `Hoàn thành ngày ${revenue.completionDate}` : 'Chưa hoàn thành doanh thu trong kỳ')}</td>
+                    <td style={cellStyle}>{contract.note?.trim() || (revenue ? `Xuất đạt gần nhất ngày ${revenue.latestExportDate}` : 'Chưa phát sinh doanh thu trong kỳ')}</td>
                   </tr>
                   {costs.map(group => (
                     <tr key={`cost-${String(contract.id)}-${group.category}-${group.name}`}>
@@ -529,11 +513,11 @@ export default function TaxExpenseManager() {
         <section style={{ display: 'grid', gap: '14px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
             <article style={{ ...cardStyle, backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' }}>
-              <div style={{ color: '#166534', fontSize: '12px', fontWeight: 800 }}>DOANH THU THỰC NHẬN SAU TIỀN CỌC</div>
+              <div style={{ color: '#166534', fontSize: '12px', fontWeight: 800 }}>DOANH THU TỪ CÁC ĐỢT XUẤT ĐẠT</div>
               <strong style={{ display: 'block', marginTop: '6px', color: '#166534', fontSize: '22px' }}>{formatCurrency(totalRevenue)}</strong>
             </article>
             <article style={{ ...cardStyle, backgroundColor: '#eff6ff', borderColor: '#bfdbfe' }}>
-              <div style={{ color: '#1d4ed8', fontSize: '12px', fontWeight: 800 }}>HỢP ĐỒNG HOÀN THÀNH TRONG KỲ</div>
+              <div style={{ color: '#1d4ed8', fontSize: '12px', fontWeight: 800 }}>HỢP ĐỒNG CÓ XUẤT ĐẠT TRONG KỲ</div>
               <strong style={{ display: 'block', marginTop: '6px', color: '#1d4ed8', fontSize: '22px' }}>{formatNumber(revenueRows.length)}</strong>
             </article>
           </div>
@@ -543,15 +527,15 @@ export default function TaxExpenseManager() {
             <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', minWidth: '820px', borderCollapse: 'collapse', fontSize: '12px' }} className="min-w-[950px] w-full">
                 <thead><tr style={{ backgroundColor: '#f1f5f9' }}>
-                  {['Hợp đồng Công ty B', 'Công ty / Đối tác', 'Mã hàng', 'Ngày hoàn thành', 'Số lượng hoàn thành', 'Đơn giá', 'Tổng giá trị', 'Tiền cọc', 'Doanh thu thực nhận'].map(label => <th key={label} style={cellStyle}>{label}</th>)}
+                  {['Hợp đồng Công ty B', 'Công ty / Đối tác', 'Mã hàng', 'Ngày xuất đạt gần nhất', 'Số lượng đạt trong kỳ', 'Đơn giá', 'Tổng doanh thu xuất đạt', 'Tiền cọc', 'Doanh thu thực nhận'].map(label => <th key={label} style={cellStyle}>{label}</th>)}
                 </tr></thead>
                 <tbody>
-                  {revenueRows.map(({ contract, quantity, unitPrice, grossAmount, depositAmount, amount, completionDate }) => (
+                  {revenueRows.map(({ contract, quantity, unitPrice, grossAmount, depositAmount, amount, latestExportDate }) => (
                     <tr key={String(contract.id)}>
                       <td style={cellStyle}>{contract.contractNo || '—'}</td>
                       <td style={cellStyle}>{contract.companyName || contract.company || contract.partner || '—'}</td>
                       <td style={cellStyle}>{contract.productCode || '—'}</td>
-                      <td style={cellStyle}>{completionDate}</td>
+                      <td style={cellStyle}>{latestExportDate}</td>
                       <td style={cellStyle}>{formatNumber(quantity)} {contract.unit || ''}</td>
                       <td style={cellStyle}>{formatCurrency(unitPrice)}</td>
                       <td style={cellStyle}>{formatCurrency(grossAmount)}</td>
@@ -559,7 +543,7 @@ export default function TaxExpenseManager() {
                       <td style={{ ...cellStyle, color: '#166534', fontWeight: 800 }}>{formatCurrency(amount)}</td>
                     </tr>
                   ))}
-                  {revenueRows.length === 0 && <tr><td colSpan={9} style={{ ...cellStyle, padding: '20px', textAlign: 'center', color: '#64748b' }}>Không có hợp đồng hoàn thành trong kỳ này.</td></tr>}
+                  {revenueRows.length === 0 && <tr><td colSpan={9} style={{ ...cellStyle, padding: '20px', textAlign: 'center', color: '#64748b' }}>Chưa có phiếu xuất hàng đạt trong kỳ này.</td></tr>}
                 </tbody>
                 {revenueRows.length > 0 && <tfoot><tr style={{ backgroundColor: '#f0fdf4', fontWeight: 800 }}>
                   <td colSpan={6} style={{ ...cellStyle, textAlign: 'right' }}>Tổng</td>

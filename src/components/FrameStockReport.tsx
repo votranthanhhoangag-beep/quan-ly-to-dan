@@ -119,7 +119,16 @@ export default function FrameStockReport() {
                 <td style={{ padding: '8px', textAlign: 'right', color: '#15803d', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.inbound)}</td>
                 <td style={{ padding: '8px', textAlign: 'right', color: '#b91c1c', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.outbound)}</td>
                 <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.closing)}</td>
-                <td style={{ padding: '8px', color: '#475569', overflowWrap: 'anywhere' }}>{row.note || '—'}</td>
+                <td style={{ padding: '8px', overflowWrap: 'anywhere' }}>
+                  {row.exceedsArtisanExports && (
+                    <strong style={{ display: 'block', marginBottom: row.note ? '4px' : 0, color: '#b91c1c' }}>
+                      ⚠️ Vượt quá số khung
+                    </strong>
+                  )}
+                  {row.note
+                    ? <span style={{ color: '#475569' }}>{row.note}</span>
+                    : !row.exceedsArtisanExports ? '—' : null}
+                </td>
               </tr>
             ))}
             {rows.length > 0 && (

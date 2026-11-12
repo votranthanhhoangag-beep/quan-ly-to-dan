@@ -37,6 +37,7 @@ export default function DashboardView() {
   const {
     contracts: loadedContracts = [],
     slips: loadedSlips = [],
+    knittingExportSlips: loadedKnittingExportSlips = [],
     materials: loadedMaterials = [],
     expenses: loadedExpenses = [],
     vehicles = [],
@@ -45,10 +46,22 @@ export default function DashboardView() {
   } = useApp();
   const contracts = Array.isArray(loadedContracts) ? loadedContracts : [];
   const slips = Array.isArray(loadedSlips) ? loadedSlips : [];
+  const knittingExportSlips = Array.isArray(loadedKnittingExportSlips) ? loadedKnittingExportSlips : [];
   const materials = Array.isArray(loadedMaterials) ? loadedMaterials : [];
   const expenses = Array.isArray(loadedExpenses) ? loadedExpenses : [];
   const today = new Date();
   const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  const ungradedExportWarnings = knittingExportSlips.flatMap(slip => {
+    if (slip.is_graded !== false) return [];
+    const exportDate = parseScheduleDate(slip.date);
+    if (!exportDate) return [];
+    const daysOverdue = Math.floor((todayUtc - exportDate.getTime()) / 86400000);
+    return daysOverdue > 3 ? [{ slip, daysOverdue }] : [];
+  }).sort((first, second) =>
+    second.daysOverdue - first.daysOverdue ||
+    String(first.slip.slipNo || '').localeCompare(String(second.slip.slipNo || ''), 'vi')
+  );
   const lowStockMaterials = getMaterialStockRows(
     materials,
     slips,
@@ -337,6 +350,40 @@ export default function DashboardView() {
                 <span>Cần mua bổ sung: <strong>{formatNumber(material.purchaseQuantity)} {material.unit}</strong></span>
               </div>
             ))}
+          </div>
+        </section>
+      )}
+
+      {ungradedExportWarnings.length > 0 && (
+        <section
+          aria-label="Cảnh báo phiếu xuất hàng đan chưa có kết quả kiểm định"
+          style={{ ...cardStyle, backgroundColor: '#fef2f2', borderColor: '#fca5a5' }}
+        >
+          <h3 style={{ margin: '0 0 12px', color: '#b91c1c', fontSize: '17px' }}>
+            ⚠️ Phiếu Xuất Hàng Đan Quá 3 Ngày Chưa Có Kết Quả Đạt/Loại
+          </h3>
+          <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-red-200 erp-table-scroll" style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', minWidth: '680px', borderCollapse: 'collapse', fontSize: '12px' }}>
+              <thead>
+                <tr>
+                  {['Mã phiếu', 'Ngày xuất', 'Mã hàng / Tên hàng', 'Cảnh báo'].map(header => (
+                    <th key={header} style={{ padding: '9px 10px', backgroundColor: '#fee2e2', color: '#7f1d1d', textAlign: 'left' }}>{header}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {ungradedExportWarnings.map(({ slip, daysOverdue }) => (
+                  <tr key={String(slip.id)} style={{ borderTop: '1px solid #fecaca' }}>
+                    <td style={{ padding: '9px 10px', fontWeight: 800, color: '#991b1b' }}>{slip.slipNo || '—'}</td>
+                    <td style={{ padding: '9px 10px', whiteSpace: 'nowrap' }}>{formatScheduleDate(slip.date)}</td>
+                    <td style={{ padding: '9px 10px' }}><strong>{slip.productCode || '—'}</strong><br />{slip.productName || '—'}</td>
+                    <td style={{ padding: '9px 10px', color: '#b91c1c', fontWeight: 800 }}>
+                      ⚠️ Quá hạn chưa có kết quả Đạt/Loại: đã qua {formatNumber(daysOverdue)} ngày
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </section>
       )}
