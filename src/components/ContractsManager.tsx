@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import html2canvas from 'html2canvas';
 import { useApp, type CategoryItem, type ContractItem } from '../context/AppContext';
 import { filterPhoneDigits, isValidVietnamMobileNumber } from '../utils/vietnamPhone';
 import { getLatestMaterialUnitPrice, matchesMaterialNameSearch } from '../utils/materialSearch';
@@ -636,6 +635,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     const slipContent = subContractSlipImageRef.current;
     if (!slipContent) throw new Error('Không tìm thấy nội dung phiếu để xuất ảnh.');
 
+    const { default: html2canvas } = await import('html2canvas');
     const canvas = await html2canvas(slipContent, {
       scale: Math.min(2, Math.max(1, window.devicePixelRatio || 1)),
       backgroundColor: '#ffffff',
