@@ -1142,6 +1142,22 @@ export default function InventoryStockReport() {
   };
 
   const report = buildStock();
+  const displayedReportRows = report.rows.filter(row => {
+    const endingQualified = Object.values(row.endingQualifiedSizes)
+      .reduce((sum, quantity) => sum + quantity, 0);
+    const endingDefective = Object.values(row.endingDefectiveSizes)
+      .reduce((sum, quantity) => sum + quantity, 0);
+    return [
+      row.openingQualified,
+      row.openingDefective,
+      row.incomingQualified,
+      row.incomingDefective,
+      row.outgoingQualified,
+      row.outgoingDefective,
+      endingQualified,
+      endingDefective
+    ].some(quantity => quantity > 0);
+  });
 
   const selectedRepairSource = repairSlips.find(slip => String(slip.id) === receiptSourceSlipId);
   const sourceRepairLines = selectedRepairSource ? getRepairSourceLines(selectedRepairSource) : [];
@@ -2049,9 +2065,9 @@ export default function InventoryStockReport() {
               </tr>
             </thead>
             <tbody>
-              {report.rows.length === 0 ? (
+              {displayedReportRows.length === 0 ? (
                 <tr><td className="whitespace-nowrap" colSpan={12} style={{ padding: '18px', textAlign: 'center', color: '#64748b' }}>Chưa có dữ liệu nhập, xuất hoặc tồn.</td></tr>
-              ) : report.rows.map(row => {
+              ) : displayedReportRows.map(row => {
                 const qualifiedSizes = Object.entries(row.endingQualifiedSizes);
                 const defectiveSizes = Object.entries(row.endingDefectiveSizes);
                 const hasSet = row.sizeCount > 1;

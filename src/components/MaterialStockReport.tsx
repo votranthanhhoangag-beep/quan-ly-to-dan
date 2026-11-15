@@ -289,6 +289,9 @@ export default function MaterialStockReport() {
     }).sort((a, b) => a.name.localeCompare(b.name, 'vi'));
   }, [contracts, expenses, materials, selectedMonth, slips]);
 
+  const displayedRows = rows.filter(row =>
+    [row.opening, row.incoming, row.outgoing, row.closing].some(quantity => quantity > 0)
+  );
   const totalOpening = rows.reduce((sum, row) => sum + row.opening, 0);
   const totalIncoming = rows.reduce((sum, row) => sum + row.incoming, 0);
   const totalOutgoing = rows.reduce((sum, row) => sum + row.outgoing, 0);
@@ -347,7 +350,7 @@ export default function MaterialStockReport() {
               </tr>
             </thead>
             <tbody>
-              {rows.map(row => (
+              {displayedRows.map(row => (
                 <tr key={row.key} style={{ borderBottom: '1px solid #e2e8f0' }}>
                   <td className="report-sticky-column whitespace-nowrap" style={{ padding: '8px', textAlign: 'left', overflowWrap: 'anywhere' }}>
                     <strong>{row.name}</strong>
@@ -366,7 +369,7 @@ export default function MaterialStockReport() {
                   <td className="whitespace-nowrap" style={{ padding: '8px', textAlign: 'left', color: '#475569', overflowWrap: 'anywhere' }}>{row.notes.length ? row.notes.join(' · ') : '-'}</td>
                 </tr>
               ))}
-              {rows.length === 0 && (
+              {displayedRows.length === 0 && (
                 <tr><td className="whitespace-nowrap" colSpan={9} style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>Chưa có danh mục hoặc phát sinh nguyên phụ liệu.</td></tr>
               )}
             </tbody>

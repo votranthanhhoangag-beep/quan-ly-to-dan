@@ -127,16 +127,25 @@ main textarea {
   min-width: 0;
   max-width: 100%;
   overflow-x: auto !important;
-  overflow-y: auto;
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x pan-y;
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #e2e8f0;
 }
 
 .erp-table-scroll table,
 .erp-content-shell div:has(> table) > table {
   width: 100%;
-  min-width: max-content !important;
+  min-width: max(850px, 100%) !important;
   table-layout: auto !important;
+}
+
+.erp-table-scroll table td,
+.erp-table-scroll table th,
+.erp-content-shell div:has(> table) > table td,
+.erp-content-shell div:has(> table) > table th {
+  white-space: nowrap !important;
 }
 
 .erp-table-scroll::-webkit-scrollbar,
@@ -352,9 +361,9 @@ main textarea {
     min-width: 0;
     max-width: 100%;
     overflow-x: auto !important;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    touch-action: pan-x pan-y;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x pan-y !important;
     scrollbar-width: thin;
     scrollbar-color: #64748b #e2e8f0;
   }
@@ -369,16 +378,23 @@ main textarea {
 
   .erp-content-shell div:has(> table) > table {
     width: max-content !important;
-    min-width: max-content !important;
+    min-width: max(850px, 100%) !important;
     max-width: none !important;
+    table-layout: auto !important;
   }
 
   .erp-content-shell .erp-table-scroll > table {
     display: table !important;
     width: max-content !important;
-    min-width: max-content !important;
+    min-width: max(850px, 100%) !important;
     max-width: none !important;
     overflow: visible !important;
+    table-layout: auto !important;
+  }
+
+  .erp-content-shell table td,
+  .erp-content-shell table th {
+    white-space: nowrap !important;
   }
 
   .erp-content-shell img,
