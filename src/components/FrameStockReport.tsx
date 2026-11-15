@@ -88,8 +88,8 @@ export default function FrameStockReport() {
         </label>
       </div>
 
-      <div className="overflow-x-auto w-full shadow rounded-lg erp-table-scroll" style={{ marginTop: '16px' }}>
-        <table className="w-full min-w-max" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+      <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ marginTop: '16px' }}>
+        <table className="min-w-full divide-y divide-gray-200 text-sm" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#eff6ff', color: '#1e3a8a' }}>
               {['Mã Hàng', 'Tên Hàng', 'Tồn Đầu', 'Nhập', 'Xuất', 'Tồn Cuối', 'Ghi Chú'].map((label, index) => (

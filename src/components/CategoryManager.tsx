@@ -487,8 +487,8 @@ export default function CategoryManager() {
 
       {/* Bảng hiển thị Xe 4 bánh */}
       {activeTab === 'xe' ? (
-        <div className="overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', fontFamily: 'inherit' }} className="min-w-[950px] w-full">
+        <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{  }}>
+          <table style={{ borderCollapse: 'collapse', fontFamily: 'inherit' }} className="min-w-full divide-y divide-gray-200 text-sm">
             <thead>
               <tr style={{ background: '#f1f5f9', textAlign: 'left', color: '#334155' }}>
                 <th style={{ padding: '10px' }}>STT</th>
@@ -538,7 +538,7 @@ export default function CategoryManager() {
                         ? `${Number(v.maintenanceIntervalKm).toLocaleString('vi-VN')} km`
                         : 'Chưa cấu hình'}
                     </td>
-                    <td style={{ padding: '10px', minWidth: '180px' }}>
+                    <td style={{ padding: '10px' }}>
                       <div>Hiện tại: {Number(v.currentKm || 0).toLocaleString('vi-VN')} km</div>
                       <div>Mốc: {Number(v.lastOilChangeKm || 0).toLocaleString('vi-VN')} + {Number(v.maintenanceIntervalKm || 0).toLocaleString('vi-VN')} km</div>
                       {maintenanceHistory.length ? (
@@ -574,8 +574,8 @@ export default function CategoryManager() {
         </div>
       ) : (
         /* Bảng hiển thị Hàng hóa / NVL / Chi phí */
-        <div className="overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', fontFamily: 'inherit' }} className="min-w-[950px] w-full">
+        <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{  }}>
+          <table style={{ borderCollapse: 'collapse', fontFamily: 'inherit' }} className="min-w-full divide-y divide-gray-200 text-sm">
             <thead>
               <tr style={{ background: '#f1f5f9', textAlign: 'left', color: '#334155' }}>
                 {activeTab === 'nguyenvatlieu' ? (

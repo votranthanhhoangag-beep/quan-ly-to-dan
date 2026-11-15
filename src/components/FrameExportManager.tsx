@@ -123,13 +123,31 @@ const getReceivedPiecesPerSize = (contract: ContractItem, sizeName: string, excl
     .reduce((sum, log) => sum +
       (Number(log.sizeQuantities?.[sizeName]) || 0) +
       getReceivedBundles(contract, log), 0);
-const getReceivedQuantity = (contract: ContractItem) =>
+const getReceivedContractQuantity = (contract: ContractItem, excludedLogId: string | null = null) =>
   (Array.isArray(contract.receivedGoodsLogs) ? contract.receivedGoodsLogs : [])
-    .reduce((sum, log) => sum + (Number(log.quantity) || 0), 0);
-const getReceivedQuantityWithoutLog = (contract: ContractItem, excludedLogId: string | null) =>
-  (Array.isArray(contract.receivedGoodsLogs) ? contract.receivedGoodsLogs : [])
-    .filter(log => log.id !== excludedLogId)
-    .reduce((sum, log) => sum + (Number(log.quantity) || 0), 0);
+    .filter(log => String(log.id) !== String(excludedLogId ?? ''))
+    .reduce((sum, log) => {
+      const quantity = Number(log.quantity) || 0;
+      const itemTypeOption = log.itemTypeOption || contract.itemTypeOption || 'BO';
+      const sizeKeys = getSetSizeKeys(contract);
+      const completeSets = sizeKeys.length > 0
+        ? Math.min(...sizeKeys.map(size => Number(log.sizeQuantities?.[size]) || 0))
+        : 0;
+      if (itemTypeOption === 'CAI') return sum + (completeSets || quantity);
+      if (itemTypeOption === 'CA_HAI') return sum + quantity + completeSets;
+      return sum + getReceivedBundles(contract, log);
+    }, 0);
+const getReceivedQuantity = (contract: ContractItem) => getReceivedContractQuantity(contract);
+const getFormContractQuantity = (contract: ContractItem, row: ReceiveFormRow) => {
+  const quantity = Number(row.quantity) || 0;
+  const sizeKeys = getSetSizeKeys(contract);
+  const completeSets = sizeKeys.length > 0
+    ? Math.min(...sizeKeys.map(size => Number(row.sizeQuantities[size]) || 0))
+    : 0;
+  if (row.itemTypeOption === 'CAI') return completeSets || quantity;
+  if (row.itemTypeOption === 'CA_HAI') return quantity + completeSets;
+  return quantity;
+};
 const getDepositedAmount = (contract: ContractItem) => {
   const deposits = (Array.isArray(contract.depositLogs) ? contract.depositLogs : [])
     .reduce((sum, log) => sum + (Number(log.amount) || 0), 0);
@@ -184,6 +202,11 @@ export default function FrameExportManager() {
     (Array.isArray(contract.receivedGoodsLogs) ? contract.receivedGoodsLogs : [])
       .map(log => ({ contract, log }))
   ).sort((first, second) => second.log.receivedDate.localeCompare(first.log.receivedDate));
+  const selectableSubContracts = subContracts.filter(contract =>
+    String(contract.id) === editingSourceContractId ||
+    (Number(contract.quantity) > 0 &&
+    getReceivedContractQuantity(contract) < Number(contract.quantity))
+  );
 
   const updateRow = (id: string, updates: Partial<ReceiveFormRow>) => {
     setRows(current => current.map(row => row.id === id ? { ...row, ...updates } : row));
@@ -256,12 +279,39 @@ export default function FrameExportManager() {
       Number(row.quantity) < 0 ||
       !Number.isFinite(Number(row.paidAmount || 0)) ||
       Number(row.paidAmount || 0) < 0 ||
+      Object.values(row.sizeQuantities).some(value =>
+        !Number.isFinite(Number(value || 0)) || Number(value || 0) < 0
+      ) ||
       (Number(row.quantity) === 0 && Number(row.paidAmount || 0) === 0 &&
         !(row.itemTypeOption !== 'BO' && Object.values(row.sizeQuantities).some(value => Number(value) > 0))) ||
       !row.receivedDate
     )) {
       setError('Mỗi dòng cần có hợp đồng, ngày nhận hợp lệ và số lượng, cái lẻ hoặc số tiền thanh toán lớn hơn 0.');
       return;
+    }
+    const projectedByContract = new Map<string, number>();
+    for (const row of activeRows) {
+      const contract = subContracts.find(item => String(item.id) === row.contractId);
+      if (!contract) {
+        setError('Không tìm thấy hợp đồng Tổ Đan đã chọn. Vui lòng tải lại và thử lại.');
+        return;
+      }
+      const previousRows = projectedByContract.get(row.contractId) || 0;
+      const received = getReceivedContractQuantity(
+        contract,
+        String(contract.id) === editingSourceContractId ? editingReceiptId : null
+      );
+      const projectedReceived = received + previousRows + getFormContractQuantity(contract, row);
+      const issued = getIssuedQuantity(contract);
+      if (projectedReceived > (Number(contract.quantity) || 0) + Number.EPSILON) {
+        setError(`Số lượng nhận của hợp đồng ${contract.contractNo} vượt số lượng giao khoán (${formatNumber(Number(contract.quantity) || 0)}).`);
+        return;
+      }
+      if (projectedReceived > issued + Number.EPSILON) {
+        setError(`Số lượng nhận của hợp đồng ${contract.contractNo} vượt số khung Công ty đã giao (${formatNumber(issued)}).`);
+        return;
+      }
+      projectedByContract.set(row.contractId, previousRows + getFormContractQuantity(contract, row));
     }
     const updatedContracts = new Map<string, ContractItem>();
     if (editingReceiptId && editingSourceContractId) {
@@ -465,8 +515,8 @@ export default function FrameExportManager() {
               + Thêm dòng hàng
             </button>
           </div>
-          <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', minWidth: '1330px', borderCollapse: 'collapse' }} className="min-w-[950px] w-full">
+          <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
+            <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
               <thead>
                 <tr>
                   <th style={tableHeaderStyle}>Tên Tổ Đan / Hợp Đồng</th>
@@ -490,20 +540,24 @@ export default function FrameExportManager() {
                   const issued = contract ? getIssuedQuantity(contract) : 0;
                   const isEditingThisContract = Boolean(contract && String(contract.id) === editingSourceContractId);
                   const received = contract
-                    ? getReceivedQuantityWithoutLog(contract, isEditingThisContract ? editingReceiptId : null)
+                    ? getReceivedContractQuantity(contract, isEditingThisContract ? editingReceiptId : null)
                     : 0;
                   const previouslyPlanned = contract
                     ? rows.slice(0, index)
                       .filter(previousRow => previousRow.contractId === row.contractId)
-                      .reduce((sum, previousRow) => sum + (Number(previousRow.quantity) || 0), 0)
+                      .reduce((sum, previousRow) => sum + getFormContractQuantity(contract, previousRow), 0)
                     : 0;
                   const receivedBeforeRow = received + previouslyPlanned;
-                  const projectedReceived = receivedBeforeRow + quantity;
-                  const exceedsIssued = Boolean(contract && projectedReceived > issued);
+                  const rowContractQuantity = contract ? getFormContractQuantity(contract, row) : quantity;
+                  const projectedReceived = receivedBeforeRow + rowContractQuantity;
+                  const exceedsIssued = Boolean(contract && projectedReceived > issued + Number.EPSILON);
+                  const exceedsContract = Boolean(contract && projectedReceived > (Number(contract.quantity) || 0) + Number.EPSILON);
                   const nextContract = contract ? getNextContract(contract) : undefined;
                   const sizeKeys = contract ? getSetSizeKeys(contract) : [];
                   const previousRows = rows.slice(0, index).filter(previousRow => previousRow.contractId === row.contractId);
-                  const previousRowQuantity = previousRows.reduce((sum, previousRow) => sum + (Number(previousRow.quantity) || 0), 0);
+                  const previousRowQuantity = contract
+                    ? previousRows.reduce((sum, previousRow) => sum + getFormContractQuantity(contract, previousRow), 0)
+                    : 0;
                   const previousRowValue = previousRows.reduce((sum, previousRow) => {
                     const previousContract = subContracts.find(item => String(item.id) === previousRow.contractId);
                     if (!previousContract) return sum;
@@ -511,7 +565,7 @@ export default function FrameExportManager() {
                     return sum + getReceiptAmount(previousContract, Number(previousRow.quantity) || 0, previousSizes);
                   }, 0);
                   const previousRowPayments = previousRows.reduce((sum, previousRow) => sum + (Number(previousRow.paidAmount) || 0), 0);
-                  const projectedQuantity = received + previousRowQuantity + quantity;
+                  const projectedQuantity = received + previousRowQuantity + rowContractQuantity;
                   const projectedComplete = Boolean(contract && Number(contract.quantity) > 0 && projectedQuantity >= Number(contract.quantity));
                   const savedLogs = contract
                     ? (Array.isArray(contract.receivedGoodsLogs) ? contract.receivedGoodsLogs : [])
@@ -579,13 +633,13 @@ export default function FrameExportManager() {
                   return (
                     <Fragment key={row.id}>
                     <tr style={{ borderTop: '1px solid #e2e8f0', verticalAlign: 'top' }}>
-                      <td style={{ minWidth: '210px', padding: '8px' }}>
+                      <td style={{ padding: '8px' }}>
                         <select
                           aria-label={`Chọn tổ đan dòng ${index + 1}`}
                           required
                           value={row.contractId}
                           onChange={event => {
-                            const selected = subContracts.find(item => String(item.id) === event.target.value);
+                            const selected = selectableSubContracts.find(item => String(item.id) === event.target.value);
                             updateRow(row.id, {
                               contractId: event.target.value,
                               itemTypeOption: selected?.itemTypeOption || 'BO',
@@ -598,7 +652,7 @@ export default function FrameExportManager() {
                           style={inputStyle}
                         >
                           <option value="">-- Chọn HĐ Tổ Đan --</option>
-                          {subContracts.map(item => (
+                          {selectableSubContracts.map(item => (
                             <option key={item.id} value={String(item.id)}>
                               {item.craftGroupLeader || 'Tổ chưa đặt tên'} · {item.contractNo} · {item.productCode}
                             </option>
@@ -606,7 +660,7 @@ export default function FrameExportManager() {
                         </select>
                         {contract && <small style={{ display: 'block', marginTop: '5px', color: '#64748b' }}>HĐ CTY: {contract.parentContractNo || '—'}</small>}
                       </td>
-                      <td style={{ minWidth: '200px', padding: '8px', color: '#334155', fontSize: '12px' }}>
+                      <td style={{ padding: '8px', color: '#334155', fontSize: '12px' }}>
                         {contract ? (
                           <>
                             <strong style={{ color: '#1d4ed8' }}>{contract.productCode}</strong>
@@ -614,7 +668,7 @@ export default function FrameExportManager() {
                           </>
                         ) : '—'}
                       </td>
-                      <td style={{ minWidth: '150px', padding: '8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <td style={{ padding: '8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         {contract ? (
                           <>
                             <strong>{getContractUnit(contract)}</strong>
@@ -622,30 +676,37 @@ export default function FrameExportManager() {
                           </>
                         ) : '—'}
                       </td>
-                      <td style={{ minWidth: '140px', padding: '8px' }}>
+                      <td style={{ padding: '8px' }}>
                         <input type="date" required value={row.receivedDate} onChange={event => updateRow(row.id, { receivedDate: event.target.value })} style={inputStyle} />
                       </td>
-                      <td style={{ minWidth: '130px', padding: '8px' }}>
+                      <td style={{ padding: '8px' }}>
                         <input
                           type="number"
                           min="0"
+                          max={contract
+                            ? Math.max(0, Math.min(issued, Number(contract.quantity) || 0) - receivedBeforeRow)
+                            : undefined}
                           step="any"
                           value={row.quantity}
                           onChange={event => updateRow(row.id, { quantity: event.target.value })}
                           placeholder={row.itemTypeOption === 'CAI' ? 'SL bộ quy đổi (nếu có)' : 'Số bộ nguyên'}
-                          style={{ ...inputStyle, textAlign: 'right', borderColor: exceedsIssued ? '#dc2626' : '#cbd5e1' }}
+                          style={{ ...inputStyle, textAlign: 'right', borderColor: exceedsIssued || exceedsContract ? '#dc2626' : '#cbd5e1' }}
                         />
                         {contract && (
-                          <div style={{ marginTop: '7px', padding: '8px', borderRadius: '6px', backgroundColor: exceedsIssued ? '#fef2f2' : quantity > 0 && projectedReceived === issued ? '#f0fdf4' : '#eff6ff', color: exceedsIssued ? '#b91c1c' : quantity > 0 && projectedReceived === issued ? '#166534' : '#1d4ed8', fontSize: '11px', fontWeight: 700 }}>
-                            {quantity > 0 && projectedReceived === issued
+                          <div style={{ marginTop: '7px', padding: '8px', borderRadius: '6px', backgroundColor: exceedsIssued || exceedsContract ? '#fef2f2' : rowContractQuantity > 0 && Math.abs(projectedReceived - issued) <= Number.EPSILON ? '#f0fdf4' : '#eff6ff', color: exceedsIssued || exceedsContract ? '#b91c1c' : rowContractQuantity > 0 && Math.abs(projectedReceived - issued) <= Number.EPSILON ? '#166534' : '#1d4ed8', fontSize: '11px', fontWeight: 700 }}>
+                            {exceedsIssued
+                              ? `⚠️ Nhận vượt khung Công ty đã phát ${formatNumber(projectedReceived - issued)} ${getContractUnit(contract).toLowerCase()}`
+                              : exceedsContract
+                                ? `⚠️ Nhận vượt số lượng HĐ Tổ Đan ${formatNumber(projectedReceived - (Number(contract.quantity) || 0))} ${getContractUnit(contract).toLowerCase()}`
+                                : rowContractQuantity > 0 && Math.abs(projectedReceived - issued) <= Number.EPSILON
                               ? '✓ Đủ HĐ Đan'
                               : projectedReceived < issued
                                 ? `Đã nhận ${formatNumber(projectedReceived)} / ${formatNumber(issued)} khung sơn đã phát`
-                                : `⚠️ Nhận vượt khung đã phát ${formatNumber(projectedReceived - issued)} ${getContractUnit(contract).toLowerCase()}`}
+                                : `Đã nhận ${formatNumber(projectedReceived)} / ${formatNumber(Number(contract.quantity) || 0)} theo HĐ Tổ Đan`}
                           </div>
                         )}
                       </td>
-                      <td style={{ minWidth: '155px', padding: '8px', textAlign: 'right', color: '#b91c1c', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                      <td style={{ padding: '8px', textAlign: 'right', color: '#b91c1c', fontWeight: 800, whiteSpace: 'nowrap' }}>
                         {contract ? formatCurrency(amount) : '—'}
                         {contract && (
                           <>
@@ -661,7 +722,7 @@ export default function FrameExportManager() {
                           </>
                         )}
                       </td>
-                      <td style={{ minWidth: '160px', padding: '8px' }}>
+                      <td style={{ padding: '8px' }}>
                         <input
                           type="number"
                           min="0"
@@ -680,7 +741,7 @@ export default function FrameExportManager() {
                           </small>
                         )}
                       </td>
-                      <td style={{ minWidth: '155px', padding: '8px' }}>
+                      <td style={{ padding: '8px' }}>
                         {requiresDebtDueDate ? (
                           <>
                             <input
@@ -702,7 +763,7 @@ export default function FrameExportManager() {
                           <small style={{ color: '#15803d', fontWeight: 700 }}>Không phát sinh nợ</small>
                         ) : '—'}
                       </td>
-                      <td style={{ minWidth: '80px', padding: '8px', textAlign: 'center' }}>
+                      <td style={{ padding: '8px', textAlign: 'center' }}>
                         <button type="button" aria-label={`Xóa dòng nhận hàng ${index + 1}`} onClick={() => setRows(current => {
                           const remainingRows = current.filter(item => item.id !== row.id);
                           return remainingRows.length ? remainingRows : [createRow()];
@@ -836,8 +897,8 @@ export default function FrameExportManager() {
 
       <section style={cardStyle}>
         <h3 style={{ margin: '0 0 12px', color: '#1e293b', fontSize: '15px' }}>📋 Lịch Sử Nhận Hàng Đan</h3>
-        <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', minWidth: '1700px', borderCollapse: 'collapse', fontSize: '12px' }} className="min-w-[950px] w-full">
+        <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
+          <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
             <thead>
               <tr>
                 {['Ngày', 'Tổ Đan / HĐ', 'Mã Hàng', 'SL Nhận đợt này', 'Lũy kế SL / HĐ', 'Đơn Giá', 'Tiền công', 'Trừ nguyên phụ liệu', 'Trừ cọc', 'Đã Trả đợt này', 'Đã Trả lũy kế', 'Công Nợ lũy kế', 'Hạn trả nợ', 'Trạng thái', 'Thao Tác'].map(header => (

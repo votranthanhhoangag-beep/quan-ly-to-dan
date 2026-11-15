@@ -931,6 +931,48 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       getParentReturnedTotal(contract)
   );
 
+  const getSubcontractFrameCapacity = (
+    parentContractNo: string,
+    code: string,
+    excludedSubContractId?: string | number | null
+  ) => {
+    const normalizedParentNo = String(parentContractNo || '').trim().toLowerCase();
+    const normalizedCode = String(code || '').trim().toLowerCase();
+    const parentContract = parentContractsList.find((contract: any) =>
+      String(contract.contractNo || '').trim().toLowerCase() === normalizedParentNo &&
+      String(contract.productCode || '').trim().toLowerCase() === normalizedCode
+    );
+    const received = parentContract ? getParentReceivedTotal(parentContract) : 0;
+    const assignedToOtherContracts = subContractsList
+      .filter((contract: any) =>
+        String(contract.id) !== String(excludedSubContractId ?? '') &&
+        String(contract.parentContractNo || '').trim().toLowerCase() === normalizedParentNo &&
+        String(contract.productCode || '').trim().toLowerCase() === normalizedCode
+      )
+      .reduce((sum: number, contract: any) => sum + (Number(contract.quantity) || 0), 0);
+    return {
+      received,
+      assignedToOtherContracts,
+      available: Math.max(0, received - assignedToOtherContracts)
+    };
+  };
+
+  const subContractFrameCapacity = getSubcontractFrameCapacity(
+    selectedParentNo,
+    productCode,
+    editingId
+  );
+  const existingSubContractForCapacity = editingId
+    ? subContractsList.find((contract: any) => String(contract.id) === String(editingId))
+    : undefined;
+  const proposedSubContractQuantity = Math.max(
+    targetContractQtyNum,
+    Number(existingSubContractForCapacity?.quantity) || 0,
+    totalActualExported
+  );
+  const exceedsCompanyFrameCapacity =
+    proposedSubContractQuantity > subContractFrameCapacity.available + Number.EPSILON;
+
   const getReturnedFrameTotal = (contract: any) => {
     const receiptSlips = (Array.isArray(slips) ? slips : [])
       .filter((slip: any) => {
@@ -995,9 +1037,23 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     const batchQty = Number(frameExportQty) || 0;
     const remainingBeforeBatch = Math.max(0, newContractQty - priorReceived);
     const batchDeposit = Number(frameDepositAmount) || 0;
+    const frameCapacity = getSubcontractFrameCapacity(
+      String(frameExportContract.parentContractNo || ''),
+      String(frameExportContract.productCode || ''),
+      frameExportContract.id
+    );
 
     if (batchQty < 0 || batchDeposit < 0) {
       alert('Số lượng xuất và tiền cọc không được âm.');
+      return;
+    }
+    if (newContractQty > frameCapacity.available + Number.EPSILON &&
+      (newContractQty > previousContractQty + Number.EPSILON || batchQty > 0)) {
+      alert(
+        `Tổng số lượng giao khoán không được vượt khung Công ty đã nhận còn khả dụng ` +
+        `(${formatCurrency(frameCapacity.available)}). Đã nhận từ nguồn: ${formatCurrency(frameCapacity.received)}; ` +
+        `đã giao khoán cho hợp đồng khác: ${formatCurrency(frameCapacity.assignedToOtherContracts)}.`
+      );
       return;
     }
     if (batchQty > remainingBeforeBatch) {
@@ -1299,7 +1355,18 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   const frameModalReceived = frameExportContract ? getNetFrameAtGroupTotal(frameExportContract) : 0;
   const frameModalContractQty = frameExportContract ? Number(frameExportContract.quantity) || 0 : 0;
   const frameModalTotalQty = Math.max(frameModalContractQty, Number(frameContractQty) || 0, frameModalReceived);
-  const frameModalRemaining = Math.max(0, frameModalTotalQty - frameModalReceived);
+  const frameModalCapacity = frameExportContract
+    ? getSubcontractFrameCapacity(
+      String(frameExportContract.parentContractNo || ''),
+      String(frameExportContract.productCode || ''),
+      frameExportContract.id
+    )
+    : { received: 0, assignedToOtherContracts: 0, available: 0 };
+  const frameModalRemaining = Math.max(
+    0,
+    Math.min(frameModalTotalQty, frameModalCapacity.available) - frameModalReceived
+  );
+  const frameBatchExceedsCapacity = (Number(frameExportQty) || 0) > frameModalRemaining + Number.EPSILON;
   const remainingBeforeNewBatch = Math.max(0, targetContractQtyNum - savedExportedTotal);
   const frameModalLaterDeposits = frameModalDepositLogs.reduce((sum, log) => sum + (Number(log.amount) || 0), 0);
   const frameModalInitialDeposit = frameExportContract
@@ -1676,6 +1743,15 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
           try {
           if (!productCode) { alert('Vui lòng nhập hoặc chọn Mã Hàng!'); return; }
           if (!selectedParentNo) { alert('Mã hàng này chưa được gắn với HĐ Cty nào. Vui lòng tạo HĐ Cty trước!'); return; }
+          if (exceedsCompanyFrameCapacity) {
+            alert(
+              `⛔ Số lượng giao khoán vượt khung Công ty đã nhận còn khả dụng ` +
+              `(${formatCurrency(subContractFrameCapacity.available)}). ` +
+              `Công ty đã nhận ${formatCurrency(subContractFrameCapacity.received)}; ` +
+              `đã giao khoán cho hợp đồng khác ${formatCurrency(subContractFrameCapacity.assignedToOtherContracts)}.`
+            );
+            return;
+          }
           if (isSubDueDateInvalid) return;
           if (isSizeUnitPriceOverBundlePrice) {
             alert('Tổng đơn giá chi tiết lẻ không được cao hơn đơn giá nguyên bộ tổ đan');
@@ -2005,8 +2081,17 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
               placeholder="Nhập số lượng giao đan..."
               value={contractQty}
               onChange={e => setContractQty(e.target.value)}
+              max={subContractFrameCapacity.available}
               style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '2px solid #d97706', fontSize: '16px', fontWeight: 'bold', color: '#b45309', backgroundColor: '#fff', boxSizing: 'border-box' }}
             />
+            <div style={{ marginTop: '7px', fontSize: '12px', color: exceedsCompanyFrameCapacity ? '#b91c1c' : '#475569', fontWeight: 700 }}>
+              Khung Công ty đã nhận: {formatCurrency(subContractFrameCapacity.received)} · Đã giao khoán cho HĐ khác: {formatCurrency(subContractFrameCapacity.assignedToOtherContracts)} · Tối đa còn có thể giao khoán mã này: {formatCurrency(subContractFrameCapacity.available)}
+            </div>
+            {exceedsCompanyFrameCapacity && (
+              <div role="alert" style={{ marginTop: '6px', color: '#b91c1c', fontSize: '12px', fontWeight: 700 }}>
+                ⛔ Số lượng giao khoán vượt số khung Công ty đã nhận. Hãy giảm số lượng hoặc nhận thêm khung trước.
+              </div>
+            )}
           </div>
 
           {/* Cấu hình đợt nhận hàng */}
@@ -2193,7 +2278,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             </div>
           </div>
 
-          <button type="submit" disabled={isSubmitting || isSizeUnitPriceOverBundlePrice || isSubDueDateInvalid || isSubPhoneInvalid || isSubZaloInvalid} style={{ padding: '14px', backgroundColor: isSubmitting || isSizeUnitPriceOverBundlePrice || isSubDueDateInvalid || isSubPhoneInvalid || isSubZaloInvalid ? '#94a3b8' : '#7c3aed', color: '#fff', fontWeight: 'bold', fontSize: '15px', borderRadius: '8px', border: 'none', cursor: isSubmitting || isSizeUnitPriceOverBundlePrice || isSubDueDateInvalid || isSubPhoneInvalid || isSubZaloInvalid ? 'not-allowed' : 'pointer' }}>
+          <button type="submit" disabled={isSubmitting || exceedsCompanyFrameCapacity || isSizeUnitPriceOverBundlePrice || isSubDueDateInvalid || isSubPhoneInvalid || isSubZaloInvalid} style={{ padding: '14px', backgroundColor: isSubmitting || exceedsCompanyFrameCapacity || isSizeUnitPriceOverBundlePrice || isSubDueDateInvalid || isSubPhoneInvalid || isSubZaloInvalid ? '#94a3b8' : '#7c3aed', color: '#fff', fontWeight: 'bold', fontSize: '15px', borderRadius: '8px', border: 'none', cursor: isSubmitting || exceedsCompanyFrameCapacity || isSizeUnitPriceOverBundlePrice || isSubDueDateInvalid || isSubPhoneInvalid || isSubZaloInvalid ? 'not-allowed' : 'pointer' }}>
             {isSubmitting ? '⏳ Đang lưu...' : '💾 Lưu Hợp Đồng Tổ Đan'}
           </button>
         </form>
@@ -2275,7 +2360,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
 
             <section style={{ marginBottom: '36px' }}>
               <h3 style={{ fontSize: '15px', fontWeight: '800', borderBottom: '1px solid #cbd5e1', paddingBottom: '8px', marginBottom: '12px' }}>II. SỐ LƯỢNG VÀ TÀI CHÍNH</h3>
-              <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll"><table style={{ minWidth: '900px',  width: '100%', borderCollapse: 'collapse', fontSize: '14px' }} className="min-w-[950px] w-full">
+              <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
                 <tbody>
                   {[
                     ['Tổng số lượng giao', `${formatCurrency(subContractSlipData.quantity)} ${subContractSlipData.quantityUnit}`],
@@ -2353,8 +2438,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             </div>
           </div>
 
-          <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto' }}>
-  <table style={{ width: '100%', minWidth: '800px', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }} className="min-w-[950px] w-full">
+          <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
+  <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-full divide-y divide-gray-200 text-sm">
               <thead>
                 <tr style={{ backgroundColor: '#e0f2fe', borderBottom: '2px solid #7dd3fc' }}>
                   <th style={{ padding: '10px' }}>Mã Hàng</th>
@@ -2454,8 +2539,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             </label>
           </div>
 
-          <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto', backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-            <table style={{ width: '100%', minWidth: '820px', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }} className="min-w-[950px] w-full">
+          <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto', backgroundColor: '#fff' }}>
+            <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-full divide-y divide-gray-200 text-sm">
               <thead style={{ backgroundColor: '#ecfdf5', color: '#065f46' }}>
                 <tr>
                   <th style={{ padding: '11px' }}>Số HĐ Cty</th>
@@ -2607,11 +2692,16 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
               </div>
             </section>
 
+            {frameModalTotalQty > frameModalCapacity.available && (
+              <div role="alert" style={{ marginBottom: '12px', padding: '10px 12px', border: '1px solid #fecaca', borderRadius: '6px', backgroundColor: '#fef2f2', color: '#b91c1c', fontSize: '12px', fontWeight: 700 }}>
+                ⛔ Tổng giao khoán không được vượt khung Công ty đã nhận còn khả dụng: {formatCurrency(frameModalCapacity.available)}. Công ty đã nhận {formatCurrency(frameModalCapacity.received)}, đã giao cho hợp đồng khác {formatCurrency(frameModalCapacity.assignedToOtherContracts)}.
+              </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '10px', alignItems: 'end' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: 'bold' }}>Tổng số lượng hợp đồng:</label>
-                <input type="number" inputMode="numeric" pattern="[0-9]*" min={Math.max(frameModalContractQty, frameModalReceived)} value={frameContractQty} onChange={e => setFrameContractQty(e.target.value)} style={{ width: '100%', padding: '9px', border: '1px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }} />
-                <small style={{ color: '#64748b' }}>Không thể giảm dưới số lượng hợp đồng hoặc số đã nhận được ghi nhận ({formatCurrency(Math.max(frameModalContractQty, frameModalReceived))}).</small>
+                <input type="number" inputMode="numeric" pattern="[0-9]*" min={Math.max(frameModalContractQty, frameModalReceived)} max={frameModalCapacity.available} value={frameContractQty} onChange={e => setFrameContractQty(e.target.value)} style={{ width: '100%', padding: '9px', border: '1px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }} />
+                <small style={{ color: '#64748b' }}>Đã nhận từ Công ty: {formatCurrency(frameModalCapacity.received)}; đã giao khoán cho HĐ khác: {formatCurrency(frameModalCapacity.assignedToOtherContracts)}; còn khả dụng cho HĐ này: {formatCurrency(frameModalCapacity.available)}.</small>
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: 'bold' }}>Ngày xuất đợt này:</label>
@@ -2628,7 +2718,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '20px' }}>
               <button type="button" onClick={() => setFrameExportContract(null)} style={{ padding: '9px 14px', border: '1px solid #cbd5e1', borderRadius: '6px', backgroundColor: '#fff', cursor: 'pointer' }}>Hủy</button>
-              <button type="button" onClick={saveFrameExportBatch} style={{ padding: '9px 14px', border: 'none', borderRadius: '6px', backgroundColor: '#0284c7', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}>💾 Lưu đợt</button>
+              <button type="button" onClick={saveFrameExportBatch} disabled={frameBatchExceedsCapacity} style={{ padding: '9px 14px', border: 'none', borderRadius: '6px', backgroundColor: frameBatchExceedsCapacity ? '#94a3b8' : '#0284c7', color: '#fff', fontWeight: 'bold', cursor: frameBatchExceedsCapacity ? 'not-allowed' : 'pointer' }}>💾 Lưu đợt</button>
             </div>
           </section>
         </div>
@@ -2792,13 +2882,13 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
 
             {/* GIAO DIỆN DẠNG BẢNG (TABLE) - DÀNH CHO MÁY TÍNH HOẶC KHI BẬT DẠNG BẢNG */}
             {contractViewMode === 'TABLE' && <div
-              className="block erp-table-scroll w-full"
+              className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"
               role="region"
               aria-label="Danh sách hợp đồng công ty, cuộn ngang để xem đầy đủ"
               tabIndex={0}
-              style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #e2e8f0', borderRadius: '8px', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.08)' }}
+              style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}
             >
-          <table className="w-full text-xs text-left" style={{ minWidth: '1100px', borderCollapse: 'collapse' }}>
+          <table className="min-w-full divide-y divide-gray-200 text-sm" style={{ borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ backgroundColor: '#eff6ff', borderBottom: '2px solid #93c5fd' }}>
                   <th style={{ padding: '10px' }}>Mã Hàng</th>
@@ -3095,8 +3185,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             </div>}
 
             {/* GIAO DIỆN DẠNG BẢNG (TABLE) */}
-            {contractViewMode === 'TABLE' && <div className="block erp-table-scroll w-full shadow-sm rounded-lg border border-gray-200" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-  <table style={{ width: '100%', minWidth: isWarehouseUser ? '750px' : '1050px', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }} className="w-full">
+            {contractViewMode === 'TABLE' && <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+  <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-full divide-y divide-gray-200 text-sm">
               <thead>
                 <tr style={{ backgroundColor: '#faf5ff', borderBottom: '2px solid #d8b4fe' }}>
                   <th style={{ padding: '10px' }}>Mã Hàng</th>
@@ -3225,7 +3315,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                           </div>
                         )}
                       </td>
-                      {!isWarehouseUser && <td style={{ padding: '10px', minWidth: '180px' }}>
+                      {!isWarehouseUser && <td style={{ padding: '10px' }}>
                         {Array.isArray(item.accompanyingMaterials) && item.accompanyingMaterials.length > 0
                           ? item.accompanyingMaterials.map((material: AccompanyingMaterial, index: number) => (
                             <div key={`${material.materialId}-${index}`} style={{ whiteSpace: 'nowrap' }}>

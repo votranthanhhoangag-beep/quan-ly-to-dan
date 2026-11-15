@@ -318,8 +318,8 @@ export default function ExpenseAllocationManager() {
                 Tổng phân bổ: {formatCurrency(allocatedTotal)} / {formatCurrency(Math.round(selectedCost.amount))}
               </strong>
             </div>
-            <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', minWidth: '700px', borderCollapse: 'collapse', fontSize: '13px' }} className="min-w-[950px] w-full">
+            <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
+              <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
                 <thead>
                   <tr style={{ background: '#f1f5f9', textAlign: 'left' }}>
                     {['Chọn', 'Số HĐ', 'Mã hàng', 'Giá trị hợp đồng', 'Số tiền phân bổ'].map(label => (
@@ -348,7 +348,7 @@ export default function ExpenseAllocationManager() {
                       <td style={{ padding: '10px', fontWeight: 700 }}>{contract.contractNo || `HĐ ${contractId}`}</td>
                       <td style={{ padding: '10px' }}>{contract.productCode || '—'} · {contract.productName || ''}</td>
                       <td style={{ padding: '10px', textAlign: 'right' }}>{formatCurrency(contractValue)}</td>
-                      <td style={{ padding: '10px', width: '220px' }}>
+                      <td style={{ padding: '10px' }}>
                         <input
                           type="text"
                           inputMode="numeric"
@@ -386,8 +386,8 @@ export default function ExpenseAllocationManager() {
 
       <section style={{ padding: '18px', border: '1px solid #e2e8f0', borderRadius: '10px', background: '#fff' }}>
         <h3 style={{ margin: '0 0 12px', color: '#1e293b', fontSize: '15px' }}>Phân bổ đã lưu trong kỳ</h3>
-        <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', minWidth: '650px', borderCollapse: 'collapse', fontSize: '13px' }} className="min-w-[950px] w-full">
+        <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
+          <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
             <thead>
               <tr style={{ background: '#f1f5f9', textAlign: 'left' }}>
                 {['Ngày', 'Khoản chi', 'Tổng chi', 'Hợp đồng được phân bổ', 'Tổng đã phân bổ'].map(label => (

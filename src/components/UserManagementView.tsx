@@ -299,8 +299,8 @@ export default function UserManagementView() {
           <span style={{ fontSize: '12px', color: '#64748b' }}>Bấm "Lưu vai trò" sau khi đổi quyền</span>
         </div>
 
-        <div style={{ overflowX: 'auto', width: '100%' }}>
-          <table style={{ width: '100%', minWidth: '700px', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+        <div style={{ overflowX: 'auto', width: '100%' }} className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll">
+          <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-full divide-y divide-gray-200 text-sm">
           <thead>
             <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '1px solid #cbd5e1', color: '#475569' }}>
               <th style={{ padding: '10px 14px', fontWeight: 600 }}>Tên đăng nhập / Tên hiển thị</th>

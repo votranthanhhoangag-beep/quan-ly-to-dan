@@ -1595,8 +1595,8 @@ const handleSaveTransaction = (e: React.FormEvent) => {
         {activeTab === 'FRAME_STOCK' && <FrameStockReport />}
 
         {activeTab === 'KS_INCOMPLETE' && (
-          <div className="w-full overflow-x-auto shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ borderRadius: '8px', border: '1px solid #fecaca', marginBottom: '16px' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }} className="w-full min-w-max">
+          <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ marginBottom: '16px' }}>
+            <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-full divide-y divide-gray-200 text-sm">
               <thead>
                 <tr style={{ backgroundColor: '#fef2f2', borderBottom: '2px solid #fecaca' }}>
                   <th style={{ padding: '10px' }}>Số HĐ CTY</th>
@@ -1643,8 +1643,8 @@ const handleSaveTransaction = (e: React.FormEvent) => {
           </div>
         )}
 
-        <div className="w-full overflow-x-auto shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ display: activeTab === 'KS_INCOMPLETE' || activeTab === 'FRAME_STOCK' ? 'none' : undefined, borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }} className="w-full min-w-max">
+        <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ display: activeTab === 'KS_INCOMPLETE' || activeTab === 'FRAME_STOCK' ? 'none' : undefined }}>
+          <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-full divide-y divide-gray-200 text-sm">
             <thead>
               <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
               <th style={{ padding: '8px' }}>Số Phiếu</th>
@@ -1747,8 +1747,8 @@ const handleSaveTransaction = (e: React.FormEvent) => {
               </div>
               <button type="button" onClick={() => setHistoryContract(null)} style={{ border: 0, borderRadius: '6px', padding: '7px 11px', backgroundColor: '#e2e8f0', cursor: 'pointer', fontWeight: 'bold' }}>Đóng</button>
             </div>
-            <div className="w-full overflow-x-auto shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }} className="w-full min-w-max">
+            <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{  }}>
+              <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-full divide-y divide-gray-200 text-sm">
                 <thead>
                   <tr style={{ backgroundColor: '#f1f5f9' }}>
                     <th style={{ padding: '9px' }}>Lần</th>
@@ -1842,7 +1842,7 @@ const handleSaveTransaction = (e: React.FormEvent) => {
 
               <section style={{ marginBottom: '18px' }}>
                 <h3 style={{ margin: '0 0 10px', paddingBottom: '6px', borderBottom: '1px solid #64748b', fontSize: '15px' }}>II. CHI TIẾT SỐ LƯỢNG &amp; TÌNH TRẠNG KHUNG</h3>
-                <div className="w-full overflow-x-auto shadow-sm rounded-lg border border-gray-200 erp-table-scroll"><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }} className="w-full min-w-max">
+                <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
                   <tbody>
                     {([
                       ['Tổng số lượng đã phát', frameReceiptPreview.issuedQuantity, frameReceiptPreview.contract.unit || 'Bộ'],
@@ -1852,7 +1852,7 @@ const handleSaveTransaction = (e: React.FormEvent) => {
                       ['Số khung ở tổ đan', Math.max(0, frameReceiptPreview.issuedQuantity - frameReceiptPreview.returnedBefore - frameReceiptPreview.returnedThisTime), frameReceiptPreview.contract.unit || 'Bộ']
                     ] as Array<[string, number, string]>).map(([label, quantity, unit]) => (
                       <tr key={label as string}>
-                        <th style={{ width: '68%', padding: '8px 10px', border: '1px solid #94a3b8', textAlign: 'left', fontWeight: 600 }}>{label}</th>
+                        <th style={{ padding: '8px 10px', border: '1px solid #94a3b8', textAlign: 'left', fontWeight: 600 }}>{label}</th>
                         <td style={{ padding: '8px 10px', border: '1px solid #94a3b8', textAlign: 'right' }}>{Number(quantity) || 0} {unit}</td>
                       </tr>
                     ))}

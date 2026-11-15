@@ -324,8 +324,8 @@ export default function MaterialStockReport() {
           ))}
         </div>
 
-        <div className="overflow-x-auto w-full shadow rounded-lg erp-table-scroll">
-          <table className="material-stock-table w-full min-w-max" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+        <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll">
+          <table className="min-w-full divide-y divide-gray-200 text-sm material-stock-table" style={{ borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#eff6ff', color: '#1e3a8a' }}>
                 {['Tên Hàng', 'ĐVT', 'Tồn Đầu', 'Nhập Trong Kỳ', 'Xuất Trong Kỳ', 'Tồn Cuối Kỳ', 'Đơn Giá', 'Thành Tiền', 'Ghi Chú'].map((label, index) => (

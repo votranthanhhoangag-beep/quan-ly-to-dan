@@ -1899,8 +1899,8 @@ export default function InventoryStockReport() {
             <input type="month" value={reportMonth} onChange={event => setReportMonth(event.target.value)} style={inputStyle} />
           </label>
         </div>
-        <div className="w-full overflow-x-auto shadow rounded-lg erp-table-scroll">
-          <table className="w-full min-w-max text-xs sm:text-sm" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+        <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll">
+          <table className="min-w-full divide-y divide-gray-200 text-sm" style={{ borderCollapse: 'collapse' }}>
             <colgroup>
               <col style={{ width: '10%' }} />
               <col style={{ width: '16%' }} />
@@ -2375,8 +2375,8 @@ export default function InventoryStockReport() {
 
             {selectedRepairSource && (
               <>
-                <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto', border: '1px solid #99f6e4', borderRadius: '7px', backgroundColor: '#fff' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }} className="w-full min-w-max">
+                <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto', backgroundColor: '#fff' }}>
+                  <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
                     <thead>
                       <tr>{['Mã hàng', 'Lũy kế đã nhận', 'Còn thiếu để nhận đủ'].map(label => (
                         <th key={label} style={tableHeaderStyle}>{label}</th>
@@ -2558,8 +2558,8 @@ export default function InventoryStockReport() {
             )}
           </form>
 
-          <div className="w-full overflow-x-auto shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ marginTop: '14px', border: '1px solid #e2e8f0', borderRadius: '7px', backgroundColor: '#fff' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }} className="w-full min-w-max">
+          <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ marginTop: '14px', backgroundColor: '#fff' }}>
+            <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
               <thead><tr>{['Số phiếu / Ngày', 'Phiếu xuất đối ứng', 'Người sửa', 'Tiền công', 'Trừ nguyên phụ liệu', 'Tạm ứng trừ', 'Còn phải trả', 'Hạn trả nợ', 'Ghi chú', 'Thao tác'].map(label => <th key={label} style={tableHeaderStyle}>{label}</th>)}</tr></thead>
               <tbody>
                 {repairReceiptSlips.length === 0 ? (
@@ -2595,8 +2595,8 @@ export default function InventoryStockReport() {
         </>}
 
         {activeReportTab === 'repair-export' && <>
-        <div className="w-full overflow-x-auto shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ marginTop: '14px', border: '1px solid #e2e8f0', borderRadius: '7px' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }} className="w-full min-w-max">
+        <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ marginTop: '14px' }}>
+          <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
             <thead><tr>{['Số Phiếu / Ngày', 'Người nhận sửa / Zalo', 'Mã hàng / Tên hàng', 'Chi tiết xuất sửa', 'Thành tiền công', 'Nguyên phụ liệu kèm theo', 'Tạm ứng', 'Ghi chú / Lý do', 'Thao tác'].map(label => <th key={label} style={tableHeaderStyle}>{label}</th>)}</tr></thead>
             <tbody>
               {repairSlips.length === 0 ? (
@@ -2683,7 +2683,7 @@ export default function InventoryStockReport() {
           </div>
           {error && <div role="alert" style={{ color: '#b91c1c', fontSize: '13px', fontWeight: 700 }}>{error}</div>}
           <div className="repair-slip-scroll w-full overflow-x-auto shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ minHeight: 0, overflow: 'auto', backgroundColor: '#f1f5f9', padding: '12px' }}>
-          <div id="repair-slip-print-area" ref={sharePrintRef} style={{ boxSizing: 'border-box', width: '100%', maxWidth: '760px', minHeight: '480px', margin: '0 auto', padding: '30px 34px', border: '1px solid #cbd5e1', boxShadow: '0 2px 8px rgba(15,23,42,.12)', color: '#0f172a', backgroundColor: '#fff', fontFamily: 'Arial, sans-serif' }}>
+          <div id="repair-slip-print-area" ref={sharePrintRef} style={{ boxSizing: 'border-box', width: '100%', maxWidth: '760px', minHeight: '480px', margin: '0 auto', padding: '30px 34px', color: '#0f172a', backgroundColor: '#fff', fontFamily: 'Arial, sans-serif' }} className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll">
           <header style={{ textAlign: 'center', borderBottom: '2px solid #0f172a', paddingBottom: '12px', marginBottom: '16px' }}>
             {systemConfiguration?.logo && <img src={systemConfiguration.logo} alt="Logo xưởng" style={{ display: 'block', maxWidth: '90px', maxHeight: '54px', objectFit: 'contain', margin: '0 auto 8px' }} />}
             <div style={{ fontSize: '13px', fontWeight: 700 }}>{systemConfiguration?.companyName || 'XƯỞNG SẢN XUẤT'}</div>
@@ -2696,7 +2696,7 @@ export default function InventoryStockReport() {
           {shareSlip.type === 'NHAN_SUA_KHOAN' ? (
             <p><strong>Phiếu xuất đối ứng:</strong> {repairSlips.find(item => String(item.id) === String(shareSlip.sourceRepairSlipId || ''))?.slipNo || shareSlip.contractNo || '—'}</p>
           ) : null}
-          <table className="w-full min-w-max" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+          <table className="min-w-full divide-y divide-gray-200 text-sm" style={{ borderCollapse: 'collapse' }}>
             <thead><tr>{(shareSlip.type === 'NHAN_SUA_KHOAN'
               ? ['Mã hàng', 'Tên hàng', 'Số lượng nhận quy đổi', 'Thành tiền']
               : ['Mã hàng', 'Tên hàng', 'Số lượng / Size lỗi', 'Đơn giá theo bộ / size', 'Thành tiền']

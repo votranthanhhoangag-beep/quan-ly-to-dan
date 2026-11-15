@@ -115,6 +115,10 @@ main textarea {
   flex-wrap: nowrap;
 }
 
+.-webkit-overflow-scrolling-touch {
+  -webkit-overflow-scrolling: touch;
+}
+
 .erp-table-scroll,
 .erp-content-shell div:has(> table) {
   display: block;
@@ -132,6 +136,7 @@ main textarea {
 .erp-content-shell div:has(> table) > table {
   width: 100%;
   min-width: max-content !important;
+  table-layout: auto !important;
 }
 
 .erp-table-scroll::-webkit-scrollbar,

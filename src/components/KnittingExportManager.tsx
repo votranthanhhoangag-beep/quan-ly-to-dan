@@ -1,5 +1,9 @@
 import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
-import type { KnittingExportSlip, ContractItem, ReceivedGoodsLog } from '../context/AppContext';
+import type {
+  KnittingExportSlip,
+  ContractItem,
+  ReceivedGoodsLog
+} from '../context/AppContext';
 import { useApp } from '../context/AppContext';
 import { usePersistentFormDraft } from '../hooks/usePersistentFormDraft';
 import { useAuth } from '../context/AuthContext';
@@ -9,6 +13,11 @@ interface ReceiptSource {
   contract: ContractItem;
   receipt: ReceivedGoodsLog;
   key: string;
+  selectable?: boolean;
+  physicalQuantity?: number;
+  sourceSlipNo?: string;
+  companyBContractId?: number | string;
+  remainingPieces?: number;
 }
 
 const getToday = () => {
@@ -37,6 +46,30 @@ const getReceiptQuantityInContractUnits = (contract: ContractItem, receipt: Rece
   if (contract.itemTypeOption === 'CA_HAI') return quantity + setCount;
   return quantity;
 };
+
+const getReceiptPhysicalQuantity = (contract: ContractItem, receipt: ReceivedGoodsLog) => {
+  const piecesPerSet = getPiecesPerSet(contract.productCode);
+  const sizeQuantities = receipt.sizeQuantities || {};
+  const hasBundleQuantity = Object.prototype.hasOwnProperty.call(sizeQuantities, 'Bộ');
+  const bundleQuantity = hasBundleQuantity
+    ? Number(sizeQuantities['Bộ']) || 0
+    : (receipt.itemTypeOption || contract.itemTypeOption) === 'BO' ||
+      (receipt.itemTypeOption || contract.itemTypeOption) === 'CA_HAI'
+      ? Number(receipt.quantity) || 0
+      : 0;
+  const pieceQuantities = Object.entries(sizeQuantities)
+    .filter(([size]) => size !== 'Bộ')
+    .map(([, quantity]) => Number(quantity) || 0);
+  if (pieceQuantities.length > 0 || hasBundleQuantity) {
+    return bundleQuantity * piecesPerSet + pieceQuantities.reduce((sum, quantity) => sum + quantity, 0);
+  }
+  return (Number(receipt.quantity) || 0) * piecesPerSet;
+};
+
+const getSourcePhysicalQuantity = (source: ReceiptSource) =>
+  source.physicalQuantity !== undefined
+    ? source.physicalQuantity
+    : getReceiptPhysicalQuantity(source.contract, source.receipt);
 
 const getSizeNames = (contract: ContractItem) => {
   const piecesPerSet = getPiecesPerSet(contract.productCode);
@@ -86,7 +119,7 @@ const getSizeNameFromKey = (key: string, sizeNames: string[], indexBase: 0 | 1) 
   return getCanonicalSizeName(key, sizeNames) || key;
 };
 
-const normalizeSizeCounts = (counts: Record<string, number> | undefined, sizeNames: string[]) => {
+const normalizeSizeCounts = (counts: Record<string, number | string> | undefined, sizeNames: string[]) => {
   const entries = Object.entries(counts || {}).filter(([key]) => key !== 'Bộ');
   const normalized = Object.fromEntries(sizeNames.map(size => [size, 0]));
   const zeroBasedKeys = entries.some(([key]) => /(?:^|\D)0$/.test(key));
@@ -106,6 +139,25 @@ const getCompleteSetsFromCounts = (sizeQuantities: Record<string, number>, sizeN
   sizeNames.length > 0
     ? Math.min(...sizeNames.map(size => Number(sizeQuantities[size]) || 0))
     : 0;
+
+const getSourceQuantityInContractUnits = (source: ReceiptSource) => {
+  if (source.physicalQuantity === undefined) {
+    return getReceiptQuantityInContractUnits(source.contract, source.receipt);
+  }
+  const sizeNames = getSizeNames(source.contract);
+  const sizeQuantities = normalizeSizeCounts(source.receipt.sizeQuantities, sizeNames);
+  const bundleQuantity = Number(source.receipt.sizeQuantities?.['Bộ']) || 0;
+  return bundleQuantity + getCompleteSetsFromCounts(sizeQuantities, sizeNames);
+};
+
+const getContractQuantityFromInput = (
+  bundles: number,
+  sizeQuantities: Record<string, number>,
+  sizeNames: string[],
+  isSetProduct: boolean
+) => isSetProduct
+  ? bundles + getCompleteSetsFromCounts(sizeQuantities, sizeNames)
+  : Object.values(sizeQuantities).reduce((sum, quantity) => sum + (Number(quantity) || 0), 0);
 
 const getLooseSizeCounts = (
   addedCounts: Record<string, number>,
@@ -258,6 +310,8 @@ export default function KnittingExportManager() {
   const {
     contracts,
     knittingExportSlips,
+    slips,
+    defectiveGoodsImportSlips,
     addKnittingExportSlip,
     updateKnittingExportSlip,
     deleteKnittingExportSlip
@@ -282,20 +336,134 @@ export default function KnittingExportManager() {
   const [actionError, setActionError] = useState('');
   const printAreaRef = useRef<HTMLDivElement>(null);
 
-  const receiptSources = useMemo<ReceiptSource[]>(() => contracts
-    .filter(contract => contract.contractType === 'SUB')
-    .flatMap(contract => (Array.isArray(contract.receivedGoodsLogs) ? contract.receivedGoodsLogs : [])
-      .filter(receipt => Number(receipt.quantity) > 0)
-      .map(receipt => ({
-        contract,
-        receipt,
-        key: `${contract.id}::${receipt.id}`
-      })))
-    .sort((first, second) => second.receipt.receivedDate.localeCompare(first.receipt.receivedDate)), [contracts]);
+  const receiptSources = useMemo<ReceiptSource[]>(() => {
+    const activeEditingSlip = knittingExportSlips.find(slip => String(slip.id) === String(editingId));
+    const editingReferences = Array.isArray(activeEditingSlip?.sourceAllocations) &&
+      activeEditingSlip.sourceAllocations.length > 0
+      ? activeEditingSlip.sourceAllocations
+      : activeEditingSlip
+        ? [{
+          sourceContractId: activeEditingSlip.sourceContractId,
+          sourceReceiptId: activeEditingSlip.sourceReceiptId
+        }]
+        : [];
+    const eligibleContracts = contracts.filter(contract => {
+      if (contract.contractType !== 'SUB') return false;
+      const contractSlips = knittingExportSlips.filter(slip =>
+        String(slip.sourceContractId) === String(contract.id)
+      );
+      const sizeNames = getSizeNames(contract);
+      const acceptedBundles = contractSlips
+        .filter(slip => Boolean(slip.goodSizeQuantities))
+        .reduce((sum, slip) => sum + (Number(slip.goodBundles) || 0), 0);
+      const acceptedSizes = getPreviousSizeCounts(contractSlips, contract.id, sizeNames, 'good');
+      const legacyQuantity = contractSlips
+        .filter(slip => !slip.goodSizeQuantities)
+        .reduce((sum, slip) => sum + (Number(slip.goodContractQuantity) || 0), 0);
+      const acceptedQuantity = acceptedBundles + getCompleteSetsFromCounts(acceptedSizes, sizeNames) + legacyQuantity;
+      return acceptedQuantity < (Number(contract.quantity) || 0) ||
+        editingReferences.some(reference => String(reference.sourceContractId) === String(contract.id));
+    });
+
+    const selectableContractIds = new Set(eligibleContracts.map(contract => String(contract.id)));
+    const contractReceipts: ReceiptSource[] = contracts
+      .filter(contract => contract.contractType === 'SUB')
+      .flatMap(contract =>
+      (Array.isArray(contract.receivedGoodsLogs) ? contract.receivedGoodsLogs : [])
+        .filter(receipt => Number(receipt.quantity) > 0 || Object.values(receipt.sizeQuantities || {}).some(value => Number(value) > 0))
+        .map(receipt => ({
+          contract,
+          receipt,
+          key: `${contract.id}::${receipt.id}`,
+          selectable: selectableContractIds.has(String(contract.id))
+        }))
+    );
+
+    const repairReceipts: ReceiptSource[] = slips
+      .filter(slip => String(slip.type || '').toUpperCase() === 'NHAN_SUA_KHOAN')
+      .flatMap(repairReceiptSlip => (Array.isArray(repairReceiptSlip.repairLines) ? repairReceiptSlip.repairLines : [])
+        .flatMap(line => {
+          const defectiveSource = defectiveGoodsImportSlips.find(
+            item => String(item.id) === String(line.sourceDefectiveGoodsImportSlipId || '')
+          );
+          const contract = contracts.find(item =>
+            item.contractType === 'SUB' &&
+            String(item.id) === String(defectiveSource?.sourceContractId || '')
+          );
+          if (!contract) return [];
+
+          const sizeNames = getSizeNames(contract);
+          const piecesPerSet = getPiecesPerSet(contract.productCode);
+          const hasQualitySplit = line.goodQuantity !== undefined ||
+            line.goodBundleQuantity !== undefined ||
+            line.goodSizeQuantities !== undefined ||
+            line.defectiveQuantity !== undefined ||
+            line.defectiveBundleQuantity !== undefined ||
+            line.defectiveSizeQuantities !== undefined;
+          const bundleQuantity = Number(line.goodBundleQuantity ?? (!hasQualitySplit ? line.bundleQuantity : 0)) || 0;
+          const goodSizeValues = line.goodSizeQuantities ?? (!hasQualitySplit ? line.sizeQuantities : undefined);
+          const sizeQuantities = piecesPerSet === 1
+            ? {
+              [sizeNames[0]]: Number(line.goodQuantity ?? (!hasQualitySplit ? line.quantity : 0)) ||
+                Number(goodSizeValues?.[sizeNames[0]] ?? goodSizeValues?.['Cái 1']) || 0
+            }
+            : normalizeSizeCounts(goodSizeValues, sizeNames);
+          const physicalQuantity = bundleQuantity * piecesPerSet +
+            Object.values(sizeQuantities).reduce((sum, quantity) => sum + (Number(quantity) || 0), 0);
+          if (physicalQuantity <= 0) return [];
+
+          const sourceReceiptId = `repair-${repairReceiptSlip.id}-${line.id}`;
+          const receipt: ReceivedGoodsLog = {
+            id: sourceReceiptId,
+            receivedDate: repairReceiptSlip.date,
+            quantity: bundleQuantity,
+            itemTypeOption: bundleQuantity > 0
+              ? Object.values(sizeQuantities).some(quantity => quantity > 0) ? 'CA_HAI' : 'BO'
+              : 'CAI',
+            amount: 0,
+            deductedDeposit: 0,
+            paymentAmount: 0,
+            sizeQuantities: {
+              ...(bundleQuantity > 0 ? { 'Bộ': bundleQuantity } : {}),
+              ...sizeQuantities
+            },
+            note: `Phiếu sửa khoán ${repairReceiptSlip.slipNo}`
+          };
+          return [{
+            contract,
+            receipt,
+            key: `${contract.id}::${sourceReceiptId}`,
+            selectable: selectableContractIds.has(String(contract.id)),
+            physicalQuantity,
+            sourceSlipNo: repairReceiptSlip.slipNo,
+            companyBContractId: defectiveSource?.companyBContractId
+          }];
+        }));
+
+    return [...contractReceipts, ...repairReceipts]
+      .map(source => {
+        const remainingPieces = getSourcePhysicalQuantity(source) -
+          getExportedPhysicalPieces(
+            source,
+            knittingExportSlips,
+            getPiecesPerSet(source.contract.productCode),
+            editingId ?? undefined
+          );
+        return {
+          ...source,
+          selectable: Boolean(source.selectable) && remainingPieces > Number.EPSILON,
+          remainingPieces
+        };
+      })
+      .sort((first, second) => second.receipt.receivedDate.localeCompare(first.receipt.receivedDate));
+  }, [contracts, knittingExportSlips, slips, defectiveGoodsImportSlips, editingId]);
 
   const selectedSources = selectedSourceKeys
     .map(key => receiptSources.find(source => source.key === key))
     .filter((source): source is ReceiptSource => Boolean(source));
+  const visibleReceiptSources = receiptSources.filter(source =>
+    source.selectable || selectedSourceKeys.includes(source.key)
+  );
   const selectedSource = selectedSources[0];
   const selectedContract = selectedSource?.contract;
   const piecesPerSet = selectedContract ? getPiecesPerSet(selectedContract.productCode) : 1;
@@ -447,7 +615,10 @@ export default function KnittingExportManager() {
     setSelectedSourceKeys([...selectedSourceKeys, key]);
     setTotalExportedPieces('');
     if (selectedSourceKeys.length === 0) {
-      const suggested = getCompanyContractGroups(source.contract.productCode)[0]?.contract;
+      const sourceCompanyContracts = getCompanyContractGroups(source.contract.productCode);
+      const suggested = (source.companyBContractId !== undefined
+        ? sourceCompanyContracts.find(item => String(item.contract.id) === String(source.companyBContractId))?.contract
+        : undefined) || sourceCompanyContracts[0]?.contract;
       setCompanyBContractId(suggested ? String(suggested.id) : '');
       setCompanyBContractNo(suggested?.contractNo || source.contract.parentContractNo || '');
       setGoodBundles('');
@@ -538,35 +709,19 @@ export default function KnittingExportManager() {
     const defectiveSizeCounts = Object.fromEntries(sizeNames.map(size => [size, Number(defectiveSizeQuantities[size]) || 0]));
     const goodPieceCount = Object.values(goodSizeCounts).reduce((sum, count) => sum + count, 0);
     const defectivePieceCount = Object.values(defectiveSizeCounts).reduce((sum, count) => sum + count, 0);
-    const previousGoodSizeTotals = selectedContract
-      ? getPreviousSizeCounts(knittingExportSlips, selectedContract.id, sizeNames, 'good', editingId ?? undefined)
-      : {};
-    const previousDefectiveSizeTotals = selectedContract
-      ? getPreviousSizeCounts(knittingExportSlips, selectedContract.id, sizeNames, 'defective', editingId ?? undefined)
-      : {};
-    const priorGoodCompleteSets = getCompleteSetsFromCounts(previousGoodSizeTotals, sizeNames);
-    const priorDefectiveCompleteSets = getCompleteSetsFromCounts(previousDefectiveSizeTotals, sizeNames);
-    const gradedGoodContractQuantity = isSetProduct
-      ? goodBundleCount + getCompleteSetsFromCounts(
-        Object.fromEntries(sizeNames.map(size => [size, (previousGoodSizeTotals[size] || 0) + goodSizeCounts[size]])),
-        sizeNames
-      ) - priorGoodCompleteSets
-      : goodPieceCount;
-    const gradedDefectiveContractQuantity = isSetProduct
-      ? defectiveBundleCount + getCompleteSetsFromCounts(
-        Object.fromEntries(sizeNames.map(size => [size, (previousDefectiveSizeTotals[size] || 0) + defectiveSizeCounts[size]])),
-        sizeNames
-      ) - priorDefectiveCompleteSets
-      : defectivePieceCount;
-    const goodContractQuantity = isGraded ? gradedGoodContractQuantity : 0;
-    const defectiveContractQuantity = isGraded ? gradedDefectiveContractQuantity : 0;
+    const goodContractQuantity = isGraded
+      ? getContractQuantityFromInput(goodBundleCount, goodSizeCounts, sizeNames, isSetProduct)
+      : 0;
+    const defectiveContractQuantity = isGraded
+      ? getContractQuantityFromInput(defectiveBundleCount, defectiveSizeCounts, sizeNames, isSetProduct)
+      : 0;
     if (isGraded && goodContractQuantity + defectiveContractQuantity <= 0) {
       setError('Nhập số lượng Hàng Đạt hoặc Hàng Loại lớn hơn 0.');
       return;
     }
     const setSizeCount = isSetProduct ? piecesPerSet : 1;
     const availablePieces = selectedSources.reduce(
-      (sum, source) => sum + getReceiptQuantityInContractUnits(source.contract, source.receipt) * setSizeCount,
+      (sum, source) => sum + getSourcePhysicalQuantity(source),
       0
     );
     const alreadyExportedPieces = selectedSources.reduce(
@@ -589,7 +744,7 @@ export default function KnittingExportManager() {
     let remainingToAllocate = currentPhysicalPieces;
     const sourceAllocations: NonNullable<KnittingExportSlip['sourceAllocations']> = [];
     selectedSources.forEach(source => {
-      const sourceAvailablePieces = getReceiptQuantityInContractUnits(source.contract, source.receipt) * setSizeCount;
+      const sourceAvailablePieces = getSourcePhysicalQuantity(source);
       const sourceExportedPieces = getExportedPhysicalPieces(
         source,
         knittingExportSlips,
@@ -779,25 +934,21 @@ export default function KnittingExportManager() {
   const allSlips = knittingExportSlips.slice().sort((first, second) => second.date.localeCompare(first.date));
   const activeEditingSlip = knittingExportSlips.find(item => String(item.id) === String(editingId));
   const issuedQuantity = selectedSources.reduce(
-    (sum, source) => sum + getReceiptQuantityInContractUnits(source.contract, source.receipt),
+    (sum, source) => sum + getSourceQuantityInContractUnits(source),
     0
   );
+  const currentGoodSizeCounts = Object.fromEntries(
+    sizeNames.map(size => [size, Number(goodSizeQuantities[size]) || 0])
+  );
+  const currentDefectiveSizeCounts = Object.fromEntries(
+    sizeNames.map(size => [size, Number(defectiveSizeQuantities[size]) || 0])
+  );
   const currentGoodQuantity = isSetProduct
-    ? (Number(goodBundles) || 0) +
-      getCompleteSetsFromCounts(Object.fromEntries(sizeNames.map(size => [
-        size,
-        (goodPreviousSizeTotals[size] || 0) + (Number(goodSizeQuantities[size]) || 0)
-      ])), sizeNames) -
-      getCompleteSetsFromCounts(goodPreviousSizeTotals, sizeNames)
-    : Object.values(goodSizeQuantities).reduce((sum, value) => sum + (Number(value) || 0), 0);
+    ? getContractQuantityFromInput(Number(goodBundles) || 0, currentGoodSizeCounts, sizeNames, true)
+    : getContractQuantityFromInput(0, currentGoodSizeCounts, sizeNames, false);
   const currentDefectiveQuantity = isSetProduct
-    ? (Number(defectiveBundles) || 0) +
-      getCompleteSetsFromCounts(Object.fromEntries(sizeNames.map(size => [
-        size,
-        (defectivePreviousSizeTotals[size] || 0) + (Number(defectiveSizeQuantities[size]) || 0)
-      ])), sizeNames) -
-      getCompleteSetsFromCounts(defectivePreviousSizeTotals, sizeNames)
-    : Object.values(defectiveSizeQuantities).reduce((sum, value) => sum + (Number(value) || 0), 0);
+    ? getContractQuantityFromInput(Number(defectiveBundles) || 0, currentDefectiveSizeCounts, sizeNames, true)
+    : getContractQuantityFromInput(0, currentDefectiveSizeCounts, sizeNames, false);
   const totalGoodForParent = selectedContract
     ? acceptedByParent(selectedContract.parentContractNo || '', selectedContract.productCode, editingId ?? undefined) +
       currentGoodQuantity
@@ -805,7 +956,7 @@ export default function KnittingExportManager() {
   const progressQuantity = parentContract ? Number(parentContract.quantity) || 0 : 0;
   const progressPercent = progressQuantity > 0 ? Math.min(100, totalGoodForParent / progressQuantity * 100) : 0;
   const sourceAvailablePieces = selectedSources.reduce(
-    (sum, source) => sum + getReceiptQuantityInContractUnits(source.contract, source.receipt) * (isSetProduct ? piecesPerSet : 1),
+    (sum, source) => sum + getSourcePhysicalQuantity(source),
     0
   );
   const sourceExportedPieces = selectedSources.reduce(
@@ -893,12 +1044,6 @@ export default function KnittingExportManager() {
       ? Array.from({ length: piecesPerSet }, (_, index) => getSizeLabel(index))
       : ['Cái'];
   };
-  const currentGoodSizeCounts = Object.fromEntries(
-    sizeNames.map(size => [size, Number(goodSizeQuantities[size]) || 0])
-  );
-  const currentDefectiveSizeCounts = Object.fromEntries(
-    sizeNames.map(size => [size, Number(defectiveSizeQuantities[size]) || 0])
-  );
   const tableHeaderStyle = {
     padding: '9px 10px',
     backgroundColor: '#f1f5f9',
@@ -913,7 +1058,7 @@ export default function KnittingExportManager() {
       <header>
         <h2 style={{ margin: '0 0 5px', color: '#0f172a', fontSize: '21px' }}>📤 Xuất Hàng Đan</h2>
         <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>
-          Bàn giao thành phẩm cho Công ty B từ hàng đã nhận tại phiếu Nhận Hàng Đan; chỉ Hàng Đạt được tính vào tiến độ hợp đồng.
+          Bàn giao thành phẩm cho Công ty B từ phiếu nhận hàng đan hoặc phiếu nhận sửa khoán; chỉ Hàng Đạt được tính vào tiến độ hợp đồng.
         </p>
       </header>
 
@@ -926,9 +1071,9 @@ export default function KnittingExportManager() {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
           <label style={{ display: 'grid', gap: '5px', fontSize: '12px', fontWeight: 700 }}>
-            Phiếu nhận hàng đan nguồn · có thể chọn nhiều phiếu
-            <div role="group" aria-label="Chọn nhiều phiếu nhận hàng đan nguồn" style={{ display: 'grid', gap: '6px', maxHeight: '220px', overflowY: 'auto', padding: '9px', border: '1px solid #cbd5e1', borderRadius: '6px', backgroundColor: '#fff' }}>
-              {receiptSources.map(source => (
+            Nguồn hàng · có thể chọn nhiều phiếu nhận hàng đan hoặc nhận sửa khoán
+            <div role="group" aria-label="Chọn nguồn xuất hàng cho Công ty" style={{ display: 'grid', gap: '6px', maxHeight: '220px', overflowY: 'auto', padding: '9px', border: '1px solid #cbd5e1', borderRadius: '6px', backgroundColor: '#fff' }}>
+              {visibleReceiptSources.map(source => (
                 <label key={source.key} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '5px', borderRadius: '5px', backgroundColor: selectedSourceKeys.includes(source.key) ? '#eff6ff' : '#fff', fontWeight: 500 }}>
                   <input
                     type="checkbox"
@@ -942,7 +1087,18 @@ export default function KnittingExportManager() {
                   <span>
                     <strong>{source.contract.productCode}</strong> · {source.contract.craftGroupLeader || 'Tổ Đan'} · {source.contract.contractNo}
                     <br />
-                    <small>Phiếu nhận {formatDate(source.receipt.receivedDate)} · {formatNumber(getReceiptQuantityInContractUnits(source.contract, source.receipt))} {getPiecesPerSet(source.contract.productCode) > 1 ? 'Bộ' : 'Cái'}</small>
+                    <small>
+                      {source.sourceSlipNo ? `Phiếu sửa khoán ${source.sourceSlipNo}` : 'Phiếu nhận'}
+                      {' '}{formatDate(source.receipt.receivedDate)} · {
+                        formatNumber(source.sourceSlipNo
+                          ? source.remainingPieces ?? 0
+                          : getReceiptQuantityInContractUnits(source.contract, source.receipt))
+                      } {source.sourceSlipNo
+                        ? 'cái'
+                        : getPiecesPerSet(source.contract.productCode) > 1 ? 'Bộ' : 'Cái'}
+                      {(source.remainingPieces ?? 0) < getSourcePhysicalQuantity(source) &&
+                        ` · còn ${formatNumber(Math.max(0, source.remainingPieces ?? 0))} cái`}
+                    </small>
                   </span>
                 </label>
               ))}
@@ -1038,7 +1194,7 @@ export default function KnittingExportManager() {
         )}
 
         {isGraded && showQuantities && selectedContract && (
-          <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto', border: '1px solid #cbd5e1', borderRadius: '8px', backgroundColor: '#fff' }}>
+          <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto', backgroundColor: '#fff' }}>
             {isSetProduct && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(160px, 1fr))', gap: '10px', padding: '12px', backgroundColor: '#f8fafc' }}>
                 <label style={{ display: 'grid', gap: '5px', fontSize: '12px', fontWeight: 700 }}>Đạt · Số Bộ nguyên bộ
@@ -1049,7 +1205,7 @@ export default function KnittingExportManager() {
                 </label>
               </div>
             )}
-            <table style={{ width: '100%', minWidth: '500px', borderCollapse: 'collapse' }} className="min-w-[950px] w-full">
+            <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
               <thead>
                 <tr>
                   <th style={tableHeaderStyle}>{isSetProduct ? 'Size 1' : 'ĐVT'}</th>
@@ -1145,7 +1301,7 @@ export default function KnittingExportManager() {
 
       <section style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', backgroundColor: '#fff' }}>
         <h3 style={{ padding: '14px 16px', margin: 0, color: '#1e293b', fontSize: '15px' }}>Lịch Sử Phiếu Xuất Hàng Đan</h3>
-        <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll"><table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1220px' }} className="min-w-[950px] w-full">
+        <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
           <thead><tr>{['Phiếu / Ngày', 'Mã hàng', 'HĐ Công ty A', 'Tổng giao (cái)', 'Đạt', 'Loại', 'Trạng thái kiểm định', 'HĐ đối chiếu B-A', 'Chứng từ', 'Thao tác'].map(label => <th key={label} style={tableHeaderStyle}>{label}</th>)}</tr></thead>
           <tbody>
             {allSlips.map(slip => (
@@ -1220,7 +1376,7 @@ export default function KnittingExportManager() {
             }
           `}</style>
           <div className="overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ width: 'min(850px, 96vw)', maxHeight: '94vh', display: 'flex', flexDirection: 'column', overflow: 'auto', borderRadius: '10px', backgroundColor: '#fff', boxShadow: '0 24px 60px rgba(0,0,0,.3)' }}>
-            <div ref={printAreaRef} id="knitting-export-print-area" style={{ padding: '36px', color: '#0f172a', backgroundColor: '#fff' }}>
+            <div ref={printAreaRef} id="knitting-export-print-area" style={{ padding: '36px', color: '#0f172a', backgroundColor: '#fff' }} className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll">
               <div style={{ textAlign: 'center', marginBottom: '28px' }}>
                 <h2 style={{ margin: 0, fontSize: '20px' }}>PHIẾU XUẤT HÀNG ĐAN</h2>
                 <div style={{ marginTop: '8px' }}>Số phiếu: <strong>{printSlip.slipNo}</strong> · Ngày {formatDate(printSlip.date)}</div>
@@ -1233,7 +1389,7 @@ export default function KnittingExportManager() {
                 <div><strong>HĐ đối chiếu Công ty B - A:</strong> {printSlip.companyBContractNo || '—'}</div>
                 <div><strong>ĐVT:</strong> {printSlip.unit}</div>
               </div>
-              <table style={{ minWidth: '900px',  width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
+              <table style={{ borderCollapse: 'collapse', marginBottom: '20px' }} className="min-w-full divide-y divide-gray-200 text-sm">
                 <thead><tr>{['Phân loại', 'Bộ', 'Cái', 'Quy đổi'].map(label => <th key={label} style={{ border: '1px solid #94a3b8', padding: '9px', textAlign: 'left' }}>{label}</th>)}</tr></thead>
                 <tbody>
                   {printSlip.is_graded === false ? (

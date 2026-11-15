@@ -56,7 +56,7 @@ export default function ContractSummaryView() {
         </button>
       </form>
 
-      <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll"><table style={{ minWidth: '900px',  width: '100%', borderCollapse: 'collapse', fontSize: '12px' }} className="min-w-[950px] w-full">
+      <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
         <thead>
           <tr style={{ background: '#f8fafc', textAlign: 'left' }}>
             <th style={{ padding: '8px' }}>Số Hợp Đồng</th>

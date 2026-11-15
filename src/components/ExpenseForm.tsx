@@ -479,16 +479,16 @@ export const ExpenseForm = () => {
               + Thêm dòng
             </button>
           </div>
-          <div className="overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll">
-            <table style={{ width: '100%', minWidth: '900px', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '13px' }} className="min-w-[950px] w-full">
+          <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll">
+            <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
               <thead>
                 <tr style={{ backgroundColor: '#f1f5f9', color: '#475569', textAlign: 'left' }}>
-                  <th style={{ width: '240px', padding: '10px 12px' }}>Tên Nguyên Liệu / Khoản Chi</th>
-                  <th style={{ width: '105px', padding: '10px 12px', textAlign: 'right' }}>Số Lượng</th>
-                  <th style={{ width: '100px', padding: '10px 12px', textAlign: 'center' }}>ĐVT</th>
-                  <th style={{ width: '140px', padding: '10px 12px', textAlign: 'right' }}>Đơn Giá</th>
-                  <th style={{ width: '145px', padding: '10px 12px', textAlign: 'right' }}>Thành Tiền</th>
-                  <th style={{ width: '130px', padding: '10px 12px', textAlign: 'center' }}>Thao Tác</th>
+                  <th style={{ padding: '10px 12px' }}>Tên Nguyên Liệu / Khoản Chi</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'right' }}>Số Lượng</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>ĐVT</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'right' }}>Đơn Giá</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'right' }}>Thành Tiền</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>Thao Tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -808,8 +808,8 @@ export const ExpenseForm = () => {
             Tổng chi đã lập: {formatCurrency(safeExpenses.reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0))}
           </strong>
         </div>
-        <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', minWidth: '980px', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }} className="min-w-[950px] w-full">
+        <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
+          <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-full divide-y divide-gray-200 text-sm">
             <thead>
               <tr style={{ backgroundColor: '#f1f5f9', color: '#475569' }}>
                 <th style={{ padding: '9px' }}>Ngày Chi</th>
@@ -837,7 +837,7 @@ export const ExpenseForm = () => {
                   <tr key={expense.id || index} style={{ borderTop: '1px solid #e2e8f0' }}>
                     <td style={{ padding: '9px', whiteSpace: 'nowrap' }}>{formatExpenseDate(expense.date)}</td>
                     <td style={{ padding: '9px' }}>{expense.supplierName || expense.handler || '—'}</td>
-                    <td style={{ padding: '9px', maxWidth: '360px' }}>{details}</td>
+                    <td style={{ padding: '9px' }}>{details}</td>
                     <td style={{ padding: '9px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700 }}>{formatCurrency(expenseTotal)}</td>
                     <td style={{ padding: '9px', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(expensePaid)}</td>
                     <td style={{ padding: '9px', textAlign: 'right', whiteSpace: 'nowrap', color: expenseTotal - expensePaid > 0 ? '#b91c1c' : '#15803d', fontWeight: 700 }}>{formatCurrency(expenseTotal - expensePaid)}</td>

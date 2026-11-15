@@ -822,8 +822,8 @@ export const InventoryManager: React.FC<Props> = ({ onNavigateToTab }) => {
           </div>
         </div>
 
-        <div className="block touch-pan-x select-none overflow-x-auto w-full shadow-sm rounded-lg border border-gray-200 erp-table-scroll" style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-          <table style={{ minWidth: '900px',  width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }} className="min-w-[950px] w-full">
+        <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
+          <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-full divide-y divide-gray-200 text-sm">
             <thead>
               <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
                 <th style={{ padding: '10px' }}>Số Phiếu</th>
