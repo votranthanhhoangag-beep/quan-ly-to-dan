@@ -480,7 +480,7 @@ export const ExpenseForm = () => {
             </button>
           </div>
           <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll">
-            <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+            <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
               <thead>
                 <tr style={{ backgroundColor: '#f1f5f9', color: '#475569', textAlign: 'left' }}>
                   <th className="whitespace-nowrap" style={{ padding: '10px 12px' }}>Tên Nguyên Liệu / Khoản Chi</th>
@@ -809,7 +809,7 @@ export const ExpenseForm = () => {
           </strong>
         </div>
         <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+          <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
             <thead>
               <tr style={{ backgroundColor: '#f1f5f9', color: '#475569' }}>
                 <th className="whitespace-nowrap" style={{ padding: '9px' }}>Ngày Chi</th>

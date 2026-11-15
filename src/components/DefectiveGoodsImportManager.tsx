@@ -602,7 +602,7 @@ export default function DefectiveGoodsImportManager() {
                 ])}>＋ Thêm dòng</button>
               </div>
               <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-                <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+                <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
                   <thead><tr>
                     <th className="whitespace-nowrap" style={tableHeaderStyle}>Quy cách</th>
                     <th className="whitespace-nowrap" style={tableHeaderStyle}>Số lượng</th>
@@ -675,7 +675,7 @@ export default function DefectiveGoodsImportManager() {
       {actionError && <div role="alert" style={{ color: '#b91c1c', fontSize: '13px', fontWeight: 700 }}>{actionError}</div>}
       <section style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', backgroundColor: '#fff' }}>
         <h3 style={{ padding: '14px 16px', margin: 0, color: '#1e293b', fontSize: '15px' }}>Lịch Sử Phiếu Nhập Hàng Loại</h3>
-        <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+        <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
           <thead><tr>
             {['Phiếu / Ngày', 'Mã hàng / Tên hàng', 'Tổ đan / Phiếu nguồn', 'HĐ Công ty A', 'HĐ đối chiếu B-A', 'Quy cách nhập', 'Số lượng quy đổi', 'Thao tác'].map(label => (
               <th className="whitespace-nowrap" key={label} style={tableHeaderStyle}>{label}</th>
@@ -731,7 +731,7 @@ export default function DefectiveGoodsImportManager() {
                 <div><strong>Mã hàng:</strong> {printSlip.productCode}</div>
                 <div><strong>Tên hàng:</strong> {printSlip.productName}</div>
               </div>
-              <table style={{ borderCollapse: 'collapse', marginBottom: '20px' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+              <table style={{ borderCollapse: 'collapse', marginBottom: '20px' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
                 <thead><tr>{['Quy cách', 'Số lượng'].map(label => <th className="whitespace-nowrap" key={label} style={{ border: '1px solid #94a3b8', padding: '9px', textAlign: 'left' }}>{label}</th>)}</tr></thead>
                 <tbody>
                   <tr><td className="whitespace-nowrap" style={{ border: '1px solid #94a3b8', padding: '9px' }}>{getSlipSummary(printSlip)}</td><td className="whitespace-nowrap" style={{ border: '1px solid #94a3b8', padding: '9px' }}>{formatNumber(printSlip.quantity)} {printSlip.unit} · {formatNumber(printSlip.physicalQuantity)} cái thực nhập</td></tr>

@@ -319,7 +319,7 @@ export default function ExpenseAllocationManager() {
               </strong>
             </div>
             <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-              <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+              <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
                 <thead>
                   <tr style={{ background: '#f1f5f9', textAlign: 'left' }}>
                     {['Chọn', 'Số HĐ', 'Mã hàng', 'Giá trị hợp đồng', 'Số tiền phân bổ'].map(label => (
@@ -387,7 +387,7 @@ export default function ExpenseAllocationManager() {
       <section style={{ padding: '18px', border: '1px solid #e2e8f0', borderRadius: '10px', background: '#fff' }}>
         <h3 style={{ margin: '0 0 12px', color: '#1e293b', fontSize: '15px' }}>Phân bổ đã lưu trong kỳ</h3>
         <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+          <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
             <thead>
               <tr style={{ background: '#f1f5f9', textAlign: 'left' }}>
                 {['Ngày', 'Khoản chi', 'Tổng chi', 'Hợp đồng được phân bổ', 'Tổng đã phân bổ'].map(label => (

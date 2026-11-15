@@ -107,7 +107,7 @@ export default function AuditLogView() {
         {serverError && <p role="alert" style={{ flexBasis: '100%', margin: 0, color: '#b91c1c', fontSize: '13px' }}>{serverError}</p>}
       </header>
       <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto', backgroundColor: '#fff' }}>
-        <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+        <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
           <thead>
             <tr>
               {['Thời gian', 'Người thực hiện', 'Vai trò', 'Thao tác', 'Phân hệ', 'Mã đối tượng', 'Chi tiết'].map(label => (

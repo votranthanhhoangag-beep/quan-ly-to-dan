@@ -1596,7 +1596,7 @@ const handleSaveTransaction = (e: React.FormEvent) => {
 
         {activeTab === 'KS_INCOMPLETE' && (
           <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ marginBottom: '16px' }}>
-            <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+            <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
               <thead>
                 <tr style={{ backgroundColor: '#fef2f2', borderBottom: '2px solid #fecaca' }}>
                   <th className="whitespace-nowrap" style={{ padding: '10px' }}>Số HĐ CTY</th>
@@ -1644,7 +1644,7 @@ const handleSaveTransaction = (e: React.FormEvent) => {
         )}
 
         <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ display: activeTab === 'KS_INCOMPLETE' || activeTab === 'FRAME_STOCK' ? 'none' : undefined }}>
-          <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+          <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
             <thead>
               <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
               <th className="whitespace-nowrap" style={{ padding: '8px' }}>Số Phiếu</th>
@@ -1748,7 +1748,7 @@ const handleSaveTransaction = (e: React.FormEvent) => {
               <button type="button" onClick={() => setHistoryContract(null)} style={{ border: 0, borderRadius: '6px', padding: '7px 11px', backgroundColor: '#e2e8f0', cursor: 'pointer', fontWeight: 'bold' }}>Đóng</button>
             </div>
             <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{  }}>
-              <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+              <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
                 <thead>
                   <tr style={{ backgroundColor: '#f1f5f9' }}>
                     <th className="whitespace-nowrap" style={{ padding: '9px' }}>Lần</th>
@@ -1842,7 +1842,7 @@ const handleSaveTransaction = (e: React.FormEvent) => {
 
               <section style={{ marginBottom: '18px' }}>
                 <h3 style={{ margin: '0 0 10px', paddingBottom: '6px', borderBottom: '1px solid #64748b', fontSize: '15px' }}>II. CHI TIẾT SỐ LƯỢNG &amp; TÌNH TRẠNG KHUNG</h3>
-                <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+                <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
                   <tbody>
                     {([
                       ['Tổng số lượng đã phát', frameReceiptPreview.issuedQuantity, frameReceiptPreview.contract.unit || 'Bộ'],

@@ -638,7 +638,7 @@ export default function FrameCompanyReturnManager() {
       </div>
 
       <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-        <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+        <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
           <thead><tr>{['Số phiếu / Ngày', 'Mã hàng / Tên hàng', 'Tổ đan trả khung', 'Phân bổ hợp đồng công ty', 'Số lượng', 'Ghi chú', 'Thao tác'].map(label => <th className="whitespace-nowrap" key={label} style={tableHeaderStyle}>{label}</th>)}</tr></thead>
           <tbody>
             {savedSlips.length === 0 ? (
@@ -703,7 +703,7 @@ export default function FrameCompanyReturnManager() {
                   <h2 style={{ margin: '12px 0 6px', fontSize: '18px' }}>PHIẾU XUẤT KHUNG SƠN TRẢ CÔNG TY</h2>
                   <div>Số phiếu: <strong>{printSlip.slipNo}</strong> · Ngày: {printSlip.date}</div>
                 </header>
-                <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+                <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
                   <thead><tr>{['Mã hàng', 'Tên hàng', 'Tổ đan trả', 'Công ty / Hợp đồng nhận', 'Số lượng chi tiết'].map(label => <th className="whitespace-nowrap" key={label} style={{ border: '1px solid #94a3b8', padding: '7px', backgroundColor: '#f1f5f9', textAlign: 'left' }}>{label}</th>)}</tr></thead>
                   <tbody>{printSlip.companyReturnLines.map(line => {
                     const breakdown = getSavedLineBreakdown(line);

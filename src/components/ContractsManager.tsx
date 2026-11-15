@@ -2360,7 +2360,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
 
             <section style={{ marginBottom: '36px' }}>
               <h3 style={{ fontSize: '15px', fontWeight: '800', borderBottom: '1px solid #cbd5e1', paddingBottom: '8px', marginBottom: '12px' }}>II. SỐ LƯỢNG VÀ TÀI CHÍNH</h3>
-              <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+              <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
                 <tbody>
                   {[
                     ['Tổng số lượng giao', `${formatCurrency(subContractSlipData.quantity)} ${subContractSlipData.quantityUnit}`],
@@ -2439,7 +2439,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
           </div>
 
           <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-  <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+  <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
               <thead>
                 <tr style={{ backgroundColor: '#e0f2fe', borderBottom: '2px solid #7dd3fc' }}>
                   <th className="whitespace-nowrap" style={{ padding: '10px' }}>Mã Hàng</th>
@@ -2540,7 +2540,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
           </div>
 
           <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto', backgroundColor: '#fff' }}>
-            <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+            <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
               <thead style={{ backgroundColor: '#ecfdf5', color: '#065f46' }}>
                 <tr>
                   <th className="whitespace-nowrap" style={{ padding: '11px' }}>Số HĐ Cty</th>
@@ -2888,7 +2888,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
               tabIndex={0}
               style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}
             >
-          <table className="min-w-[750px] divide-y divide-gray-200 text-sm" style={{ borderCollapse: 'collapse' }}>
+          <table className="min-w-[800px] divide-y divide-gray-200 text-sm" style={{ borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ backgroundColor: '#eff6ff', borderBottom: '2px solid #93c5fd' }}>
                   <th className="whitespace-nowrap" style={{ padding: '10px' }}>Mã Hàng</th>
@@ -3186,7 +3186,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
 
             {/* GIAO DIỆN DẠNG BẢNG (TABLE) */}
             {contractViewMode === 'TABLE' && <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-  <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+  <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
               <thead>
                 <tr style={{ backgroundColor: '#faf5ff', borderBottom: '2px solid #d8b4fe' }}>
                   <th className="whitespace-nowrap" style={{ padding: '10px' }}>Mã Hàng</th>

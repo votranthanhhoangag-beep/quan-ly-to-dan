@@ -488,7 +488,7 @@ export default function CategoryManager() {
       {/* Bảng hiển thị Xe 4 bánh */}
       {activeTab === 'xe' ? (
         <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{  }}>
-          <table style={{ borderCollapse: 'collapse', fontFamily: 'inherit' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+          <table style={{ borderCollapse: 'collapse', fontFamily: 'inherit' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
             <thead>
               <tr style={{ background: '#f1f5f9', textAlign: 'left', color: '#334155' }}>
                 <th className="whitespace-nowrap" style={{ padding: '10px' }}>STT</th>
@@ -575,7 +575,7 @@ export default function CategoryManager() {
       ) : (
         /* Bảng hiển thị Hàng hóa / NVL / Chi phí */
         <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{  }}>
-          <table style={{ borderCollapse: 'collapse', fontFamily: 'inherit' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+          <table style={{ borderCollapse: 'collapse', fontFamily: 'inherit' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
             <thead>
               <tr style={{ background: '#f1f5f9', textAlign: 'left', color: '#334155' }}>
                 {activeTab === 'nguyenvatlieu' ? (

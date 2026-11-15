@@ -516,7 +516,7 @@ export default function FrameExportManager() {
             </button>
           </div>
           <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-            <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+            <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
               <thead>
                 <tr>
                   <th className="whitespace-nowrap" style={tableHeaderStyle}>Tên Tổ Đan / Hợp Đồng</th>
@@ -898,7 +898,7 @@ export default function FrameExportManager() {
       <section style={cardStyle}>
         <h3 style={{ margin: '0 0 12px', color: '#1e293b', fontSize: '15px' }}>📋 Lịch Sử Nhận Hàng Đan</h3>
         <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+          <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
             <thead>
               <tr>
                 {['Ngày', 'Tổ Đan / HĐ', 'Mã Hàng', 'SL Nhận đợt này', 'Lũy kế SL / HĐ', 'Đơn Giá', 'Tiền công', 'Trừ nguyên phụ liệu', 'Trừ cọc', 'Đã Trả đợt này', 'Đã Trả lũy kế', 'Công Nợ lũy kế', 'Hạn trả nợ', 'Trạng thái', 'Thao Tác'].map(header => (

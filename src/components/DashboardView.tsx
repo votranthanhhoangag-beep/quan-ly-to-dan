@@ -91,7 +91,7 @@ export default function DashboardView() {
     <article style={{ ...cardStyle, backgroundColor: '#fff', borderColor: '#fecaca' }}>
       <h3 style={{ margin: '0 0 10px', color: accent, fontSize: '15px' }}>{title}</h3>
       <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-        <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+        <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
           <thead>
             <tr>
               {['Tên xe', 'Biển số xe', 'Ngày hết hạn', 'Trạng thái'].map(header => (
@@ -363,7 +363,7 @@ export default function DashboardView() {
             ⚠️ Phiếu Xuất Hàng Đan Quá 3 Ngày Chưa Có Kết Quả Đạt/Loại
           </h3>
           <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-            <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+            <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
               <thead>
                 <tr>
                   {['Mã phiếu', 'Ngày xuất', 'Mã hàng / Tên hàng', 'Cảnh báo'].map(header => (
@@ -461,7 +461,7 @@ export default function DashboardView() {
         <section aria-label="Cảnh báo bảo dưỡng xe" style={{ ...cardStyle, backgroundColor: '#fffbeb', borderColor: '#fbbf24' }}>
           <h3 style={{ margin: '0 0 10px', color: '#92400e', fontSize: '16px' }}>⚠️ Cảnh Báo Bảo Dưỡng / Thay Nhớt Xe</h3>
           <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-            <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+            <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
               <thead>
                 <tr>
                   {['Biển số xe', 'Km hiện tại', 'Km mốc cần bảo dưỡng', 'Km còn lại', 'Trung bình Km/ngày', 'Thao tác'].map(header => (
@@ -510,7 +510,7 @@ export default function DashboardView() {
                   <span>{formatNumber(group.rows.length)} mốc hạn</span>
                 </h4>
                 <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-                  <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+                  <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
                     <thead>
                       <tr>
                         {['Loại hợp đồng', 'Số hợp đồng', 'Công ty / Tổ đan', 'Số lượng', 'Điện thoại / Zalo', 'Ngày giao', 'Trạng thái', 'Liên hệ'].map(header => (
@@ -595,7 +595,7 @@ export default function DashboardView() {
           ))}
         </div>
         <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-            <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+            <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
               <thead>
                 <tr>
                   {['Tổ Đan / Hợp Đồng', 'Mã Hàng', 'Công Nợ Còn Lại', 'Hạn Trả Nợ', 'Cảnh Báo'].map(header => (

@@ -413,7 +413,7 @@ export default function TaxExpenseManager() {
           </p>
         </div>
         <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+          <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
             <thead>
               <tr style={{ backgroundColor: '#dbeafe', color: '#1e3a8a' }}>
                 {['SỐ HĐ', 'CHI PHÍ', 'DIỄN GIẢI', 'TIỀN CỌC', 'SỐ TIỀN', 'LỢI NHUẬN', 'GHI CHÚ'].map(label => (
@@ -525,7 +525,7 @@ export default function TaxExpenseManager() {
           <article style={cardStyle}>
             <h3 style={{ margin: '0 0 12px', color: '#1e293b', fontSize: '16px' }}>Tổng hợp doanh thu theo hợp đồng</h3>
             <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-              <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+              <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
                 <thead><tr style={{ backgroundColor: '#f1f5f9' }}>
                   {['Hợp đồng Công ty B', 'Công ty / Đối tác', 'Mã hàng', 'Ngày xuất đạt gần nhất', 'Số lượng đạt trong kỳ', 'Đơn giá', 'Tổng doanh thu xuất đạt', 'Tiền cọc', 'Doanh thu thực nhận'].map(label => <th className="whitespace-nowrap" key={label} style={cellStyle}>{label}</th>)}
                 </tr></thead>
@@ -558,7 +558,7 @@ export default function TaxExpenseManager() {
           <article style={cardStyle}>
             <h3 style={{ margin: '0 0 12px', color: '#1e293b', fontSize: '16px' }}>Chi tiết doanh thu theo các đợt xuất hàng đạt</h3>
             <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-              <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+              <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
                 <thead><tr style={{ backgroundColor: '#f1f5f9' }}>
                   {['Ngày xuất', 'Số phiếu', 'Hợp đồng Công ty B', 'Hợp đồng Công ty A / Tổ đan', 'Mã hàng', 'Số lượng đạt', 'Đơn giá', 'Doanh thu đợt'].map(label => <th className="whitespace-nowrap" key={label} style={cellStyle}>{label}</th>)}
                 </tr></thead>
@@ -601,7 +601,7 @@ export default function TaxExpenseManager() {
           <article style={cardStyle}>
             <h3 style={{ margin: '0 0 12px', color: '#1e293b', fontSize: '16px' }}>Chi phí tổng hợp theo mặt hàng / khoản mục</h3>
             <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-              <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+              <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
                 <thead><tr style={{ backgroundColor: '#f1f5f9' }}>
                   {['Nhóm chi phí', 'Mặt hàng / Khoản mục', 'Tổng số lượng', 'Số đợt', 'Tổng tiền trong kỳ', 'Ghi chú tổng hợp các đợt'].map(label => <th className="whitespace-nowrap" key={label} style={cellStyle}>{label}</th>)}
                 </tr></thead>
@@ -630,7 +630,7 @@ export default function TaxExpenseManager() {
           <article style={cardStyle}>
             <h3 style={{ margin: '0 0 12px', color: '#1e293b', fontSize: '16px' }}>Chi tiết phát sinh theo ngày</h3>
             <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-              <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+              <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
                 <thead><tr style={{ backgroundColor: '#f1f5f9' }}>
                   {['Ngày', 'Nhóm chi phí', 'Mặt hàng / Khoản mục', 'Số lượng', 'Số tiền', 'Số phiếu / Ghi chú'].map(label => <th className="whitespace-nowrap" key={label} style={cellStyle}>{label}</th>)}
                 </tr></thead>
@@ -660,7 +660,7 @@ export default function TaxExpenseManager() {
           {vatOutputRows.length > 0 && <article style={cardStyle}>
             <h3 style={{ margin: '0 0 12px', color: '#1e3a8a', fontSize: '16px' }}>1. Thuế GTGT Đầu Ra</h3>
             <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-              <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+              <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
                 <thead><tr style={{ backgroundColor: '#dbeafe' }}>
                   {['Số chứng từ / HĐ', 'Tên đối tác', 'Doanh số chưa thuế', 'Tỷ lệ % thuế GTGT', 'Tiền thuế GTGT đầu ra', 'Tổng cộng tiền thanh toán'].map(label => (
                     <th className="whitespace-nowrap" key={label} style={{ ...cellStyle, fontWeight: 800 }}>{label}</th>
@@ -692,7 +692,7 @@ export default function TaxExpenseManager() {
           {vatInputRows.length > 0 && <article style={cardStyle}>
             <h3 style={{ margin: '0 0 12px', color: '#166534', fontSize: '16px' }}>2. Thuế GTGT Đầu Vào</h3>
             <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-              <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+              <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
                 <thead><tr style={{ backgroundColor: '#dcfce7' }}>
                   {['Ngày tháng', 'Nội dung chi', 'Số tiền trước thuế', '% Thuế GTGT', 'Số tiền thuế GTGT đầu vào'].map(label => (
                     <th className="whitespace-nowrap" key={label} style={{ ...cellStyle, fontWeight: 800 }}>{label}</th>

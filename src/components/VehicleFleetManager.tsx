@@ -537,7 +537,7 @@ export default function VehicleFleetManager() {
           <button type="button" onClick={() => setMonth(nextMonth)} style={{ padding: '8px 10px', border: 0, borderRadius: '6px', background: '#dbeafe', color: '#1d4ed8', fontWeight: 700, cursor: 'pointer' }}>Gợi ý tháng sau: {nextMonth.slice(5, 7)}/{nextMonth.slice(0, 4)} →</button>
         </div>
         <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+          <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
             <thead><tr style={{ backgroundColor: '#f1f5f9', textAlign: 'left' }}>
               <th className="whitespace-nowrap" style={{ padding: '10px' }}>Xe</th>
               <th className="whitespace-nowrap" style={{ padding: '10px' }}>Biển số</th>
@@ -559,7 +559,7 @@ export default function VehicleFleetManager() {
       <section style={{ display: 'grid', gap: '10px' }}>
         <h3 style={{ margin: 0, color: '#1e293b', fontSize: '15px' }}>Chi tiết nhật trình · {monthLabel}</h3>
         <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+          <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
             <colgroup>
               {[9, 13, 10, 8, 8, 10, 10, 9, 13, 10].map((width, index) => <col key={index} style={{ width: `${width}%` }} />)}
             </colgroup>

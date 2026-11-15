@@ -1205,7 +1205,7 @@ export default function KnittingExportManager() {
                 </label>
               </div>
             )}
-            <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+            <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
               <thead>
                 <tr>
                   <th className="whitespace-nowrap" style={tableHeaderStyle}>{isSetProduct ? 'Size 1' : 'ĐVT'}</th>
@@ -1301,7 +1301,7 @@ export default function KnittingExportManager() {
 
       <section style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', backgroundColor: '#fff' }}>
         <h3 style={{ padding: '14px 16px', margin: 0, color: '#1e293b', fontSize: '15px' }}>Lịch Sử Phiếu Xuất Hàng Đan</h3>
-        <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+        <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
           <thead><tr>{['Phiếu / Ngày', 'Mã hàng', 'HĐ Công ty A', 'Tổng giao (cái)', 'Đạt', 'Loại', 'Trạng thái kiểm định', 'HĐ đối chiếu B-A', 'Chứng từ', 'Thao tác'].map(label => <th className="whitespace-nowrap" key={label} style={tableHeaderStyle}>{label}</th>)}</tr></thead>
           <tbody>
             {allSlips.map(slip => (
@@ -1389,7 +1389,7 @@ export default function KnittingExportManager() {
                 <div><strong>HĐ đối chiếu Công ty B - A:</strong> {printSlip.companyBContractNo || '—'}</div>
                 <div><strong>ĐVT:</strong> {printSlip.unit}</div>
               </div>
-              <table style={{ borderCollapse: 'collapse', marginBottom: '20px' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+              <table style={{ borderCollapse: 'collapse', marginBottom: '20px' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
                 <thead><tr>{['Phân loại', 'Bộ', 'Cái', 'Quy đổi'].map(label => <th className="whitespace-nowrap" key={label} style={{ border: '1px solid #94a3b8', padding: '9px', textAlign: 'left' }}>{label}</th>)}</tr></thead>
                 <tbody>
                   {printSlip.is_graded === false ? (

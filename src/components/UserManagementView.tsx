@@ -300,7 +300,7 @@ export default function UserManagementView() {
         </div>
 
         <div style={{ overflowX: 'auto', width: '100%' }} className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll">
-          <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+          <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
           <thead>
             <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '1px solid #cbd5e1', color: '#475569' }}>
               <th className="whitespace-nowrap" style={{ padding: '10px 14px', fontWeight: 600 }}>Tên đăng nhập / Tên hiển thị</th>
