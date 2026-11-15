@@ -89,13 +89,13 @@ export default function FrameStockReport() {
       </div>
 
       <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ marginTop: '16px' }}>
-        <table className="min-w-full divide-y divide-gray-200 text-sm" style={{ borderCollapse: 'collapse' }}>
+        <table className="min-w-[750px] divide-y divide-gray-200 text-sm" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#eff6ff', color: '#1e3a8a' }}>
               {['Mã Hàng', 'Tên Hàng', 'Tồn Đầu', 'Nhập', 'Xuất', 'Tồn Cuối', 'Ghi Chú'].map((label, index) => (
                 <th
                   key={label}
-                  className={index === 0 ? 'report-sticky-column' : undefined}
+                  className={index === 0 ? 'report-sticky-column whitespace-nowrap' : 'whitespace-nowrap'}
                   scope="col"
                   style={{
                     padding: '8px',
@@ -113,13 +113,13 @@ export default function FrameStockReport() {
           <tbody>
             {pageRows.map(row => (
               <tr key={row.productCode} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                <td className="report-sticky-column" style={{ padding: '8px', whiteSpace: 'nowrap' }}>{row.productCode}</td>
-                <td style={{ padding: '8px' }}>{row.productName || '—'}</td>
-                <td style={{ padding: '8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.opening)}</td>
-                <td style={{ padding: '8px', textAlign: 'right', color: '#15803d', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.inbound)}</td>
-                <td style={{ padding: '8px', textAlign: 'right', color: '#b91c1c', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.outbound)}</td>
-                <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.closing)}</td>
-                <td style={{ padding: '8px', overflowWrap: 'anywhere' }}>
+                <td className="report-sticky-column whitespace-nowrap" style={{ padding: '8px', whiteSpace: 'nowrap' }}>{row.productCode}</td>
+                <td className="whitespace-nowrap" style={{ padding: '8px' }}>{row.productName || '—'}</td>
+                <td className="whitespace-nowrap" style={{ padding: '8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.opening)}</td>
+                <td className="whitespace-nowrap" style={{ padding: '8px', textAlign: 'right', color: '#15803d', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.inbound)}</td>
+                <td className="whitespace-nowrap" style={{ padding: '8px', textAlign: 'right', color: '#b91c1c', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.outbound)}</td>
+                <td className="whitespace-nowrap" style={{ padding: '8px', textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.closing)}</td>
+                <td className="whitespace-nowrap" style={{ padding: '8px', overflowWrap: 'anywhere' }}>
                   {row.exceedsArtisanExports && (
                     <strong style={{ display: 'block', marginBottom: row.note ? '4px' : 0, color: '#b91c1c' }}>
                       ⚠️ Vượt quá số khung
@@ -133,12 +133,12 @@ export default function FrameStockReport() {
             ))}
             {rows.length > 0 && (
               <tr style={{ background: '#f8fafc', fontWeight: 700 }}>
-                <td colSpan={2} style={{ padding: '8px', textAlign: 'left' }}>Tổng cộng</td>
-                <td style={{ padding: '8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(totals.opening)}</td>
-                <td style={{ padding: '8px', textAlign: 'right', color: '#15803d', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(totals.inbound)}</td>
-                <td style={{ padding: '8px', textAlign: 'right', color: '#b91c1c', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(totals.outbound)}</td>
-                <td style={{ padding: '8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(totals.closing)}</td>
-                <td style={{ padding: '8px', textAlign: 'left' }} />
+                <td className="whitespace-nowrap" colSpan={2} style={{ padding: '8px', textAlign: 'left' }}>Tổng cộng</td>
+                <td className="whitespace-nowrap" style={{ padding: '8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(totals.opening)}</td>
+                <td className="whitespace-nowrap" style={{ padding: '8px', textAlign: 'right', color: '#15803d', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(totals.inbound)}</td>
+                <td className="whitespace-nowrap" style={{ padding: '8px', textAlign: 'right', color: '#b91c1c', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(totals.outbound)}</td>
+                <td className="whitespace-nowrap" style={{ padding: '8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(totals.closing)}</td>
+                <td className="whitespace-nowrap" style={{ padding: '8px', textAlign: 'left' }} />
               </tr>
             )}
           </tbody>

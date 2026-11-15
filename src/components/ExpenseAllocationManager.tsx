@@ -319,18 +319,18 @@ export default function ExpenseAllocationManager() {
               </strong>
             </div>
             <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-              <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+              <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
                 <thead>
                   <tr style={{ background: '#f1f5f9', textAlign: 'left' }}>
                     {['Chọn', 'Số HĐ', 'Mã hàng', 'Giá trị hợp đồng', 'Số tiền phân bổ'].map(label => (
-                      <th key={label} style={{ padding: '10px', borderBottom: '1px solid #cbd5e1' }}>{label}</th>
+                      <th className="whitespace-nowrap" key={label} style={{ padding: '10px', borderBottom: '1px solid #cbd5e1' }}>{label}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {distribution.map(({ contract, contractId, amount, contractValue, isSelected }) => (
                     <tr key={contractId} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                      <td style={{ padding: '10px', textAlign: 'center' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -345,10 +345,10 @@ export default function ExpenseAllocationManager() {
                           aria-label={`Chọn hợp đồng ${contract.contractNo || contractId} để phân bổ`}
                         />
                       </td>
-                      <td style={{ padding: '10px', fontWeight: 700 }}>{contract.contractNo || `HĐ ${contractId}`}</td>
-                      <td style={{ padding: '10px' }}>{contract.productCode || '—'} · {contract.productName || ''}</td>
-                      <td style={{ padding: '10px', textAlign: 'right' }}>{formatCurrency(contractValue)}</td>
-                      <td style={{ padding: '10px' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 700 }}>{contract.contractNo || `HĐ ${contractId}`}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '10px' }}>{contract.productCode || '—'} · {contract.productName || ''}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>{formatCurrency(contractValue)}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '10px' }}>
                         <input
                           type="text"
                           inputMode="numeric"
@@ -369,7 +369,7 @@ export default function ExpenseAllocationManager() {
                     </tr>
                   ))}
                   {distribution.length === 0 && (
-                    <tr><td colSpan={5} style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>Không có hợp đồng phù hợp để phân bổ.</td></tr>
+                    <tr><td className="whitespace-nowrap" colSpan={5} style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>Không có hợp đồng phù hợp để phân bổ.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -387,11 +387,11 @@ export default function ExpenseAllocationManager() {
       <section style={{ padding: '18px', border: '1px solid #e2e8f0', borderRadius: '10px', background: '#fff' }}>
         <h3 style={{ margin: '0 0 12px', color: '#1e293b', fontSize: '15px' }}>Phân bổ đã lưu trong kỳ</h3>
         <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+          <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
             <thead>
               <tr style={{ background: '#f1f5f9', textAlign: 'left' }}>
                 {['Ngày', 'Khoản chi', 'Tổng chi', 'Hợp đồng được phân bổ', 'Tổng đã phân bổ'].map(label => (
-                  <th key={label} style={{ padding: '10px', borderBottom: '1px solid #cbd5e1' }}>{label}</th>
+                  <th className="whitespace-nowrap" key={label} style={{ padding: '10px', borderBottom: '1px solid #cbd5e1' }}>{label}</th>
                 ))}
               </tr>
             </thead>
@@ -404,16 +404,16 @@ export default function ExpenseAllocationManager() {
                 });
                 return (
                   <tr key={allocation.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                    <td style={{ padding: '10px', whiteSpace: 'nowrap' }}>{allocation.date}</td>
-                    <td style={{ padding: '10px' }}>{allocation.sourceLabel}</td>
-                    <td style={{ padding: '10px', textAlign: 'right' }}>{formatCurrency(allocation.totalAmount)}</td>
-                    <td style={{ padding: '10px' }}>{contractNames.join(' · ') || '—'}</td>
-                    <td style={{ padding: '10px', textAlign: 'right', fontWeight: 700 }}>{formatCurrency(allocated)}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', whiteSpace: 'nowrap' }}>{allocation.date}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px' }}>{allocation.sourceLabel}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>{formatCurrency(allocation.totalAmount)}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px' }}>{contractNames.join(' · ') || '—'}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', fontWeight: 700 }}>{formatCurrency(allocated)}</td>
                   </tr>
                 );
               })}
               {!expenseAllocations.some(allocation => isInMonth(allocation.date, month)) && (
-                <tr><td colSpan={5} style={{ padding: '18px', textAlign: 'center', color: '#64748b' }}>Chưa có phân bổ chi phí trong kỳ này.</td></tr>
+                <tr><td className="whitespace-nowrap" colSpan={5} style={{ padding: '18px', textAlign: 'center', color: '#64748b' }}>Chưa có phân bổ chi phí trong kỳ này.</td></tr>
               )}
             </tbody>
           </table>

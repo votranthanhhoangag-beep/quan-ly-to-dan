@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react';
-import type { CategoryItem, ContractItem, DefectiveGoodsImportSlip, SlipItem } from '../context/AppContext';
+import type { CategoryItem, ContractItem, DefectiveGoodsImportSlip, KnittingExportSlip, SlipItem } from '../context/AppContext';
 import { useApp } from '../context/AppContext';
 import { usePersistentFormDraft } from '../hooks/usePersistentFormDraft';
 import { getLatestMaterialUnitPrice, normalizeMaterialSearch } from '../utils/materialSearch';
@@ -784,6 +784,34 @@ export default function InventoryStockReport() {
     });
 
     const sourceContracts = new Map(contracts.map(contract => [String(contract.id), contract]));
+    const gradedSourceKeys = new Set(
+      knittingExportSlips
+        .filter(slip =>
+          slip.is_graded !== false &&
+          ((Number(slip.defectiveBundles) || 0) > 0 ||
+            (Number(slip.defectivePieces) || 0) > 0 ||
+            (Number(slip.defectiveContractQuantity) || 0) > 0 ||
+            Object.values(slip.defectiveSizeQuantities || {}).some(quantity => Number(quantity) > 0))
+        )
+        .flatMap(slip => {
+          const allocations = Array.isArray(slip.sourceAllocations) && slip.sourceAllocations.length > 0
+            ? slip.sourceAllocations
+            : [{
+              sourceContractId: slip.sourceContractId,
+              sourceReceiptId: slip.sourceReceiptId
+            }];
+          return allocations.map(allocation =>
+            `${String(allocation.sourceContractId)}::${String(allocation.sourceReceiptId)}`
+          );
+        })
+    );
+    const gradedDefectiveMovements: Array<{
+      slip: KnittingExportSlip;
+      contract: ContractItem | undefined;
+      quantities: Record<string, number>;
+      bundles: number;
+      ordinaryQuantity: number;
+    }> = [];
     knittingExportSlips.forEach(slip => {
       const month = String(slip.date || '').slice(0, 7);
       const beforeMonth = Boolean(monthFilter && month < monthFilter);
@@ -796,45 +824,56 @@ export default function InventoryStockReport() {
       const defectiveSizes = normalizeSizeCounts(slip.defectiveSizeQuantities, sizeKeys);
       const goodPieces = Number(slip.goodPieces) || 0;
       const defectivePieces = Number(slip.defectivePieces) || 0;
+      const goodLegacyQuantity = !slip.goodSizeQuantities && goodPieces <= 0 && (Number(slip.goodBundles) || 0) <= 0
+        ? Number(slip.goodContractQuantity) || 0
+        : 0;
+      const defectiveLegacyQuantity = !slip.defectiveSizeQuantities && defectivePieces <= 0 && (Number(slip.defectiveBundles) || 0) <= 0
+        ? Number(slip.defectiveContractQuantity) || 0
+        : 0;
+      const goodBundleQuantity = (Number(slip.goodBundles) || 0) ||
+        (sizeCount > 1 ? goodLegacyQuantity : 0);
+      const defectiveBundleQuantity = (Number(slip.defectiveBundles) || 0) ||
+        (sizeCount > 1 ? defectiveLegacyQuantity : 0);
       if (sizeCount > 1) {
-        if (!slip.goodSizeQuantities && goodPieces > 0) {
+        if (!Object.values(goodSizes).some(count => count > 0) && goodPieces > 0) {
           Object.keys(goodSizes).forEach(size => { goodSizes[size] += goodPieces / sizeCount; });
         }
-        if (!slip.defectiveSizeQuantities && defectivePieces > 0) {
+        if (!Object.values(defectiveSizes).some(count => count > 0) && defectivePieces > 0) {
           Object.keys(defectiveSizes).forEach(size => { defectiveSizes[size] += defectivePieces / sizeCount; });
         }
       }
       const goodOrdinary = sizeCount === 1
-        ? Object.values(goodSizes).reduce((sum, count) => sum + count, 0) || goodPieces
+        ? Object.values(goodSizes).reduce((sum, count) => sum + count, 0) || goodPieces || goodLegacyQuantity
         : 0;
       const defectiveOrdinary = sizeCount === 1
-        ? Object.values(defectiveSizes).reduce((sum, count) => sum + count, 0) || defectivePieces
+        ? Object.values(defectiveSizes).reduce((sum, count) => sum + count, 0) || defectivePieces || defectiveLegacyQuantity
         : 0;
-      addMovement(
-        bucket,
-        slip.productCode,
-        slip.productName,
-        contract,
-        goodSizes,
-        Number(slip.goodBundles) || 0,
-        goodOrdinary,
-        1,
-        'qualified'
-      );
-      addMovement(
-        bucket,
-        slip.productCode,
-        slip.productName,
-        contract,
-        defectiveSizes,
-        Number(slip.defectiveBundles) || 0,
-        defectiveOrdinary,
-        1,
-        'defective'
-      );
+      if (slip.is_graded !== false) {
+        addMovement(
+          bucket,
+          slip.productCode,
+          slip.productName,
+          contract,
+          goodSizes,
+          goodBundleQuantity,
+          goodOrdinary,
+          1,
+          'qualified'
+        );
+        gradedDefectiveMovements.push({
+          slip,
+          contract,
+          quantities: defectiveSizes,
+          bundles: defectiveBundleQuantity,
+          ordinaryQuantity: defectiveOrdinary
+        });
+      }
     });
 
     defectiveGoodsImportSlips.forEach(slip => {
+      const sourceKey = `${String(slip.sourceContractId)}::${String(slip.sourceReceiptId)}`;
+      // The inspection already moves this quantity into defective stock; this slip only tracks its repair flow.
+      if (gradedSourceKeys.has(sourceKey)) return;
       const month = String(slip.date || '').slice(0, 7);
       const beforeMonth = Boolean(monthFilter && month < monthFilter);
       if (monthFilter && month > monthFilter) return;
@@ -969,6 +1008,59 @@ export default function InventoryStockReport() {
           'defective'
         );
       });
+    });
+
+    const getInspectionSourceBucket = (slip: KnittingExportSlip) => {
+      if (!monthFilter) return buckets.incoming;
+      const references = Array.isArray(slip.sourceAllocations) && slip.sourceAllocations.length > 0
+        ? slip.sourceAllocations
+        : [{
+          sourceContractId: slip.sourceContractId,
+          sourceReceiptId: slip.sourceReceiptId
+        }];
+      const sourceDates = references.flatMap(reference => {
+        const sourceContract = sourceContracts.get(String(reference.sourceContractId));
+        const receipt = sourceContract?.receivedGoodsLogs?.find(
+          log => String(log.id) === String(reference.sourceReceiptId)
+        );
+        if (receipt?.receivedDate) return [String(receipt.receivedDate)];
+        const repairReceipt = repairReceiptSlips.find(repairSlip =>
+          getRepairLines(repairSlip).some(line =>
+            `repair-${repairSlip.id}-${line.id}` === String(reference.sourceReceiptId)
+          )
+        );
+        return repairReceipt?.date ? [String(repairReceipt.date)] : [];
+      });
+      const sourceMonth = sourceDates.length > 0
+        ? sourceDates[0].slice(0, 7)
+        : String(slip.date || '').slice(0, 7);
+      return sourceMonth && sourceMonth < monthFilter ? buckets.opening : buckets.incoming;
+    };
+
+    gradedDefectiveMovements.forEach(({ slip, contract, quantities, bundles, ordinaryQuantity }) => {
+      const bucket = getInspectionSourceBucket(slip);
+      addMovement(
+        bucket,
+        slip.productCode,
+        slip.productName,
+        contract,
+        quantities,
+        bundles,
+        ordinaryQuantity,
+        -1,
+        'qualified'
+      );
+      addMovement(
+        bucket,
+        slip.productCode,
+        slip.productName,
+        contract,
+        quantities,
+        bundles,
+        ordinaryQuantity,
+        1,
+        'defective'
+      );
     });
 
     const contractsExceedingFrameExport = new Set<string>();
@@ -1900,7 +1992,7 @@ export default function InventoryStockReport() {
           </label>
         </div>
         <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll">
-          <table className="min-w-full divide-y divide-gray-200 text-sm" style={{ borderCollapse: 'collapse' }}>
+          <table className="min-w-[750px] divide-y divide-gray-200 text-sm" style={{ borderCollapse: 'collapse' }}>
             <colgroup>
               <col style={{ width: '10%' }} />
               <col style={{ width: '16%' }} />
@@ -1910,18 +2002,18 @@ export default function InventoryStockReport() {
             </colgroup>
             <thead>
               <tr>
-                <th rowSpan={2} className="report-sticky-column" scope="col" style={{ ...tableHeaderStyle, backgroundColor: '#f1f5f9' }}>Mã Hàng</th>
-                <th rowSpan={2} scope="col" style={tableHeaderStyle}>Tên Hàng</th>
-                <th colSpan={2} scope="colgroup" style={{ ...tableHeaderStyle, textAlign: 'center' }}>Tồn Đầu</th>
-                <th colSpan={2} scope="colgroup" style={{ ...tableHeaderStyle, textAlign: 'center' }}>Nhập</th>
-                <th colSpan={2} scope="colgroup" style={{ ...tableHeaderStyle, textAlign: 'center' }}>Xuất</th>
-                <th colSpan={2} scope="colgroup" style={{ ...tableHeaderStyle, textAlign: 'center' }}>Tồn Cuối (Bộ)</th>
-                <th rowSpan={2} scope="col" style={{ ...tableHeaderStyle, textAlign: 'right' }}>Lẻ (Cái)</th>
-                <th rowSpan={2} scope="col" style={tableHeaderStyle}>Ghi Chú</th>
+                <th rowSpan={2} className="report-sticky-column whitespace-nowrap" scope="col" style={{ ...tableHeaderStyle, backgroundColor: '#f1f5f9' }}>Mã Hàng</th>
+                <th className="whitespace-nowrap" rowSpan={2} scope="col" style={tableHeaderStyle}>Tên Hàng</th>
+                <th className="whitespace-nowrap" colSpan={2} scope="colgroup" style={{ ...tableHeaderStyle, textAlign: 'center' }}>Tồn Đầu</th>
+                <th className="whitespace-nowrap" colSpan={2} scope="colgroup" style={{ ...tableHeaderStyle, textAlign: 'center' }}>Nhập</th>
+                <th className="whitespace-nowrap" colSpan={2} scope="colgroup" style={{ ...tableHeaderStyle, textAlign: 'center' }}>Xuất</th>
+                <th className="whitespace-nowrap" colSpan={2} scope="colgroup" style={{ ...tableHeaderStyle, textAlign: 'center' }}>Tồn Cuối (Bộ)</th>
+                <th className="whitespace-nowrap" rowSpan={2} scope="col" style={{ ...tableHeaderStyle, textAlign: 'right' }}>Lẻ (Cái)</th>
+                <th className="whitespace-nowrap" rowSpan={2} scope="col" style={tableHeaderStyle}>Ghi Chú</th>
               </tr>
               <tr>
                 {['Đạt', 'Loại', 'Đạt', 'Loại', 'Đạt', 'Loại', 'Đạt', 'Loại'].map((label, index) => (
-                  <th
+                  <th className="whitespace-nowrap"
                     key={`${label}-${index}`}
                     scope="col"
                     style={{
@@ -1938,7 +2030,7 @@ export default function InventoryStockReport() {
             </thead>
             <tbody>
               {report.rows.length === 0 ? (
-                <tr><td colSpan={12} style={{ padding: '18px', textAlign: 'center', color: '#64748b' }}>Chưa có dữ liệu nhập, xuất hoặc tồn.</td></tr>
+                <tr><td className="whitespace-nowrap" colSpan={12} style={{ padding: '18px', textAlign: 'center', color: '#64748b' }}>Chưa có dữ liệu nhập, xuất hoặc tồn.</td></tr>
               ) : report.rows.map(row => {
                 const qualifiedSizes = Object.entries(row.endingQualifiedSizes);
                 const defectiveSizes = Object.entries(row.endingDefectiveSizes);
@@ -1967,18 +2059,18 @@ export default function InventoryStockReport() {
                 const unit = hasSet ? 'Bộ' : 'Cái';
                 return (
                   <tr key={row.productCode} style={{ borderTop: '1px solid #e2e8f0' }}>
-                    <td className="report-sticky-column" style={{ padding: '9px', fontWeight: 700 }}>{row.productCode}</td>
-                    <td style={{ padding: '9px' }}>{row.productName || '—'}</td>
-                    <td style={{ padding: '9px', textAlign: 'right', color: '#166534', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.openingQualified / row.sizeCount)} {unit}</td>
-                    <td style={{ padding: '9px', textAlign: 'right', color: '#b91c1c', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.openingDefective / row.sizeCount)} {unit}</td>
-                    <td style={{ padding: '9px', textAlign: 'right', color: '#166534', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.incomingQualified / row.sizeCount)} {unit}</td>
-                    <td style={{ padding: '9px', textAlign: 'right', color: '#b91c1c', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.incomingDefective / row.sizeCount)} {unit}</td>
-                    <td style={{ padding: '9px', textAlign: 'right', color: '#166534', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.outgoingQualified / row.sizeCount)} {unit}</td>
-                    <td style={{ padding: '9px', textAlign: 'right', color: '#b91c1c', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.outgoingDefective / row.sizeCount)} {unit}</td>
-                    <td style={{ padding: '9px', textAlign: 'right', color: '#166534', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatNumber(qualifiedCompleteSets)} {unit}</td>
-                    <td style={{ padding: '9px', textAlign: 'right', color: '#b91c1c', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatNumber(defectiveCompleteSets)} {unit}</td>
-                    <td style={{ padding: '9px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{hasSet ? formatNumber(looseCount) : '—'}</td>
-                    <td style={{ padding: '9px', textAlign: 'left', overflowWrap: 'anywhere' }}>
+                    <td className="report-sticky-column whitespace-nowrap" style={{ padding: '9px', fontWeight: 700 }}>{row.productCode}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '9px' }}>{row.productName || '—'}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right', color: '#166534', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.openingQualified / row.sizeCount)} {unit}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right', color: '#b91c1c', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.openingDefective / row.sizeCount)} {unit}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right', color: '#166534', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.incomingQualified / row.sizeCount)} {unit}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right', color: '#b91c1c', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.incomingDefective / row.sizeCount)} {unit}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right', color: '#166534', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.outgoingQualified / row.sizeCount)} {unit}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right', color: '#b91c1c', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(row.outgoingDefective / row.sizeCount)} {unit}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right', color: '#166534', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatNumber(qualifiedCompleteSets)} {unit}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right', color: '#b91c1c', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatNumber(defectiveCompleteSets)} {unit}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{hasSet ? formatNumber(looseCount) : '—'}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'left', overflowWrap: 'anywhere' }}>
                       {row.exceedsFrameExport && (
                         <strong style={{ display: 'block', marginBottom: looseDescription ? '4px' : 0, color: '#b91c1c' }}>
                           ⚠️ Nhập (Đạt) vượt số khung xuất theo hợp đồng
@@ -2376,10 +2468,10 @@ export default function InventoryStockReport() {
             {selectedRepairSource && (
               <>
                 <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto', backgroundColor: '#fff' }}>
-                  <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+                  <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
                     <thead>
                       <tr>{['Mã hàng', 'Lũy kế đã nhận', 'Còn thiếu để nhận đủ'].map(label => (
-                        <th key={label} style={tableHeaderStyle}>{label}</th>
+                        <th className="whitespace-nowrap" key={label} style={tableHeaderStyle}>{label}</th>
                       ))}</tr>
                     </thead>
                     <tbody>
@@ -2406,12 +2498,12 @@ export default function InventoryStockReport() {
                         });
                         return (
                           <tr key={sourceLine.productCode} style={{ borderTop: '1px solid #e2e8f0' }}>
-                            <td style={{ padding: '9px', fontWeight: 700 }}>{sourceLine.productCode}<br /><small>{sourceLine.productName}</small></td>
-                            <td style={{ padding: '9px' }}>
+                            <td className="whitespace-nowrap" style={{ padding: '9px', fontWeight: 700 }}>{sourceLine.productCode}<br /><small>{sourceLine.productName}</small></td>
+                            <td className="whitespace-nowrap" style={{ padding: '9px' }}>
                               {sizeCount > 1 && receivedBundles > 0 && <div>{formatNumber(receivedBundles)} bộ</div>}
                               {sizeRows.filter(row => row.returned > 0).map(row => <div key={row.size}>{row.size}: {formatNumber(row.returned)} cái</div>)}
                             </td>
-                            <td style={{ padding: '9px', color: missingBundles > 0 || sizeRows.some(row => row.missing > 0) ? '#b91c1c' : '#15803d', fontWeight: 700 }}>
+                            <td className="whitespace-nowrap" style={{ padding: '9px', color: missingBundles > 0 || sizeRows.some(row => row.missing > 0) ? '#b91c1c' : '#15803d', fontWeight: 700 }}>
                               {sizeCount > 1 && missingBundles > 0 && <div>{formatNumber(missingBundles)} bộ</div>}
                               {sizeRows.filter(row => row.missing > 0).map(row => <div key={row.size}>{row.size}: {formatNumber(row.missing)} cái</div>)}
                             </td>
@@ -2559,25 +2651,25 @@ export default function InventoryStockReport() {
           </form>
 
           <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ marginTop: '14px', backgroundColor: '#fff' }}>
-            <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead><tr>{['Số phiếu / Ngày', 'Phiếu xuất đối ứng', 'Người sửa', 'Tiền công', 'Trừ nguyên phụ liệu', 'Tạm ứng trừ', 'Còn phải trả', 'Hạn trả nợ', 'Ghi chú', 'Thao tác'].map(label => <th key={label} style={tableHeaderStyle}>{label}</th>)}</tr></thead>
+            <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+              <thead><tr>{['Số phiếu / Ngày', 'Phiếu xuất đối ứng', 'Người sửa', 'Tiền công', 'Trừ nguyên phụ liệu', 'Tạm ứng trừ', 'Còn phải trả', 'Hạn trả nợ', 'Ghi chú', 'Thao tác'].map(label => <th className="whitespace-nowrap" key={label} style={tableHeaderStyle}>{label}</th>)}</tr></thead>
               <tbody>
                 {repairReceiptSlips.length === 0 ? (
-                  <tr><td colSpan={10} style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>Chưa có phiếu nhận hàng sửa khoán.</td></tr>
+                  <tr><td className="whitespace-nowrap" colSpan={10} style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>Chưa có phiếu nhận hàng sửa khoán.</td></tr>
                 ) : repairReceiptSlips.map(slip => {
                   const source = repairSlips.find(item => String(item.id) === String(slip.sourceRepairSlipId || ''));
                   return (
                     <tr key={slip.id} style={{ borderTop: '1px solid #e2e8f0' }}>
-                      <td style={{ padding: '9px' }}><strong>{slip.slipNo}</strong><br />{slip.date}</td>
-                      <td style={{ padding: '9px' }}>{source?.slipNo || slip.contractNo || '—'}</td>
-                      <td style={{ padding: '9px' }}>{slip.repairWorkerName || slip.partnerName || slip.partner || '—'}</td>
-                      <td style={{ padding: '9px', textAlign: 'right' }}>{formatCurrency(Number(slip.repairTotal) || 0)}</td>
-                      <td style={{ padding: '9px', textAlign: 'right', color: '#0f766e' }}>{formatCurrency(Number(slip.repairMaterialDeducted) || 0)}</td>
-                      <td style={{ padding: '9px', textAlign: 'right' }}>{formatCurrency(Number(slip.repairAdvanceApplied) || 0)}</td>
-                      <td style={{ padding: '9px', textAlign: 'right', color: Number(slip.repairRemainingAmount) > 0 ? '#b91c1c' : '#15803d' }}>{formatCurrency(Number(slip.repairRemainingAmount) || 0)}</td>
-                      <td style={{ padding: '9px' }}>{slip.repairDueDate || '—'}</td>
-                      <td style={{ padding: '9px' }}>{slip.repairPaymentNote || slip.note || '—'}</td>
-                      <td style={{ padding: '9px' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '9px' }}><strong>{slip.slipNo}</strong><br />{slip.date}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '9px' }}>{source?.slipNo || slip.contractNo || '—'}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '9px' }}>{slip.repairWorkerName || slip.partnerName || slip.partner || '—'}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right' }}>{formatCurrency(Number(slip.repairTotal) || 0)}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right', color: '#0f766e' }}>{formatCurrency(Number(slip.repairMaterialDeducted) || 0)}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right' }}>{formatCurrency(Number(slip.repairAdvanceApplied) || 0)}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right', color: Number(slip.repairRemainingAmount) > 0 ? '#b91c1c' : '#15803d' }}>{formatCurrency(Number(slip.repairRemainingAmount) || 0)}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '9px' }}>{slip.repairDueDate || '—'}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '9px' }}>{slip.repairPaymentNote || slip.note || '—'}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '9px' }}>
                         <div className="slip-action-buttons">
                           <button type="button" className="slip-action-button slip-action-edit" onClick={() => startEditRepairReceipt(slip)}>✏️ Sửa</button>
                           <button type="button" className="slip-action-button slip-action-delete" onClick={() => handleDeleteRepairReceipt(slip)}>🗑️ Xóa</button>
@@ -2596,17 +2688,17 @@ export default function InventoryStockReport() {
 
         {activeReportTab === 'repair-export' && <>
         <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ marginTop: '14px' }}>
-          <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead><tr>{['Số Phiếu / Ngày', 'Người nhận sửa / Zalo', 'Mã hàng / Tên hàng', 'Chi tiết xuất sửa', 'Thành tiền công', 'Nguyên phụ liệu kèm theo', 'Tạm ứng', 'Ghi chú / Lý do', 'Thao tác'].map(label => <th key={label} style={tableHeaderStyle}>{label}</th>)}</tr></thead>
+          <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+            <thead><tr>{['Số Phiếu / Ngày', 'Người nhận sửa / Zalo', 'Mã hàng / Tên hàng', 'Chi tiết xuất sửa', 'Thành tiền công', 'Nguyên phụ liệu kèm theo', 'Tạm ứng', 'Ghi chú / Lý do', 'Thao tác'].map(label => <th className="whitespace-nowrap" key={label} style={tableHeaderStyle}>{label}</th>)}</tr></thead>
             <tbody>
               {repairSlips.length === 0 ? (
-                <tr><td colSpan={9} style={{ padding: '18px', textAlign: 'center', color: '#64748b' }}>Chưa có phiếu sửa khoán.</td></tr>
+                <tr><td className="whitespace-nowrap" colSpan={9} style={{ padding: '18px', textAlign: 'center', color: '#64748b' }}>Chưa có phiếu sửa khoán.</td></tr>
               ) : repairSlips.map(slip => (
                 <tr key={slip.id} style={{ borderTop: '1px solid #e2e8f0' }}>
-                  <td style={{ padding: '9px', whiteSpace: 'nowrap' }}><strong>{slip.slipNo}</strong><br />{slip.date}</td>
-                  <td style={{ padding: '9px' }}>{slip.repairWorkerName || slip.partnerName || slip.partner || '—'}<br /><small>{slip.repairWorkerZalo || 'Chưa có Zalo'}</small></td>
-                  <td style={{ padding: '9px' }}>{getRepairLines(slip).map(line => <div key={line.id}><strong>{line.productCode}</strong> · {line.productName}</div>)}</td>
-                  <td style={{ padding: '9px' }}>{getRepairLines(slip).map(line => {
+                  <td className="whitespace-nowrap" style={{ padding: '9px', whiteSpace: 'nowrap' }}><strong>{slip.slipNo}</strong><br />{slip.date}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px' }}>{slip.repairWorkerName || slip.partnerName || slip.partner || '—'}<br /><small>{slip.repairWorkerZalo || 'Chưa có Zalo'}</small></td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px' }}>{getRepairLines(slip).map(line => <div key={line.id}><strong>{line.productCode}</strong> · {line.productName}</div>)}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px' }}>{getRepairLines(slip).map(line => {
                     const piecesPerSet = getPiecesPerSet(line.productCode);
                     const sourceSlip = defectiveGoodsImportSlips.find(source =>
                       String(source.id) === String(line.sourceDefectiveGoodsImportSlipId || '')
@@ -2625,8 +2717,8 @@ export default function InventoryStockReport() {
                       </div>
                     );
                   })}</td>
-                  <td style={{ padding: '9px', textAlign: 'right' }}>{formatCurrency(Number(slip.repairTotal) || 0)}</td>
-                  <td style={{ padding: '9px', overflowWrap: 'anywhere' }}>
+                  <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right' }}>{formatCurrency(Number(slip.repairTotal) || 0)}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px', overflowWrap: 'anywhere' }}>
                     {Array.isArray(slip.accompanyingMaterials) && slip.accompanyingMaterials.length > 0
                       ? <>
                         {slip.accompanyingMaterials.map((material, index) => (
@@ -2642,9 +2734,9 @@ export default function InventoryStockReport() {
                       </>
                       : <span style={{ color: '#94a3b8' }}>—</span>}
                   </td>
-                  <td style={{ padding: '9px', textAlign: 'right' }}>{formatCurrency(Number(slip.repairAdvance) || 0)}</td>
-                  <td style={{ padding: '9px' }}>{slip.note || '—'}</td>
-                  <td style={{ padding: '9px' }}>
+                  <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right' }}>{formatCurrency(Number(slip.repairAdvance) || 0)}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px' }}>{slip.note || '—'}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px' }}>
                     <div className="slip-action-buttons">
                       <button type="button" className="slip-action-button slip-action-edit" onClick={() => startEdit(slip)}>✏️ Sửa</button>
                       <button type="button" className="slip-action-button slip-action-delete" onClick={() => handleDelete(slip)}>🗑️ Xóa</button>
@@ -2696,11 +2788,11 @@ export default function InventoryStockReport() {
           {shareSlip.type === 'NHAN_SUA_KHOAN' ? (
             <p><strong>Phiếu xuất đối ứng:</strong> {repairSlips.find(item => String(item.id) === String(shareSlip.sourceRepairSlipId || ''))?.slipNo || shareSlip.contractNo || '—'}</p>
           ) : null}
-          <table className="min-w-full divide-y divide-gray-200 text-sm" style={{ borderCollapse: 'collapse' }}>
+          <table className="min-w-[750px] divide-y divide-gray-200 text-sm" style={{ borderCollapse: 'collapse' }}>
             <thead><tr>{(shareSlip.type === 'NHAN_SUA_KHOAN'
               ? ['Mã hàng', 'Tên hàng', 'Số lượng nhận quy đổi', 'Thành tiền']
               : ['Mã hàng', 'Tên hàng', 'Số lượng / Size lỗi', 'Đơn giá theo bộ / size', 'Thành tiền']
-            ).map(label => <th key={label} style={{ border: '1px solid #94a3b8', padding: '8px' }}>{label}</th>)}</tr></thead>
+            ).map(label => <th className="whitespace-nowrap" key={label} style={{ border: '1px solid #94a3b8', padding: '8px' }}>{label}</th>)}</tr></thead>
             <tbody>{getRepairLines(shareSlip).map(line => {
               const piecesPerSet = getPiecesPerSet(line.productCode);
               const sizeDetails = Object.entries(line.sizeQuantities || {})
@@ -2709,9 +2801,9 @@ export default function InventoryStockReport() {
                 .join(', ');
               return (
               <tr key={line.id}>
-                <td style={{ border: '1px solid #94a3b8', padding: '8px' }}>{line.productCode}</td>
-                <td style={{ border: '1px solid #94a3b8', padding: '8px' }}>{line.productName}</td>
-                <td style={{ border: '1px solid #94a3b8', padding: '8px' }}>
+                <td className="whitespace-nowrap" style={{ border: '1px solid #94a3b8', padding: '8px' }}>{line.productCode}</td>
+                <td className="whitespace-nowrap" style={{ border: '1px solid #94a3b8', padding: '8px' }}>{line.productName}</td>
+                <td className="whitespace-nowrap" style={{ border: '1px solid #94a3b8', padding: '8px' }}>
                   {[
                     Number(line.bundleQuantity) > 0 ? `${formatNumber(line.bundleQuantity)} Bộ` : '',
                     sizeDetails || (piecesPerSet === 1 ? `${formatNumber(line.quantity)} cái` : '')
@@ -2727,14 +2819,14 @@ export default function InventoryStockReport() {
                     </>
                   )}
                 </td>
-                {shareSlip.type !== 'NHAN_SUA_KHOAN' && <td style={{ border: '1px solid #94a3b8', padding: '8px' }}>
+                {shareSlip.type !== 'NHAN_SUA_KHOAN' && <td className="whitespace-nowrap" style={{ border: '1px solid #94a3b8', padding: '8px' }}>
                   {Number(line.bundleQuantity) > 0 && <>Bộ: {formatCurrency(Number(line.bundleUnitPrice ?? line.unitPrice) || 0)}<br /></>}
                   {Object.entries(line.sizeQuantities || {}).filter(([, quantity]) => Number(quantity) > 0).map(([size]) => (
                     <div key={size}>{size}: {formatCurrency(Number(line.sizeUnitPrices?.[size] ?? line.unitPrice) || 0)}</div>
                   ))}
                   {getPiecesPerSet(line.productCode) === 1 && `Cái 1: ${formatCurrency(Number(line.sizeUnitPrices?.['Cái 1'] ?? line.unitPrice) || 0)}`}
                 </td>}
-                <td style={{ border: '1px solid #94a3b8', padding: '8px' }}>{formatCurrency(getRepairLineAmount(line))}</td>
+                <td className="whitespace-nowrap" style={{ border: '1px solid #94a3b8', padding: '8px' }}>{formatCurrency(getRepairLineAmount(line))}</td>
               </tr>
               );
             })}</tbody>

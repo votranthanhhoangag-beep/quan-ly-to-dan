@@ -537,20 +537,20 @@ export default function VehicleFleetManager() {
           <button type="button" onClick={() => setMonth(nextMonth)} style={{ padding: '8px 10px', border: 0, borderRadius: '6px', background: '#dbeafe', color: '#1d4ed8', fontWeight: 700, cursor: 'pointer' }}>Gợi ý tháng sau: {nextMonth.slice(5, 7)}/{nextMonth.slice(0, 4)} →</button>
         </div>
         <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+          <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
             <thead><tr style={{ backgroundColor: '#f1f5f9', textAlign: 'left' }}>
-              <th style={{ padding: '10px' }}>Xe</th>
-              <th style={{ padding: '10px' }}>Biển số</th>
-              <th style={{ padding: '10px', textAlign: 'right' }}>Tổng Km tháng {monthLabel}</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Xe</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Biển số</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Tổng Km tháng {monthLabel}</th>
             </tr></thead>
             <tbody>
               {monthlyTotals.length ? monthlyTotals.map(({ vehicle, total }) => (
                 <tr key={vehicle.id} style={{ borderTop: '1px solid #e2e8f0' }}>
-                  <td style={{ padding: '10px', fontWeight: 700 }}>{vehicle.vehicleName}</td>
-                  <td style={{ padding: '10px' }}>{vehicle.plateNo}</td>
-                  <td style={{ padding: '10px', textAlign: 'right', color: '#15803d', fontWeight: 800 }}>{formatNumber(total)} km</td>
+                  <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 700 }}>{vehicle.vehicleName}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '10px' }}>{vehicle.plateNo}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', color: '#15803d', fontWeight: 800 }}>{formatNumber(total)} km</td>
                 </tr>
-              )) : <tr><td colSpan={3} style={{ padding: '14px', textAlign: 'center', color: '#64748b' }}>Chưa có xe trong danh mục.</td></tr>}
+              )) : <tr><td className="whitespace-nowrap" colSpan={3} style={{ padding: '14px', textAlign: 'center', color: '#64748b' }}>Chưa có xe trong danh mục.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -559,13 +559,13 @@ export default function VehicleFleetManager() {
       <section style={{ display: 'grid', gap: '10px' }}>
         <h3 style={{ margin: 0, color: '#1e293b', fontSize: '15px' }}>Chi tiết nhật trình · {monthLabel}</h3>
         <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+          <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
             <colgroup>
               {[9, 13, 10, 8, 8, 10, 10, 9, 13, 10].map((width, index) => <col key={index} style={{ width: `${width}%` }} />)}
             </colgroup>
             <thead><tr style={{ backgroundColor: '#f1f5f9' }}>
               {['Ngày', 'Tên xe', 'Biển số', 'Km đi', 'Km về', 'Km trong ngày', 'Lũy kế tháng', 'Ảnh', 'Ghi chú', 'Thao Tác'].map((title, index) => (
-                <th key={title} style={{
+                <th className="whitespace-nowrap" key={title} style={{
                   padding: '9px',
                   textAlign: index >= 3 && index <= 6 ? 'right' : index >= 7 ? 'center' : 'left',
                   whiteSpace: 'nowrap'
@@ -575,28 +575,28 @@ export default function VehicleFleetManager() {
             <tbody>
               {currentMonthLogs.length ? currentMonthLogs.slice().reverse().map(log => (
                 <tr key={log.id} style={{ borderTop: '1px solid #e2e8f0' }}>
-                  <td style={{ padding: '9px', textAlign: 'left', whiteSpace: 'nowrap' }}>{log.date ? formatDate(log.date) : formatLegacyMonth(log.monthYear)}</td>
-                  <td style={{ padding: '9px', textAlign: 'left', overflowWrap: 'anywhere' }}>{log.vehicleName || safeVehicles.find(vehicle => vehicle.plateNo === log.plateNo)?.vehicleName || '—'}</td>
-                  <td style={{ padding: '9px', textAlign: 'left', fontWeight: 700, whiteSpace: 'nowrap' }}>{log.plateNo}</td>
-                  <td style={{ padding: '9px', textAlign: 'right' }}>{formatNumber(Number(log.startKm) || 0)}</td>
-                  <td style={{ padding: '9px', textAlign: 'right' }}>{formatNumber(Number(log.endKm) || 0)}</td>
-                  <td style={{ padding: '9px', textAlign: 'right', fontWeight: 700 }}>{formatNumber(Number(log.totalKmRun) || 0)}</td>
-                  <td style={{ padding: '9px', textAlign: 'right', color: '#1d4ed8', fontWeight: 700 }}>{formatNumber(cumulativeByLogId.get(log.id) || 0)}</td>
-                  <td style={{ padding: '9px', textAlign: 'center' }}>
+                  <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'left', whiteSpace: 'nowrap' }}>{log.date ? formatDate(log.date) : formatLegacyMonth(log.monthYear)}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'left', overflowWrap: 'anywhere' }}>{log.vehicleName || safeVehicles.find(vehicle => vehicle.plateNo === log.plateNo)?.vehicleName || '—'}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'left', fontWeight: 700, whiteSpace: 'nowrap' }}>{log.plateNo}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right' }}>{formatNumber(Number(log.startKm) || 0)}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right' }}>{formatNumber(Number(log.endKm) || 0)}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right', fontWeight: 700 }}>{formatNumber(Number(log.totalKmRun) || 0)}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right', color: '#1d4ed8', fontWeight: 700 }}>{formatNumber(cumulativeByLogId.get(log.id) || 0)}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'center' }}>
                     {log.images?.length ? (
                       <div style={{ display: 'flex', justifyContent: 'center', gap: '4px' }}>
                         {log.images.map((image, index) => <a key={`${log.id}-${index}`} href={image} target="_blank" rel="noreferrer"><img src={image} alt={`Công tơ ${index + 1}`} style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px' }} /></a>)}
                       </div>
                     ) : '—'}
                   </td>
-                  <td style={{ padding: '9px', textAlign: 'center', overflowWrap: 'anywhere' }}>{log.note || '—'}</td>
-                  <td style={{ padding: '9px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                  <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'center', overflowWrap: 'anywhere' }}>{log.note || '—'}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                     <button type="button" onClick={() => handleEditLog(log)} style={{ marginRight: '5px', padding: '5px 8px', border: 0, borderRadius: '5px', background: '#2563eb', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>Sửa</button>
                     <button type="button" onClick={() => handleDeleteLog(log)} style={{ padding: '5px 8px', border: 0, borderRadius: '5px', background: '#dc2626', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>Xóa</button>
                   </td>
                 </tr>
               )) : (
-                <tr><td colSpan={10} style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>Chưa có nhật trình trong tháng này.</td></tr>
+                <tr><td className="whitespace-nowrap" colSpan={10} style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>Chưa có nhật trình trong tháng này.</td></tr>
               )}
             </tbody>
           </table>

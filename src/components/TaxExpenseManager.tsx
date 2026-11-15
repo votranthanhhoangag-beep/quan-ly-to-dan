@@ -413,11 +413,11 @@ export default function TaxExpenseManager() {
           </p>
         </div>
         <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+          <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
             <thead>
               <tr style={{ backgroundColor: '#dbeafe', color: '#1e3a8a' }}>
                 {['SỐ HĐ', 'CHI PHÍ', 'DIỄN GIẢI', 'TIỀN CỌC', 'SỐ TIỀN', 'LỢI NHUẬN', 'GHI CHÚ'].map(label => (
-                  <th key={label} style={{ ...cellStyle, fontWeight: 800 }}>{label}</th>
+                  <th className="whitespace-nowrap" key={label} style={{ ...cellStyle, fontWeight: 800 }}>{label}</th>
                 ))}
               </tr>
             </thead>
@@ -425,23 +425,23 @@ export default function TaxExpenseManager() {
               {contractSummaries.map(({ contract, revenue, costs, costTotal, profit: contractProfit }) => (
                 <Fragment key={`contract-${String(contract.id)}`}>
                   <tr style={{ backgroundColor: '#f8fafc', fontWeight: 800 }}>
-                    <td style={cellStyle}>{contract.contractNo || '—'}<br /><small>{contract.productCode || ''}</small></td>
-                    <td style={cellStyle}>{costTotal > 0 ? `Tổng chi phí liên kết: ${formatCurrency(costTotal)}` : '—'}</td>
-                    <td style={cellStyle}>{contract.productCode || '—'}</td>
-                    <td style={cellStyle}>{formatCurrency(revenue?.depositAmount || getReceivedDeposit(contract))}</td>
-                    <td style={cellStyle}>{formatCurrency(revenue?.grossAmount || 0)}</td>
-                    <td style={{ ...cellStyle, color: contractProfit >= 0 ? '#166534' : '#b91c1c' }}>{formatCurrency(contractProfit)}</td>
-                    <td style={cellStyle}>{contract.note?.trim() || (revenue ? `Xuất đạt gần nhất ngày ${revenue.latestExportDate}` : 'Chưa phát sinh doanh thu trong kỳ')}</td>
+                    <td className="whitespace-nowrap" style={cellStyle}>{contract.contractNo || '—'}<br /><small>{contract.productCode || ''}</small></td>
+                    <td className="whitespace-nowrap" style={cellStyle}>{costTotal > 0 ? `Tổng chi phí liên kết: ${formatCurrency(costTotal)}` : '—'}</td>
+                    <td className="whitespace-nowrap" style={cellStyle}>{contract.productCode || '—'}</td>
+                    <td className="whitespace-nowrap" style={cellStyle}>{formatCurrency(revenue?.depositAmount || getReceivedDeposit(contract))}</td>
+                    <td className="whitespace-nowrap" style={cellStyle}>{formatCurrency(revenue?.grossAmount || 0)}</td>
+                    <td className="whitespace-nowrap" style={{ ...cellStyle, color: contractProfit >= 0 ? '#166534' : '#b91c1c' }}>{formatCurrency(contractProfit)}</td>
+                    <td className="whitespace-nowrap" style={cellStyle}>{contract.note?.trim() || (revenue ? `Xuất đạt gần nhất ngày ${revenue.latestExportDate}` : 'Chưa phát sinh doanh thu trong kỳ')}</td>
                   </tr>
                   {costs.map(group => (
                     <tr key={`cost-${String(contract.id)}-${group.category}-${group.name}`}>
-                      <td style={{ ...cellStyle, paddingLeft: '24px', color: '#64748b' }}>↳</td>
-                      <td style={cellStyle}>{group.categoryLabel}<br /><small style={{ color: '#64748b' }}>{group.lineCount} đợt</small></td>
-                      <td style={cellStyle}>{contract.productCode || '—'}</td>
-                      <td style={cellStyle}>—</td>
-                      <td style={{ ...cellStyle, color: '#9a3412', fontWeight: 700 }}>{formatCurrency(group.amount)}</td>
-                      <td style={cellStyle}>—</td>
-                      <td style={{ ...cellStyle, whiteSpace: 'pre-wrap' }}>{Array.from(group.notes).join('\n') || '—'}</td>
+                      <td className="whitespace-nowrap" style={{ ...cellStyle, paddingLeft: '24px', color: '#64748b' }}>↳</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{group.categoryLabel}<br /><small style={{ color: '#64748b' }}>{group.lineCount} đợt</small></td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{contract.productCode || '—'}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>—</td>
+                      <td className="whitespace-nowrap" style={{ ...cellStyle, color: '#9a3412', fontWeight: 700 }}>{formatCurrency(group.amount)}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>—</td>
+                      <td className="whitespace-nowrap" style={{ ...cellStyle, whiteSpace: 'pre-wrap' }}>{Array.from(group.notes).join('\n') || '—'}</td>
                     </tr>
                   ))}
                 </Fragment>
@@ -449,41 +449,41 @@ export default function TaxExpenseManager() {
               {sharedExpenseGroups.length > 0 && (
                 <>
                   <tr style={{ backgroundColor: '#fff7ed', fontWeight: 800 }}>
-                    <td style={cellStyle}>CHI PHÍ CHUNG</td>
-                    <td style={cellStyle}>Chưa gắn được với hợp đồng cụ thể</td>
-                    <td style={cellStyle}>—</td>
-                    <td style={cellStyle}>—</td>
-                    <td style={{ ...cellStyle, color: '#9a3412' }}>{formatCurrency(sharedExpenseGroups.reduce((sum, group) => sum + group.amount, 0))}</td>
-                    <td style={cellStyle}>—</td>
-                    <td style={cellStyle}>Không phân bổ vào lợi nhuận hợp đồng</td>
+                    <td className="whitespace-nowrap" style={cellStyle}>CHI PHÍ CHUNG</td>
+                    <td className="whitespace-nowrap" style={cellStyle}>Chưa gắn được với hợp đồng cụ thể</td>
+                    <td className="whitespace-nowrap" style={cellStyle}>—</td>
+                    <td className="whitespace-nowrap" style={cellStyle}>—</td>
+                    <td className="whitespace-nowrap" style={{ ...cellStyle, color: '#9a3412' }}>{formatCurrency(sharedExpenseGroups.reduce((sum, group) => sum + group.amount, 0))}</td>
+                    <td className="whitespace-nowrap" style={cellStyle}>—</td>
+                    <td className="whitespace-nowrap" style={cellStyle}>Không phân bổ vào lợi nhuận hợp đồng</td>
                   </tr>
                   {sharedExpenseGroups.map(group => (
                     <tr key={`shared-${group.category}-${group.name}-${group.unit}`}>
-                      <td style={{ ...cellStyle, paddingLeft: '24px', color: '#64748b' }}>↳</td>
-                      <td style={cellStyle}>{group.categoryLabel}<br /><small style={{ color: '#64748b' }}>{group.lineCount} đợt</small></td>
-                      <td style={cellStyle}>—</td>
-                      <td style={cellStyle}>—</td>
-                      <td style={{ ...cellStyle, color: '#9a3412', fontWeight: 700 }}>{formatCurrency(group.amount)}</td>
-                      <td style={cellStyle}>—</td>
-                      <td style={{ ...cellStyle, whiteSpace: 'pre-wrap' }}>{Array.from(group.notes).join('\n') || '—'}</td>
+                      <td className="whitespace-nowrap" style={{ ...cellStyle, paddingLeft: '24px', color: '#64748b' }}>↳</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{group.categoryLabel}<br /><small style={{ color: '#64748b' }}>{group.lineCount} đợt</small></td>
+                      <td className="whitespace-nowrap" style={cellStyle}>—</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>—</td>
+                      <td className="whitespace-nowrap" style={{ ...cellStyle, color: '#9a3412', fontWeight: 700 }}>{formatCurrency(group.amount)}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>—</td>
+                      <td className="whitespace-nowrap" style={{ ...cellStyle, whiteSpace: 'pre-wrap' }}>{Array.from(group.notes).join('\n') || '—'}</td>
                     </tr>
                   ))}
                 </>
               )}
               {contractSummaries.length === 0 && sharedExpenseGroups.length === 0 && (
-                <tr><td colSpan={7} style={{ ...cellStyle, padding: '20px', textAlign: 'center', color: '#64748b' }}>Không có doanh thu hoặc chi phí trong kỳ này.</td></tr>
+                <tr><td className="whitespace-nowrap" colSpan={7} style={{ ...cellStyle, padding: '20px', textAlign: 'center', color: '#64748b' }}>Không có doanh thu hoặc chi phí trong kỳ này.</td></tr>
               )}
             </tbody>
             {(contractSummaries.length > 0 || sharedExpenseGroups.length > 0) && (
               <tfoot>
                 <tr style={{ backgroundColor: '#eff6ff', fontWeight: 800 }}>
-                  <td style={cellStyle}>TỔNG CỘNG</td>
-                  <td style={cellStyle}>Tổng chi phí</td>
-                  <td style={cellStyle}>—</td>
-                  <td style={cellStyle}>{formatCurrency(totalDeposits)}</td>
-                  <td style={cellStyle}>{formatCurrency(totalGrossRevenue)}</td>
-                  <td style={{ ...cellStyle, color: profit >= 0 ? '#166534' : '#b91c1c' }}>{formatCurrency(profit)}</td>
-                  <td style={cellStyle}>Doanh thu thực nhận: {formatCurrency(totalRevenue)} − Chi phí: {formatCurrency(totalExpenses)}</td>
+                  <td className="whitespace-nowrap" style={cellStyle}>TỔNG CỘNG</td>
+                  <td className="whitespace-nowrap" style={cellStyle}>Tổng chi phí</td>
+                  <td className="whitespace-nowrap" style={cellStyle}>—</td>
+                  <td className="whitespace-nowrap" style={cellStyle}>{formatCurrency(totalDeposits)}</td>
+                  <td className="whitespace-nowrap" style={cellStyle}>{formatCurrency(totalGrossRevenue)}</td>
+                  <td className="whitespace-nowrap" style={{ ...cellStyle, color: profit >= 0 ? '#166534' : '#b91c1c' }}>{formatCurrency(profit)}</td>
+                  <td className="whitespace-nowrap" style={cellStyle}>Doanh thu thực nhận: {formatCurrency(totalRevenue)} − Chi phí: {formatCurrency(totalExpenses)}</td>
                 </tr>
               </tfoot>
             )}
@@ -525,31 +525,31 @@ export default function TaxExpenseManager() {
           <article style={cardStyle}>
             <h3 style={{ margin: '0 0 12px', color: '#1e293b', fontSize: '16px' }}>Tổng hợp doanh thu theo hợp đồng</h3>
             <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-              <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+              <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
                 <thead><tr style={{ backgroundColor: '#f1f5f9' }}>
-                  {['Hợp đồng Công ty B', 'Công ty / Đối tác', 'Mã hàng', 'Ngày xuất đạt gần nhất', 'Số lượng đạt trong kỳ', 'Đơn giá', 'Tổng doanh thu xuất đạt', 'Tiền cọc', 'Doanh thu thực nhận'].map(label => <th key={label} style={cellStyle}>{label}</th>)}
+                  {['Hợp đồng Công ty B', 'Công ty / Đối tác', 'Mã hàng', 'Ngày xuất đạt gần nhất', 'Số lượng đạt trong kỳ', 'Đơn giá', 'Tổng doanh thu xuất đạt', 'Tiền cọc', 'Doanh thu thực nhận'].map(label => <th className="whitespace-nowrap" key={label} style={cellStyle}>{label}</th>)}
                 </tr></thead>
                 <tbody>
                   {revenueRows.map(({ contract, quantity, unitPrice, grossAmount, depositAmount, amount, latestExportDate }) => (
                     <tr key={String(contract.id)}>
-                      <td style={cellStyle}>{contract.contractNo || '—'}</td>
-                      <td style={cellStyle}>{contract.companyName || contract.company || contract.partner || '—'}</td>
-                      <td style={cellStyle}>{contract.productCode || '—'}</td>
-                      <td style={cellStyle}>{latestExportDate}</td>
-                      <td style={cellStyle}>{formatNumber(quantity)} {contract.unit || ''}</td>
-                      <td style={cellStyle}>{formatCurrency(unitPrice)}</td>
-                      <td style={cellStyle}>{formatCurrency(grossAmount)}</td>
-                      <td style={cellStyle}>{formatCurrency(depositAmount)}</td>
-                      <td style={{ ...cellStyle, color: '#166534', fontWeight: 800 }}>{formatCurrency(amount)}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{contract.contractNo || '—'}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{contract.companyName || contract.company || contract.partner || '—'}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{contract.productCode || '—'}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{latestExportDate}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{formatNumber(quantity)} {contract.unit || ''}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{formatCurrency(unitPrice)}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{formatCurrency(grossAmount)}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{formatCurrency(depositAmount)}</td>
+                      <td className="whitespace-nowrap" style={{ ...cellStyle, color: '#166534', fontWeight: 800 }}>{formatCurrency(amount)}</td>
                     </tr>
                   ))}
-                  {revenueRows.length === 0 && <tr><td colSpan={9} style={{ ...cellStyle, padding: '20px', textAlign: 'center', color: '#64748b' }}>Chưa có phiếu xuất hàng đạt trong kỳ này.</td></tr>}
+                  {revenueRows.length === 0 && <tr><td className="whitespace-nowrap" colSpan={9} style={{ ...cellStyle, padding: '20px', textAlign: 'center', color: '#64748b' }}>Chưa có phiếu xuất hàng đạt trong kỳ này.</td></tr>}
                 </tbody>
                 {revenueRows.length > 0 && <tfoot><tr style={{ backgroundColor: '#f0fdf4', fontWeight: 800 }}>
-                  <td colSpan={6} style={{ ...cellStyle, textAlign: 'right' }}>Tổng</td>
-                  <td style={cellStyle}>{formatCurrency(totalGrossRevenue)}</td>
-                  <td style={cellStyle}>{formatCurrency(totalDeposits)}</td>
-                  <td style={{ ...cellStyle, color: '#166534' }}>{formatCurrency(totalRevenue)}</td>
+                  <td className="whitespace-nowrap" colSpan={6} style={{ ...cellStyle, textAlign: 'right' }}>Tổng</td>
+                  <td className="whitespace-nowrap" style={cellStyle}>{formatCurrency(totalGrossRevenue)}</td>
+                  <td className="whitespace-nowrap" style={cellStyle}>{formatCurrency(totalDeposits)}</td>
+                  <td className="whitespace-nowrap" style={{ ...cellStyle, color: '#166534' }}>{formatCurrency(totalRevenue)}</td>
                 </tr></tfoot>}
               </table>
             </div>
@@ -558,24 +558,24 @@ export default function TaxExpenseManager() {
           <article style={cardStyle}>
             <h3 style={{ margin: '0 0 12px', color: '#1e293b', fontSize: '16px' }}>Chi tiết doanh thu theo các đợt xuất hàng đạt</h3>
             <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-              <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+              <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
                 <thead><tr style={{ backgroundColor: '#f1f5f9' }}>
-                  {['Ngày xuất', 'Số phiếu', 'Hợp đồng Công ty B', 'Hợp đồng Công ty A / Tổ đan', 'Mã hàng', 'Số lượng đạt', 'Đơn giá', 'Doanh thu đợt'].map(label => <th key={label} style={cellStyle}>{label}</th>)}
+                  {['Ngày xuất', 'Số phiếu', 'Hợp đồng Công ty B', 'Hợp đồng Công ty A / Tổ đan', 'Mã hàng', 'Số lượng đạt', 'Đơn giá', 'Doanh thu đợt'].map(label => <th className="whitespace-nowrap" key={label} style={cellStyle}>{label}</th>)}
                 </tr></thead>
                 <tbody>
                   {revenueRows.flatMap(row => row.exports.map(({ slip, quantity, amount }) => (
                     <tr key={`${String(row.contract.id)}-${String(slip.id)}`}>
-                      <td style={cellStyle}>{slip.date}</td>
-                      <td style={cellStyle}>{slip.slipNo}</td>
-                      <td style={cellStyle}>{row.contract.contractNo || slip.companyBContractNo || '—'}</td>
-                      <td style={cellStyle}>{slip.parentContractNo || slip.sourceContractNo || '—'}</td>
-                      <td style={cellStyle}>{slip.productCode}</td>
-                      <td style={cellStyle}>{formatNumber(quantity)} {slip.unit}</td>
-                      <td style={cellStyle}>{formatCurrency(row.unitPrice)}</td>
-                      <td style={{ ...cellStyle, fontWeight: 700 }}>{formatCurrency(amount)}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{slip.date}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{slip.slipNo}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{row.contract.contractNo || slip.companyBContractNo || '—'}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{slip.parentContractNo || slip.sourceContractNo || '—'}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{slip.productCode}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{formatNumber(quantity)} {slip.unit}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{formatCurrency(row.unitPrice)}</td>
+                      <td className="whitespace-nowrap" style={{ ...cellStyle, fontWeight: 700 }}>{formatCurrency(amount)}</td>
                     </tr>
                   )))}
-                  {revenueRows.length === 0 && <tr><td colSpan={8} style={{ ...cellStyle, padding: '20px', textAlign: 'center', color: '#64748b' }}>Chưa có chi tiết doanh thu trong kỳ này.</td></tr>}
+                  {revenueRows.length === 0 && <tr><td className="whitespace-nowrap" colSpan={8} style={{ ...cellStyle, padding: '20px', textAlign: 'center', color: '#64748b' }}>Chưa có chi tiết doanh thu trong kỳ này.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -601,27 +601,27 @@ export default function TaxExpenseManager() {
           <article style={cardStyle}>
             <h3 style={{ margin: '0 0 12px', color: '#1e293b', fontSize: '16px' }}>Chi phí tổng hợp theo mặt hàng / khoản mục</h3>
             <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-              <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+              <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
                 <thead><tr style={{ backgroundColor: '#f1f5f9' }}>
-                  {['Nhóm chi phí', 'Mặt hàng / Khoản mục', 'Tổng số lượng', 'Số đợt', 'Tổng tiền trong kỳ', 'Ghi chú tổng hợp các đợt'].map(label => <th key={label} style={cellStyle}>{label}</th>)}
+                  {['Nhóm chi phí', 'Mặt hàng / Khoản mục', 'Tổng số lượng', 'Số đợt', 'Tổng tiền trong kỳ', 'Ghi chú tổng hợp các đợt'].map(label => <th className="whitespace-nowrap" key={label} style={cellStyle}>{label}</th>)}
                 </tr></thead>
                 <tbody>
                   {expenseGroups.map(group => (
                     <tr key={`${group.category}-${group.name}-${group.unit}`}>
-                      <td style={cellStyle}>{group.category}</td>
-                      <td style={cellStyle}>{group.name}{group.unit ? ` (${group.unit})` : ''}</td>
-                      <td style={cellStyle}>{group.quantity > 0 ? formatNumber(group.quantity) : '—'}</td>
-                      <td style={cellStyle}>{group.lineCount}</td>
-                      <td style={{ ...cellStyle, fontWeight: 800 }}>{formatCurrency(group.amount)}</td>
-                      <td style={{ ...cellStyle, whiteSpace: 'pre-wrap' }}>{Array.from(group.notes).join('\n') || '—'}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{group.category}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{group.name}{group.unit ? ` (${group.unit})` : ''}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{group.quantity > 0 ? formatNumber(group.quantity) : '—'}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{group.lineCount}</td>
+                      <td className="whitespace-nowrap" style={{ ...cellStyle, fontWeight: 800 }}>{formatCurrency(group.amount)}</td>
+                      <td className="whitespace-nowrap" style={{ ...cellStyle, whiteSpace: 'pre-wrap' }}>{Array.from(group.notes).join('\n') || '—'}</td>
                     </tr>
                   ))}
-                  {expenseGroups.length === 0 && <tr><td colSpan={6} style={{ ...cellStyle, padding: '20px', textAlign: 'center', color: '#64748b' }}>Không có chi phí trong kỳ này.</td></tr>}
+                  {expenseGroups.length === 0 && <tr><td className="whitespace-nowrap" colSpan={6} style={{ ...cellStyle, padding: '20px', textAlign: 'center', color: '#64748b' }}>Không có chi phí trong kỳ này.</td></tr>}
                 </tbody>
                 {expenseGroups.length > 0 && <tfoot><tr style={{ backgroundColor: '#fff7ed', fontWeight: 800 }}>
-                  <td colSpan={4} style={{ ...cellStyle, textAlign: 'right' }}>Tổng chi phí</td>
-                  <td style={cellStyle}>{formatCurrency(totalExpenses)}</td>
-                  <td style={cellStyle} />
+                  <td className="whitespace-nowrap" colSpan={4} style={{ ...cellStyle, textAlign: 'right' }}>Tổng chi phí</td>
+                  <td className="whitespace-nowrap" style={cellStyle}>{formatCurrency(totalExpenses)}</td>
+                  <td className="whitespace-nowrap" style={cellStyle} />
                 </tr></tfoot>}
               </table>
             </div>
@@ -630,22 +630,22 @@ export default function TaxExpenseManager() {
           <article style={cardStyle}>
             <h3 style={{ margin: '0 0 12px', color: '#1e293b', fontSize: '16px' }}>Chi tiết phát sinh theo ngày</h3>
             <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-              <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+              <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
                 <thead><tr style={{ backgroundColor: '#f1f5f9' }}>
-                  {['Ngày', 'Nhóm chi phí', 'Mặt hàng / Khoản mục', 'Số lượng', 'Số tiền', 'Số phiếu / Ghi chú'].map(label => <th key={label} style={cellStyle}>{label}</th>)}
+                  {['Ngày', 'Nhóm chi phí', 'Mặt hàng / Khoản mục', 'Số lượng', 'Số tiền', 'Số phiếu / Ghi chú'].map(label => <th className="whitespace-nowrap" key={label} style={cellStyle}>{label}</th>)}
                 </tr></thead>
                 <tbody>
                   {expenseLines.map((line, index) => (
                     <tr key={`${line.category}-${line.reference}-${line.name}-${index}`}>
-                      <td style={cellStyle}>{line.date}</td>
-                      <td style={cellStyle}>{line.category}</td>
-                      <td style={cellStyle}>{line.name}</td>
-                      <td style={cellStyle}>{line.quantity > 0 ? `${formatNumber(line.quantity)} ${line.unit}` : '—'}</td>
-                      <td style={cellStyle}>{formatCurrency(line.amount)}</td>
-                      <td style={cellStyle}>{[line.reference, line.note].filter(Boolean).join(' · ') || '—'}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{line.date}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{line.category}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{line.name}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{line.quantity > 0 ? `${formatNumber(line.quantity)} ${line.unit}` : '—'}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{formatCurrency(line.amount)}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{[line.reference, line.note].filter(Boolean).join(' · ') || '—'}</td>
                     </tr>
                   ))}
-                  {expenseLines.length === 0 && <tr><td colSpan={6} style={{ ...cellStyle, padding: '20px', textAlign: 'center', color: '#64748b' }}>Chưa có chi tiết chi phí trong kỳ này.</td></tr>}
+                  {expenseLines.length === 0 && <tr><td className="whitespace-nowrap" colSpan={6} style={{ ...cellStyle, padding: '20px', textAlign: 'center', color: '#64748b' }}>Chưa có chi tiết chi phí trong kỳ này.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -660,30 +660,30 @@ export default function TaxExpenseManager() {
           {vatOutputRows.length > 0 && <article style={cardStyle}>
             <h3 style={{ margin: '0 0 12px', color: '#1e3a8a', fontSize: '16px' }}>1. Thuế GTGT Đầu Ra</h3>
             <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-              <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+              <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
                 <thead><tr style={{ backgroundColor: '#dbeafe' }}>
                   {['Số chứng từ / HĐ', 'Tên đối tác', 'Doanh số chưa thuế', 'Tỷ lệ % thuế GTGT', 'Tiền thuế GTGT đầu ra', 'Tổng cộng tiền thanh toán'].map(label => (
-                    <th key={label} style={{ ...cellStyle, fontWeight: 800 }}>{label}</th>
+                    <th className="whitespace-nowrap" key={label} style={{ ...cellStyle, fontWeight: 800 }}>{label}</th>
                   ))}
                 </tr></thead>
                 <tbody>
                   {vatOutputRows.map(row => (
                     <tr key={String(row.contract.id)}>
-                      <td style={cellStyle}>{row.contract.contractNo || '—'}</td>
-                      <td style={cellStyle}>{row.contract.companyName || row.contract.company || row.contract.partner || '—'}</td>
-                      <td style={cellStyle}>{formatCurrency(row.grossAmount)}</td>
-                      <td style={cellStyle}>{formatNumber(row.vatRatePercent)}%</td>
-                      <td style={cellStyle}>{formatCurrency(row.vatAmount)}</td>
-                      <td style={{ ...cellStyle, fontWeight: 800 }}>{formatCurrency(row.paymentAmount)}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{row.contract.contractNo || '—'}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{row.contract.companyName || row.contract.company || row.contract.partner || '—'}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{formatCurrency(row.grossAmount)}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{formatNumber(row.vatRatePercent)}%</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{formatCurrency(row.vatAmount)}</td>
+                      <td className="whitespace-nowrap" style={{ ...cellStyle, fontWeight: 800 }}>{formatCurrency(row.paymentAmount)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot><tr style={{ backgroundColor: '#eff6ff', fontWeight: 800 }}>
-                  <td colSpan={2} style={{ ...cellStyle, textAlign: 'right' }}>Tổng cộng</td>
-                  <td style={cellStyle}>{formatCurrency(vatOutputRows.reduce((sum, row) => sum + row.grossAmount, 0))}</td>
-                  <td style={cellStyle}>—</td>
-                  <td style={cellStyle}>{formatCurrency(totalOutputVat)}</td>
-                  <td style={cellStyle}>{formatCurrency(vatOutputRows.reduce((sum, row) => sum + row.paymentAmount, 0))}</td>
+                  <td className="whitespace-nowrap" colSpan={2} style={{ ...cellStyle, textAlign: 'right' }}>Tổng cộng</td>
+                  <td className="whitespace-nowrap" style={cellStyle}>{formatCurrency(vatOutputRows.reduce((sum, row) => sum + row.grossAmount, 0))}</td>
+                  <td className="whitespace-nowrap" style={cellStyle}>—</td>
+                  <td className="whitespace-nowrap" style={cellStyle}>{formatCurrency(totalOutputVat)}</td>
+                  <td className="whitespace-nowrap" style={cellStyle}>{formatCurrency(vatOutputRows.reduce((sum, row) => sum + row.paymentAmount, 0))}</td>
                 </tr></tfoot>
               </table>
             </div>
@@ -692,28 +692,28 @@ export default function TaxExpenseManager() {
           {vatInputRows.length > 0 && <article style={cardStyle}>
             <h3 style={{ margin: '0 0 12px', color: '#166534', fontSize: '16px' }}>2. Thuế GTGT Đầu Vào</h3>
             <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-              <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+              <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
                 <thead><tr style={{ backgroundColor: '#dcfce7' }}>
                   {['Ngày tháng', 'Nội dung chi', 'Số tiền trước thuế', '% Thuế GTGT', 'Số tiền thuế GTGT đầu vào'].map(label => (
-                    <th key={label} style={{ ...cellStyle, fontWeight: 800 }}>{label}</th>
+                    <th className="whitespace-nowrap" key={label} style={{ ...cellStyle, fontWeight: 800 }}>{label}</th>
                   ))}
                 </tr></thead>
                 <tbody>
                   {vatInputRows.map(({ expense, description, taxableAmount, vatRatePercent, vatAmount }) => (
                     <tr key={String(expense.id)}>
-                      <td style={cellStyle}>{expense.date || '—'}</td>
-                      <td style={cellStyle}>{description}</td>
-                      <td style={cellStyle}>{formatCurrency(taxableAmount)}</td>
-                      <td style={cellStyle}>{formatNumber(vatRatePercent)}%</td>
-                      <td style={cellStyle}>{formatCurrency(vatAmount)}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{expense.date || '—'}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{description}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{formatCurrency(taxableAmount)}</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{formatNumber(vatRatePercent)}%</td>
+                      <td className="whitespace-nowrap" style={cellStyle}>{formatCurrency(vatAmount)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot><tr style={{ backgroundColor: '#f0fdf4', fontWeight: 800 }}>
-                  <td colSpan={2} style={{ ...cellStyle, textAlign: 'right' }}>Tổng cộng</td>
-                  <td style={cellStyle}>{formatCurrency(vatInputRows.reduce((sum, row) => sum + row.taxableAmount, 0))}</td>
-                  <td style={cellStyle}>—</td>
-                  <td style={cellStyle}>{formatCurrency(totalInputVat)}</td>
+                  <td className="whitespace-nowrap" colSpan={2} style={{ ...cellStyle, textAlign: 'right' }}>Tổng cộng</td>
+                  <td className="whitespace-nowrap" style={cellStyle}>{formatCurrency(vatInputRows.reduce((sum, row) => sum + row.taxableAmount, 0))}</td>
+                  <td className="whitespace-nowrap" style={cellStyle}>—</td>
+                  <td className="whitespace-nowrap" style={cellStyle}>{formatCurrency(totalInputVat)}</td>
                 </tr></tfoot>
               </table>
             </div>

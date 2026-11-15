@@ -823,25 +823,25 @@ export const InventoryManager: React.FC<Props> = ({ onNavigateToTab }) => {
         </div>
 
         <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-full divide-y divide-gray-200 text-sm">
+          <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
             <thead>
               <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
-                <th style={{ padding: '10px' }}>Số Phiếu</th>
-                <th style={{ padding: '10px' }}>Ngày Nhận</th>
-                <th style={{ padding: '10px' }}>Mã Hợp Đồng</th>
-                <th style={{ padding: '10px' }}>Mã & Tên Hàng</th>
-                <th style={{ padding: '10px', textAlign: 'right' }}>Số Lượng</th>
-                <th style={{ padding: '10px' }}>Nguyên Phụ Liệu Kèm Theo</th>
-                <th style={{ padding: '10px' }}>Đơn Vị Tính</th>
-                <th style={{ padding: '10px' }}>Đối Tác / Tổ Đan</th>
-                <th style={{ padding: '10px' }}>Ghi Chú</th>
-                <th style={{ padding: '10px', textAlign: 'center' }}>Thao Tác</th>
+                <th className="whitespace-nowrap" style={{ padding: '10px' }}>Số Phiếu</th>
+                <th className="whitespace-nowrap" style={{ padding: '10px' }}>Ngày Nhận</th>
+                <th className="whitespace-nowrap" style={{ padding: '10px' }}>Mã Hợp Đồng</th>
+                <th className="whitespace-nowrap" style={{ padding: '10px' }}>Mã & Tên Hàng</th>
+                <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Số Lượng</th>
+                <th className="whitespace-nowrap" style={{ padding: '10px' }}>Nguyên Phụ Liệu Kèm Theo</th>
+                <th className="whitespace-nowrap" style={{ padding: '10px' }}>Đơn Vị Tính</th>
+                <th className="whitespace-nowrap" style={{ padding: '10px' }}>Đối Tác / Tổ Đan</th>
+                <th className="whitespace-nowrap" style={{ padding: '10px' }}>Ghi Chú</th>
+                <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>Thao Tác</th>
               </tr>
             </thead>
             <tbody>
               {filteredLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={10} style={{ padding: '20px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>
+                  <td className="whitespace-nowrap" colSpan={10} style={{ padding: '20px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>
                     Chưa có phiếu kho nào phát sinh!
                   </td>
                 </tr>
@@ -851,28 +851,28 @@ export const InventoryManager: React.FC<Props> = ({ onNavigateToTab }) => {
                   const isNK = isNKItem(item);
                   return (
                     <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                      <td style={{ padding: '10px', fontWeight: 'bold', color: isKhung ? '#0284c7' : isNK ? '#16a34a' : '#dc2626' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold', color: isKhung ? '#0284c7' : isNK ? '#16a34a' : '#dc2626' }}>
                         {item.slipNo}
                       </td>
-                      <td style={{ padding: '10px', fontWeight: 'bold', color: '#047857' }}>{formatDateVN(item.date)}</td>
-                      <td style={{ padding: '10px', fontWeight: 'bold', color: '#1e40af' }}>{item.contractNo || '—'}</td>
-                      <td style={{ padding: '10px' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold', color: '#047857' }}>{formatDateVN(item.date)}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold', color: '#1e40af' }}>{item.contractNo || '—'}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '10px' }}>
                         <span style={{ fontWeight: 'bold', color: '#7c3aed' }}>[{item.productCode}]</span> {item.productName}
                       </td>
-                      <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#b45309' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#b45309' }}>
                         {Number(item.quantity || 0).toLocaleString()}
                       </td>
-                      <td style={{ padding: '10px', color: '#0f766e', fontSize: '12px' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', color: '#0f766e', fontSize: '12px' }}>
                         {Array.isArray(item.accompanyingMaterials) && item.accompanyingMaterials.length
                           ? item.accompanyingMaterials.filter(Boolean).map(material =>
                             `${material.materialCode ? `${material.materialCode} - ` : ''}${material.materialName} ${Number(material.quantity).toLocaleString()} ${material.unit}`
                           ).join('; ')
                           : '—'}
                       </td>
-                      <td style={{ padding: '10px', fontSize: '12px', fontWeight: '600' }}>{item.unit}</td>
-                      <td style={{ padding: '10px', fontWeight: 'bold', color: '#334155' }}>{item.partnerName || item.partner || '—'}</td>
-                      <td style={{ padding: '10px', color: '#64748b', fontSize: '12px' }}>{item.note || '—'}</td>
-                      <td style={{ padding: '10px', textAlign: 'center' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', fontSize: '12px', fontWeight: '600' }}>{item.unit}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold', color: '#334155' }}>{item.partnerName || item.partner || '—'}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', color: '#64748b', fontSize: '12px' }}>{item.note || '—'}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>
                         {isNK ? (
                           <span style={{ color: '#64748b', fontSize: '12px' }}>Chỉ xem</span>
                         ) : (

@@ -199,42 +199,42 @@ export default function DepositReceiptManager() {
 
       {/* BẢNG DANH SÁCH PHIẾU CỌC */}
       <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-        <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+        <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
           <thead>
             <tr style={{ background: '#f1f5f9', textAlign: 'left', color: '#334155' }}>
-              <th style={{ padding: '10px' }}>Số Phiếu Cọc</th>
-              <th style={{ padding: '10px' }}>Ngày Thu</th>
-              <th style={{ padding: '10px' }}>Số Hợp Đồng</th>
-              <th style={{ padding: '10px' }}>Mã Hàng</th>
-              <th style={{ padding: '10px' }}>Đối Tác</th>
-              <th style={{ padding: '10px', textAlign: 'right' }}>Số Tiền Cọc</th>
-              <th style={{ padding: '10px', textAlign: 'center' }}>Hình Thức</th>
-              <th style={{ padding: '10px' }}>Ghi Chú</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Số Phiếu Cọc</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Ngày Thu</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Số Hợp Đồng</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Mã Hàng</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Đối Tác</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Số Tiền Cọc</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>Hình Thức</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Ghi Chú</th>
             </tr>
           </thead>
           <tbody>
             {filteredDeposits.length > 0 ? (
               filteredDeposits.map((item, idx) => (
                 <tr key={item.id} style={{ borderBottom: '1px solid #f8fafc', background: idx % 2 === 0 ? '#fff' : '#fafafa' }}>
-                  <td style={{ padding: '10px', fontWeight: 'bold', color: '#2563eb' }}>{item.slipNo}</td>
-                  <td style={{ padding: '10px' }}>{item.date}</td>
-                  <td style={{ padding: '10px', fontWeight: 'bold' }}>{item.contractNo}</td>
-                  <td style={{ padding: '10px', color: '#16a34a', fontWeight: 'bold' }}>{item.productCode}</td>
-                  <td style={{ padding: '10px' }}>{item.partnerName}</td>
-                  <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#0f172a', fontSize: '13px' }}>
+                  <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold', color: '#2563eb' }}>{item.slipNo}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '10px' }}>{item.date}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold' }}>{item.contractNo}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '10px', color: '#16a34a', fontWeight: 'bold' }}>{item.productCode}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '10px' }}>{item.partnerName}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#0f172a', fontSize: '13px' }}>
                     {item.amount.toLocaleString()} đ
                   </td>
-                  <td style={{ padding: '10px', textAlign: 'center' }}>
+                  <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>
                     <span style={{ background: item.paymentMethod === 'Chuyển khoản' ? '#e0f2fe' : '#fef3c7', color: item.paymentMethod === 'Chuyển khoản' ? '#0369a1' : '#92400e', padding: '3px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '11px' }}>
                       {item.paymentMethod}
                     </span>
                   </td>
-                  <td style={{ padding: '10px', color: '#64748b' }}>{item.note}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '10px', color: '#64748b' }}>{item.note}</td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={8} style={{ textAlign: 'center', padding: '20px', color: '#94a3b8' }}>
+                <td className="whitespace-nowrap" colSpan={8} style={{ textAlign: 'center', padding: '20px', color: '#94a3b8' }}>
                   Không tìm thấy phiếu đặt cọc nào phù hợp với từ khóa!
                 </td>
               </tr>

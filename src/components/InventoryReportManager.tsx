@@ -1596,42 +1596,42 @@ const handleSaveTransaction = (e: React.FormEvent) => {
 
         {activeTab === 'KS_INCOMPLETE' && (
           <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ marginBottom: '16px' }}>
-            <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-full divide-y divide-gray-200 text-sm">
+            <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
               <thead>
                 <tr style={{ backgroundColor: '#fef2f2', borderBottom: '2px solid #fecaca' }}>
-                  <th style={{ padding: '10px' }}>Số HĐ CTY</th>
-                  <th style={{ padding: '10px' }}>Mã Hàng / Tên Hàng</th>
-                  <th style={{ padding: '10px' }}>Cty Đối Tác</th>
-                  <th style={{ padding: '10px', textAlign: 'right' }}>SL HĐ</th>
-                  <th style={{ padding: '10px', textAlign: 'right' }}>Đã Nhận</th>
-                  <th style={{ padding: '10px', textAlign: 'right' }}>Còn Thiếu</th>
-                  <th style={{ padding: '10px', textAlign: 'center' }}>Số Lần Nhận</th>
-                  <th style={{ padding: '10px', textAlign: 'center' }}>Thao Tác</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px' }}>Số HĐ CTY</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px' }}>Mã Hàng / Tên Hàng</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px' }}>Cty Đối Tác</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>SL HĐ</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Đã Nhận</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Còn Thiếu</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>Số Lần Nhận</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>Thao Tác</th>
                 </tr>
               </thead>
               <tbody>
                 {incompleteFrameContracts.length === 0 ? (
                   <tr>
-                    <td colSpan={8} style={{ padding: '20px', textAlign: 'center', color: '#166534', fontWeight: 'bold' }}>
+                    <td className="whitespace-nowrap" colSpan={8} style={{ padding: '20px', textAlign: 'center', color: '#166534', fontWeight: 'bold' }}>
                       ✅ Tất cả hợp đồng công ty đã nhận đủ khung sơn.
                     </td>
                   </tr>
                 ) : incompleteFrameContracts.map(({ contract, receiptLogs, receivedQty, contractQty, remainingQty }) => (
                   <tr key={contract.id} style={{ borderBottom: '1px solid #fee2e2' }}>
-                    <td style={{ padding: '10px', fontWeight: 'bold', color: '#1e40af' }}>{contract.contractNo || '—'}</td>
-                    <td style={{ padding: '10px' }}>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold', color: '#1e40af' }}>{contract.contractNo || '—'}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px' }}>
                       <strong style={{ color: '#7c3aed' }}>[{contract.productCode}]</strong> {contract.productName || ''}
                     </td>
-                    <td style={{ padding: '10px' }}>{contract.companyName || contract.company || '—'}</td>
-                    <td style={{ padding: '10px', textAlign: 'right' }}>{contractQty.toLocaleString()}</td>
-                    <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#0369a1' }}>{receivedQty.toLocaleString()}</td>
-                    <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#dc2626' }}>{remainingQty.toLocaleString()}</td>
-                    <td style={{ padding: '10px', textAlign: 'center' }}>
+                    <td className="whitespace-nowrap" style={{ padding: '10px' }}>{contract.companyName || contract.company || '—'}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>{contractQty.toLocaleString()}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#0369a1' }}>{receivedQty.toLocaleString()}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#dc2626' }}>{remainingQty.toLocaleString()}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>
                       <button type="button" onClick={() => setHistoryContract(contract)} style={{ padding: '5px 9px', border: '1px solid #93c5fd', borderRadius: '6px', backgroundColor: '#eff6ff', color: '#1d4ed8', cursor: 'pointer', fontWeight: 'bold' }}>
                         Đã nhận {receiptLogs.length} lần
                       </button>
                     </td>
-                    <td style={{ padding: '10px', textAlign: 'center' }}>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>
                       <button type="button" onClick={() => startSupplementalFrameReceipt(contract)} style={{ padding: '6px 10px', border: 'none', borderRadius: '6px', backgroundColor: '#0284c7', color: '#fff', cursor: 'pointer', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
                         📥 Nhập khung lần {receiptLogs.length + 1}
                       </button>
@@ -1644,25 +1644,25 @@ const handleSaveTransaction = (e: React.FormEvent) => {
         )}
 
         <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ display: activeTab === 'KS_INCOMPLETE' || activeTab === 'FRAME_STOCK' ? 'none' : undefined }}>
-          <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-full divide-y divide-gray-200 text-sm">
+          <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
             <thead>
               <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
-              <th style={{ padding: '8px' }}>Số Phiếu</th>
-              <th style={{ padding: '8px' }}>Ngày Nhận</th>
-              <th style={{ padding: '8px' }}>Mã Hợp Đồng</th>
-              <th style={{ padding: '8px' }}>Mã & Tên Hàng</th>
-              <th style={{ padding: '8px', textAlign: 'right' }}>Số Lượng</th>
-              <th style={{ padding: '8px' }}>Nguyên Phụ Liệu Kèm Theo</th>
-              <th style={{ padding: '8px' }}>ĐVT</th>
-              <th style={{ padding: '8px' }}>Đối Tác / Tổ Đan</th>
-              <th style={{ padding: '8px' }}>Ghi Chú</th>
-              <th style={{ padding: '8px', textAlign: 'center' }}>Thao Tác</th>
+              <th className="whitespace-nowrap" style={{ padding: '8px' }}>Số Phiếu</th>
+              <th className="whitespace-nowrap" style={{ padding: '8px' }}>Ngày Nhận</th>
+              <th className="whitespace-nowrap" style={{ padding: '8px' }}>Mã Hợp Đồng</th>
+              <th className="whitespace-nowrap" style={{ padding: '8px' }}>Mã & Tên Hàng</th>
+              <th className="whitespace-nowrap" style={{ padding: '8px', textAlign: 'right' }}>Số Lượng</th>
+              <th className="whitespace-nowrap" style={{ padding: '8px' }}>Nguyên Phụ Liệu Kèm Theo</th>
+              <th className="whitespace-nowrap" style={{ padding: '8px' }}>ĐVT</th>
+              <th className="whitespace-nowrap" style={{ padding: '8px' }}>Đối Tác / Tổ Đan</th>
+              <th className="whitespace-nowrap" style={{ padding: '8px' }}>Ghi Chú</th>
+              <th className="whitespace-nowrap" style={{ padding: '8px', textAlign: 'center' }}>Thao Tác</th>
               </tr>
             </thead>
             <tbody>
               {filteredLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={10} style={{ padding: '16px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>
+                  <td className="whitespace-nowrap" colSpan={10} style={{ padding: '16px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>
                     Chưa có phiếu kho nào phát sinh!
                   </td>
                 </tr>
@@ -1673,28 +1673,28 @@ const handleSaveTransaction = (e: React.FormEvent) => {
                   const isReturnSlipReceipt = Boolean(item.sourceReturnSlipId);
                   return (
                     <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                      <td style={{ padding: '8px', fontWeight: 'bold', color: isKhung ? '#0284c7' : isNK ? '#16a34a' : '#dc2626' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '8px', fontWeight: 'bold', color: isKhung ? '#0284c7' : isNK ? '#16a34a' : '#dc2626' }}>
                         {item.slipNo}
                       </td>
-                      <td style={{ padding: '8px', fontWeight: 'bold', color: '#047857' }}>{formatDateVN(item.date)}</td>
-                      <td style={{ padding: '8px', fontWeight: 'bold', color: '#1e40af' }}>{item.contractNo || '—'}</td>
-                      <td style={{ padding: '8px' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '8px', fontWeight: 'bold', color: '#047857' }}>{formatDateVN(item.date)}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '8px', fontWeight: 'bold', color: '#1e40af' }}>{item.contractNo || '—'}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '8px' }}>
                         <span style={{ fontWeight: 'bold', color: '#7c3aed' }}>[{item.productCode}]</span> {item.productName}
                       </td>
-                      <td style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold', color: '#b45309' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold', color: '#b45309' }}>
                         {Number(item.quantity || 0).toLocaleString()}
                       </td>
-                      <td style={{ padding: '8px', color: '#0f766e', fontSize: '12px' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '8px', color: '#0f766e', fontSize: '12px' }}>
                         {Array.isArray(item.accompanyingMaterials) && item.accompanyingMaterials.length
                           ? item.accompanyingMaterials.filter(Boolean).map(material =>
                             `${material.materialCode ? `${material.materialCode} - ` : ''}${material.materialName} ${Number(material.quantity).toLocaleString()} ${material.unit}`
                           ).join('; ')
                           : '—'}
                       </td>
-                      <td style={{ padding: '8px', fontSize: '12px', fontWeight: '600' }}>{item.unit}</td>
-                      <td style={{ padding: '8px', fontWeight: 'bold', color: '#334155' }}>{item.partnerName || item.partner || '—'}</td>
-                      <td style={{ padding: '8px', color: '#64748b', fontSize: '12px' }}>{item.note || '—'}</td>
-                      <td style={{ padding: '8px', textAlign: 'center' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '8px', fontSize: '12px', fontWeight: '600' }}>{item.unit}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '8px', fontWeight: 'bold', color: '#334155' }}>{item.partnerName || item.partner || '—'}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '8px', color: '#64748b', fontSize: '12px' }}>{item.note || '—'}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '8px', textAlign: 'center' }}>
                         <div className="slip-action-buttons">
                           <button
                             type="button"
@@ -1748,32 +1748,32 @@ const handleSaveTransaction = (e: React.FormEvent) => {
               <button type="button" onClick={() => setHistoryContract(null)} style={{ border: 0, borderRadius: '6px', padding: '7px 11px', backgroundColor: '#e2e8f0', cursor: 'pointer', fontWeight: 'bold' }}>Đóng</button>
             </div>
             <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{  }}>
-              <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-full divide-y divide-gray-200 text-sm">
+              <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
                 <thead>
                   <tr style={{ backgroundColor: '#f1f5f9' }}>
-                    <th style={{ padding: '9px' }}>Lần</th>
-                    <th style={{ padding: '9px' }}>Ngày Tháng</th>
-                    <th style={{ padding: '9px' }}>Mã Hàng</th>
-                    <th style={{ padding: '9px' }}>Số HĐ</th>
-                    <th style={{ padding: '9px', textAlign: 'right' }}>Số Lượng</th>
-                    <th style={{ padding: '9px' }}>Ghi Chú</th>
-                    <th style={{ padding: '9px' }}>Chứng Từ / Hình Ảnh</th>
+                    <th className="whitespace-nowrap" style={{ padding: '9px' }}>Lần</th>
+                    <th className="whitespace-nowrap" style={{ padding: '9px' }}>Ngày Tháng</th>
+                    <th className="whitespace-nowrap" style={{ padding: '9px' }}>Mã Hàng</th>
+                    <th className="whitespace-nowrap" style={{ padding: '9px' }}>Số HĐ</th>
+                    <th className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right' }}>Số Lượng</th>
+                    <th className="whitespace-nowrap" style={{ padding: '9px' }}>Ghi Chú</th>
+                    <th className="whitespace-nowrap" style={{ padding: '9px' }}>Chứng Từ / Hình Ảnh</th>
                   </tr>
                 </thead>
                 <tbody>
                   {getContractFrameLogs(historyContract).length === 0 ? (
-                    <tr><td colSpan={7} style={{ padding: '18px', textAlign: 'center', color: '#64748b' }}>Chưa có đợt nhập khung nào được ghi nhận.</td></tr>
+                    <tr><td className="whitespace-nowrap" colSpan={7} style={{ padding: '18px', textAlign: 'center', color: '#64748b' }}>Chưa có đợt nhập khung nào được ghi nhận.</td></tr>
                   ) : getContractFrameLogs(historyContract).map((log: any, index: number) => {
                     const proofImage = log.image || log.imageProof;
                     return (
                       <tr key={log.id || log.slipNo || index} style={{ borderTop: '1px solid #e2e8f0' }}>
-                        <td style={{ padding: '9px', fontWeight: 'bold' }}>Lần {index + 1}</td>
-                        <td style={{ padding: '9px' }}>{formatDateVN(log.date)}</td>
-                        <td style={{ padding: '9px', color: '#7c3aed', fontWeight: 'bold' }}>{log.productCode || historyContract.productCode}</td>
-                        <td style={{ padding: '9px', color: '#1e40af', fontWeight: 'bold' }}>{log.contractNo || historyContract.contractNo || '—'}</td>
-                        <td style={{ padding: '9px', textAlign: 'right', fontWeight: 'bold' }}>{Number(log.quantity || 0).toLocaleString()} {log.unit || 'bộ'}</td>
-                        <td style={{ padding: '9px', color: '#475569' }}>{log.note || '—'}</td>
-                        <td style={{ padding: '9px' }}>
+                        <td className="whitespace-nowrap" style={{ padding: '9px', fontWeight: 'bold' }}>Lần {index + 1}</td>
+                        <td className="whitespace-nowrap" style={{ padding: '9px' }}>{formatDateVN(log.date)}</td>
+                        <td className="whitespace-nowrap" style={{ padding: '9px', color: '#7c3aed', fontWeight: 'bold' }}>{log.productCode || historyContract.productCode}</td>
+                        <td className="whitespace-nowrap" style={{ padding: '9px', color: '#1e40af', fontWeight: 'bold' }}>{log.contractNo || historyContract.contractNo || '—'}</td>
+                        <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right', fontWeight: 'bold' }}>{Number(log.quantity || 0).toLocaleString()} {log.unit || 'bộ'}</td>
+                        <td className="whitespace-nowrap" style={{ padding: '9px', color: '#475569' }}>{log.note || '—'}</td>
+                        <td className="whitespace-nowrap" style={{ padding: '9px' }}>
                           {proofImage ? (
                             <button type="button" onClick={() => setEnlargedProofImage(proofImage)} style={{ padding: 0, border: 0, background: 'none', cursor: 'zoom-in' }} title="Bấm để phóng to ảnh chứng từ">
                               <img src={proofImage} alt={`Chứng từ nhập khung lần ${index + 1}`} style={{ display: 'block', width: '72px', height: '56px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
@@ -1842,7 +1842,7 @@ const handleSaveTransaction = (e: React.FormEvent) => {
 
               <section style={{ marginBottom: '18px' }}>
                 <h3 style={{ margin: '0 0 10px', paddingBottom: '6px', borderBottom: '1px solid #64748b', fontSize: '15px' }}>II. CHI TIẾT SỐ LƯỢNG &amp; TÌNH TRẠNG KHUNG</h3>
-                <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+                <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
                   <tbody>
                     {([
                       ['Tổng số lượng đã phát', frameReceiptPreview.issuedQuantity, frameReceiptPreview.contract.unit || 'Bộ'],
@@ -1852,8 +1852,8 @@ const handleSaveTransaction = (e: React.FormEvent) => {
                       ['Số khung ở tổ đan', Math.max(0, frameReceiptPreview.issuedQuantity - frameReceiptPreview.returnedBefore - frameReceiptPreview.returnedThisTime), frameReceiptPreview.contract.unit || 'Bộ']
                     ] as Array<[string, number, string]>).map(([label, quantity, unit]) => (
                       <tr key={label as string}>
-                        <th style={{ padding: '8px 10px', border: '1px solid #94a3b8', textAlign: 'left', fontWeight: 600 }}>{label}</th>
-                        <td style={{ padding: '8px 10px', border: '1px solid #94a3b8', textAlign: 'right' }}>{Number(quantity) || 0} {unit}</td>
+                        <th className="whitespace-nowrap" style={{ padding: '8px 10px', border: '1px solid #94a3b8', textAlign: 'left', fontWeight: 600 }}>{label}</th>
+                        <td className="whitespace-nowrap" style={{ padding: '8px 10px', border: '1px solid #94a3b8', textAlign: 'right' }}>{Number(quantity) || 0} {unit}</td>
                       </tr>
                     ))}
                   </tbody>

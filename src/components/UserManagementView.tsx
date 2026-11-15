@@ -300,29 +300,29 @@ export default function UserManagementView() {
         </div>
 
         <div style={{ overflowX: 'auto', width: '100%' }} className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll">
-          <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-full divide-y divide-gray-200 text-sm">
+          <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
           <thead>
             <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '1px solid #cbd5e1', color: '#475569' }}>
-              <th style={{ padding: '10px 14px', fontWeight: 600 }}>Tên đăng nhập / Tên hiển thị</th>
-              <th style={{ padding: '10px 14px', fontWeight: 600 }}>Vai trò / Phân quyền</th>
-                <th style={{ padding: '10px 14px', fontWeight: 600 }}>Ngày tạo</th>
-                <th style={{ padding: '10px 14px', fontWeight: 600 }}>Trạng thái</th>
-                <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 600 }}>Thao tác</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px 14px', fontWeight: 600 }}>Tên đăng nhập / Tên hiển thị</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px 14px', fontWeight: 600 }}>Vai trò / Phân quyền</th>
+                <th className="whitespace-nowrap" style={{ padding: '10px 14px', fontWeight: 600 }}>Ngày tạo</th>
+                <th className="whitespace-nowrap" style={{ padding: '10px 14px', fontWeight: 600 }}>Trạng thái</th>
+                <th className="whitespace-nowrap" style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 600 }}>Thao tác</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} style={{ padding: '30px', textAlign: 'center', color: '#64748b' }}>Đang tải danh sách tài khoản...</td></tr>
+                <tr><td className="whitespace-nowrap" colSpan={5} style={{ padding: '30px', textAlign: 'center', color: '#64748b' }}>Đang tải danh sách tài khoản...</td></tr>
               ) : users.length === 0 ? (
-                <tr><td colSpan={5} style={{ padding: '30px', textAlign: 'center', color: '#64748b' }}>Chưa có hồ sơ người dùng nào trong cơ sở dữ liệu. Bấm "➕ Tạo người dùng mới" để bắt đầu!</td></tr>
+                <tr><td className="whitespace-nowrap" colSpan={5} style={{ padding: '30px', textAlign: 'center', color: '#64748b' }}>Chưa có hồ sơ người dùng nào trong cơ sở dữ liệu. Bấm "➕ Tạo người dùng mới" để bắt đầu!</td></tr>
               ) : users.map(profile => {
                 const status = statusLabels[profile.account_status] || statusLabels.active;
                 const isSelf = profile.user_id === user?.id;
                 const roleChanged = draftRoles[profile.user_id] !== profile.role;
                 return (
                   <tr key={profile.user_id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '10px 14px', fontWeight: 600, color: '#0f172a' }}>{profile.username}</td>
-                    <td style={{ padding: '10px 14px' }}>
+                    <td className="whitespace-nowrap" style={{ padding: '10px 14px', fontWeight: 600, color: '#0f172a' }}>{profile.username}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px 14px' }}>
                       <select
                         value={draftRoles[profile.user_id] || profile.role}
                         disabled={isSelf || savingUserId === profile.user_id}
@@ -338,13 +338,13 @@ export default function UserManagementView() {
                       </select>
                       {isSelf && <span style={{ marginLeft: '8px', fontSize: '11px', fontWeight: 'bold', color: '#2563eb' }}>(Đang đăng nhập)</span>}
                     </td>
-                    <td style={{ padding: '10px 14px', color: '#64748b' }}>{profile.auth_created_at ? formatCreatedAt(profile.auth_created_at) : '—'}</td>
-                    <td style={{ padding: '10px 14px' }}>
+                    <td className="whitespace-nowrap" style={{ padding: '10px 14px', color: '#64748b' }}>{profile.auth_created_at ? formatCreatedAt(profile.auth_created_at) : '—'}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px 14px' }}>
                       <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 'bold', backgroundColor: status.bg, color: status.color }}>
                         {status.label}
                       </span>
                     </td>
-                    <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                    <td className="whitespace-nowrap" style={{ padding: '10px 14px', textAlign: 'right' }}>
                       <button
                         type="button"
                         onClick={() => void saveRole(profile)}

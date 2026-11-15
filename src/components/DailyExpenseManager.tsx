@@ -127,30 +127,30 @@ export default function DailyExpenseManager() {
 
       {/* Bảng Danh Sách */}
       <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-        <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+        <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
           <thead>
             <tr style={{ background: '#f1f5f9', textAlign: 'left' }}>
-              <th style={{ padding: '8px' }}>STT</th>
-              <th style={{ padding: '8px' }}>Mã Khoản Chi</th>
-              <th style={{ padding: '8px' }}>Tên Khoản Chi</th>
-              <th style={{ padding: '8px', textAlign: 'right' }}>Số Tiền</th>
-              <th style={{ padding: '8px' }}>Hình Thức Thanh Toán</th>
-              <th style={{ padding: '8px' }}>Ngày Chi</th>
-              <th style={{ padding: '8px' }}>Người Thực Hiện</th>
-              <th style={{ padding: '8px' }}>Ghi Chú</th>
+              <th className="whitespace-nowrap" style={{ padding: '8px' }}>STT</th>
+              <th className="whitespace-nowrap" style={{ padding: '8px' }}>Mã Khoản Chi</th>
+              <th className="whitespace-nowrap" style={{ padding: '8px' }}>Tên Khoản Chi</th>
+              <th className="whitespace-nowrap" style={{ padding: '8px', textAlign: 'right' }}>Số Tiền</th>
+              <th className="whitespace-nowrap" style={{ padding: '8px' }}>Hình Thức Thanh Toán</th>
+              <th className="whitespace-nowrap" style={{ padding: '8px' }}>Ngày Chi</th>
+              <th className="whitespace-nowrap" style={{ padding: '8px' }}>Người Thực Hiện</th>
+              <th className="whitespace-nowrap" style={{ padding: '8px' }}>Ghi Chú</th>
             </tr>
           </thead>
           <tbody>
             {expenses.map((item, idx) => (
               <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                <td style={{ padding: '8px' }}>{idx + 1}</td>
-                <td style={{ padding: '8px', fontWeight: 'bold', color: '#2563eb' }}>{item.expenseCode}</td>
-                <td style={{ padding: '8px', fontWeight: 'bold' }}>{item.expenseName}</td>
-                <td style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold', color: '#dc2626' }}>{item.amount.toLocaleString()} đ</td>
-                <td style={{ padding: '8px' }}>{item.paymentMethod || '—'}</td>
-                <td style={{ padding: '8px' }}>{item.date}</td>
-                <td style={{ padding: '8px' }}>{item.handler}</td>
-                <td style={{ padding: '8px', color: '#64748b' }}>{item.note}</td>
+                <td className="whitespace-nowrap" style={{ padding: '8px' }}>{idx + 1}</td>
+                <td className="whitespace-nowrap" style={{ padding: '8px', fontWeight: 'bold', color: '#2563eb' }}>{item.expenseCode}</td>
+                <td className="whitespace-nowrap" style={{ padding: '8px', fontWeight: 'bold' }}>{item.expenseName}</td>
+                <td className="whitespace-nowrap" style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold', color: '#dc2626' }}>{item.amount.toLocaleString()} đ</td>
+                <td className="whitespace-nowrap" style={{ padding: '8px' }}>{item.paymentMethod || '—'}</td>
+                <td className="whitespace-nowrap" style={{ padding: '8px' }}>{item.date}</td>
+                <td className="whitespace-nowrap" style={{ padding: '8px' }}>{item.handler}</td>
+                <td className="whitespace-nowrap" style={{ padding: '8px', color: '#64748b' }}>{item.note}</td>
               </tr>
             ))}
           </tbody>

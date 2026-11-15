@@ -113,31 +113,31 @@ export default function DefectiveReturnManager() {
       )}
 
       <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-        <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+        <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
           <thead>
             <tr style={{ background: '#f1f5f9', textAlign: 'left' }}>
-              <th style={{ padding: '10px' }}>Số Phiếu</th>
-              <th style={{ padding: '10px' }}>Ngày</th>
-              <th style={{ padding: '10px' }}>Hợp Đồng Cty B</th>
-              <th style={{ padding: '10px' }}>Mã Hàng</th>
-              <th style={{ padding: '10px', textAlign: 'right' }}>SL Lỗi</th>
-              <th style={{ padding: '10px' }}>Lý Do</th>
-              <th style={{ padding: '10px', textAlign: 'center' }}>Ảnh</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Số Phiếu</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Ngày</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Hợp Đồng Cty B</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Mã Hàng</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>SL Lỗi</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Lý Do</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>Ảnh</th>
             </tr>
           </thead>
           <tbody>
             {slips.length > 0 ? slips.map(s => (
               <tr key={s.id} style={{ borderBottom: '1px solid #f8fafc' }}>
-                <td style={{ padding: '10px', fontWeight: 'bold', color: '#dc2626' }}>{s.slipNo}</td>
-                <td style={{ padding: '10px' }}>{s.date}</td>
-                <td style={{ padding: '10px', fontWeight: 'bold' }}>{s.contractNoB}</td>
-                <td style={{ padding: '10px' }}>{s.productCode}</td>
-                <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#dc2626' }}>{s.defectiveQty} {s.unitType}</td>
-                <td style={{ padding: '10px' }}>{s.reason}</td>
-                <td style={{ padding: '10px', textAlign: 'center' }}>📸 {s.images.length}</td>
+                <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold', color: '#dc2626' }}>{s.slipNo}</td>
+                <td className="whitespace-nowrap" style={{ padding: '10px' }}>{s.date}</td>
+                <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold' }}>{s.contractNoB}</td>
+                <td className="whitespace-nowrap" style={{ padding: '10px' }}>{s.productCode}</td>
+                <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#dc2626' }}>{s.defectiveQty} {s.unitType}</td>
+                <td className="whitespace-nowrap" style={{ padding: '10px' }}>{s.reason}</td>
+                <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>📸 {s.images.length}</td>
               </tr>
             )) : (
-              <tr><td colSpan={7} style={{ textAlign: 'center', padding: '20px', color: '#94a3b8' }}>Chưa có phiếu hàng lỗi nào!</td></tr>
+              <tr><td className="whitespace-nowrap" colSpan={7} style={{ textAlign: 'center', padding: '20px', color: '#94a3b8' }}>Chưa có phiếu hàng lỗi nào!</td></tr>
             )}
           </tbody>
         </table>

@@ -2360,7 +2360,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
 
             <section style={{ marginBottom: '36px' }}>
               <h3 style={{ fontSize: '15px', fontWeight: '800', borderBottom: '1px solid #cbd5e1', paddingBottom: '8px', marginBottom: '12px' }}>II. SỐ LƯỢNG VÀ TÀI CHÍNH</h3>
-              <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+              <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
                 <tbody>
                   {[
                     ['Tổng số lượng giao', `${formatCurrency(subContractSlipData.quantity)} ${subContractSlipData.quantityUnit}`],
@@ -2371,8 +2371,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                     ['Thành tiền tổng cộng', `${formatCurrency(subContractSlipData.totalAmount)} VNĐ`]
                   ].map(([label, value]) => (
                     <tr key={label}>
-                      <td style={{ border: '1px solid #cbd5e1', padding: '10px 12px', fontWeight: label === 'Thành tiền tổng cộng' ? '800' : '500', backgroundColor: '#f8fafc' }}>{label}</td>
-                      <td style={{ border: '1px solid #cbd5e1', padding: '10px 12px', textAlign: 'right', fontWeight: '700', color: label === 'Thành tiền tổng cộng' ? '#166534' : '#172033' }}>{value}</td>
+                      <td className="whitespace-nowrap" style={{ border: '1px solid #cbd5e1', padding: '10px 12px', fontWeight: label === 'Thành tiền tổng cộng' ? '800' : '500', backgroundColor: '#f8fafc' }}>{label}</td>
+                      <td className="whitespace-nowrap" style={{ border: '1px solid #cbd5e1', padding: '10px 12px', textAlign: 'right', fontWeight: '700', color: label === 'Thành tiền tổng cộng' ? '#166534' : '#172033' }}>{value}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -2439,25 +2439,25 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
           </div>
 
           <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-  <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-full divide-y divide-gray-200 text-sm">
+  <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
               <thead>
                 <tr style={{ backgroundColor: '#e0f2fe', borderBottom: '2px solid #7dd3fc' }}>
-                  <th style={{ padding: '10px' }}>Mã Hàng</th>
-                  <th style={{ padding: '10px' }}>Tên Tổ Đan</th>
-                  <th style={{ padding: '10px' }}>Lần Xuất Đầu (Lần 1)</th>
-                  <th style={{ padding: '10px', textAlign: 'right' }}>SL Hợp Đồng</th>
-                  <th style={{ padding: '10px', textAlign: 'right' }}>Tổng Khung Phát</th>
-                  <th style={{ padding: '10px', textAlign: 'right' }}>Đang Ở Tổ (Sau Thu Hồi)</th>
-                  <th style={{ padding: '10px', textAlign: 'right' }}>Còn Thiếu</th>
-                  <th style={{ padding: '10px', textAlign: 'right' }}>Đã Thu Hồi</th>
-                  <th style={{ padding: '10px', textAlign: 'center' }}>Trạng Thái Khung</th>
-                  <th style={{ padding: '10px', textAlign: 'center' }}>Thao Tác</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px' }}>Mã Hàng</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px' }}>Tên Tổ Đan</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px' }}>Lần Xuất Đầu (Lần 1)</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>SL Hợp Đồng</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Tổng Khung Phát</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Đang Ở Tổ (Sau Thu Hồi)</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Còn Thiếu</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Đã Thu Hồi</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>Trạng Thái Khung</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>Thao Tác</th>
                 </tr>
               </thead>
               <tbody>
                 {exportedSubContracts.length === 0 ? (
                   <tr>
-                    <td colSpan={10} style={{ padding: '20px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>
+                    <td className="whitespace-nowrap" colSpan={10} style={{ padding: '20px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>
                       Không tìm thấy hợp đồng nào phù hợp với bộ lọc!
                     </td>
                   </tr>
@@ -2474,24 +2474,24 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
 
                     return (
                       <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                        <td style={{ padding: '10px', fontWeight: 'bold', color: '#7c3aed' }}>{item.productCode}</td>
-                        <td style={{ padding: '10px', fontWeight: 'bold', color: '#1e293b' }}>{item.craftGroupLeader}</td>
-                        <td style={{ padding: '10px', fontSize: '12px' }}>
+                        <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold', color: '#7c3aed' }}>{item.productCode}</td>
+                        <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold', color: '#1e293b' }}>{item.craftGroupLeader}</td>
+                        <td className="whitespace-nowrap" style={{ padding: '10px', fontSize: '12px' }}>
                           {firstLog ? `${formatDateVN(firstLog.exportDate)} (${firstLog.actualQty} ${String(item.unit || 'Bộ').toLowerCase()})` : '—'}
                         </td>
-                        <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#b45309' }}>{target.toLocaleString()}</td>
-                        <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#64748b' }}>{grossIssued.toLocaleString()}</td>
-                        <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#059669' }}>{totalRec.toLocaleString()}</td>
-                        <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: remain > 0 ? '#dc2626' : '#059669' }}>
+                        <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#b45309' }}>{target.toLocaleString()}</td>
+                        <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#64748b' }}>{grossIssued.toLocaleString()}</td>
+                        <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#059669' }}>{totalRec.toLocaleString()}</td>
+                        <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: remain > 0 ? '#dc2626' : '#059669' }}>
                           {remain.toLocaleString()}
                         </td>
-                        <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#0369a1' }}>{returned.toLocaleString()}</td>
-                        <td style={{ padding: '10px', textAlign: 'center' }}>
+                        <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#0369a1' }}>{returned.toLocaleString()}</td>
+                        <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>
                           <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: isCompleted ? '#dcfce7' : '#fef3c7', color: isCompleted ? '#15803d' : '#b45309' }}>
                             {isCompleted ? '✅ Đã Đủ Khung' : `⚠️ Còn thiếu ${remain}`}
                           </span>
                         </td>
-                        <td style={{ padding: '10px', textAlign: 'center' }}>
+                        <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>
                           <button type="button" onClick={() => openFrameExportModal(item)} style={{ padding: '4px 8px', backgroundColor: '#e0f2fe', color: '#0369a1', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>✏️ Xuất thêm khung</button>
                         </td>
                       </tr>
@@ -2540,14 +2540,14 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
           </div>
 
           <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto', backgroundColor: '#fff' }}>
-            <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-full divide-y divide-gray-200 text-sm">
+            <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
               <thead style={{ backgroundColor: '#ecfdf5', color: '#065f46' }}>
                 <tr>
-                  <th style={{ padding: '11px' }}>Số HĐ Cty</th>
-                  <th style={{ padding: '11px' }}>Số HĐ Đan &amp; Mã Hàng</th>
-                  <th style={{ padding: '11px', textAlign: 'right' }}>Số Tiền Thu (Nhận từ Cty)</th>
-                  <th style={{ padding: '11px', textAlign: 'right' }}>Số Tiền Chi (Tổ Đan)</th>
-                  <th style={{ padding: '11px' }}>Ghi Chú</th>
+                  <th className="whitespace-nowrap" style={{ padding: '11px' }}>Số HĐ Cty</th>
+                  <th className="whitespace-nowrap" style={{ padding: '11px' }}>Số HĐ Đan &amp; Mã Hàng</th>
+                  <th className="whitespace-nowrap" style={{ padding: '11px', textAlign: 'right' }}>Số Tiền Thu (Nhận từ Cty)</th>
+                  <th className="whitespace-nowrap" style={{ padding: '11px', textAlign: 'right' }}>Số Tiền Chi (Tổ Đan)</th>
+                  <th className="whitespace-nowrap" style={{ padding: '11px' }}>Ghi Chú</th>
                 </tr>
               </thead>
               <tbody>
@@ -2574,26 +2574,26 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
 
                   return (
                     <tr key={`${parentKey}-${subContract?.id || 'company'}-${index}`} style={{ borderTop: '1px solid #e2e8f0' }}>
-                      <td style={{ padding: '10px', fontWeight: '700', color: '#2563eb' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: '700', color: '#2563eb' }}>
                         {parent?.contractNo || subContract?.parentContractNo || '—'}
                       </td>
-                      <td style={{ padding: '10px' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px' }}>
                         <div style={{ fontWeight: '700', color: '#7c3aed' }}>{subContract?.contractNo || '—'}</div>
                         <div style={{ color: '#475569' }}>{subContract?.productCode || parent?.productCode || '—'}</div>
                       </td>
-                      <td style={{ padding: '10px', textAlign: 'right', fontWeight: '700', color: '#047857', whiteSpace: 'nowrap' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', fontWeight: '700', color: '#047857', whiteSpace: 'nowrap' }}>
                         {formatCurrency(companyDeposit)} VNĐ
                       </td>
-                      <td style={{ padding: '10px', textAlign: 'right', fontWeight: '700', color: '#b91c1c', whiteSpace: 'nowrap' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', fontWeight: '700', color: '#b91c1c', whiteSpace: 'nowrap' }}>
                         {formatCurrency(subContractExpense)} VNĐ
                       </td>
-                      <td style={{ padding: '10px', color: '#475569' }}>{noteText || '—'}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', color: '#475569' }}>{noteText || '—'}</td>
                     </tr>
                   );
                 })}
                 {depositTrackingRows.length === 0 && (
                   <tr>
-                    <td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: '#64748b' }}>
+                    <td className="whitespace-nowrap" colSpan={5} style={{ padding: '24px', textAlign: 'center', color: '#64748b' }}>
                       Không có hợp đồng phù hợp với điều kiện lọc.
                     </td>
                   </tr>
@@ -2601,14 +2601,14 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
               </tbody>
               <tfoot style={{ backgroundColor: '#f8fafc', fontWeight: '800' }}>
                 <tr>
-                  <td colSpan={2} style={{ padding: '12px', textAlign: 'right' }}>TỔNG CỘNG</td>
-                  <td style={{ padding: '12px', textAlign: 'right', color: '#047857', whiteSpace: 'nowrap' }}>
+                  <td className="whitespace-nowrap" colSpan={2} style={{ padding: '12px', textAlign: 'right' }}>TỔNG CỘNG</td>
+                  <td className="whitespace-nowrap" style={{ padding: '12px', textAlign: 'right', color: '#047857', whiteSpace: 'nowrap' }}>
                     {formatCurrency(depositTrackingTotals.income)} VNĐ
                   </td>
-                  <td style={{ padding: '12px', textAlign: 'right', color: '#b91c1c', whiteSpace: 'nowrap' }}>
+                  <td className="whitespace-nowrap" style={{ padding: '12px', textAlign: 'right', color: '#b91c1c', whiteSpace: 'nowrap' }}>
                     {formatCurrency(depositTrackingTotals.expense)} VNĐ
                   </td>
-                  <td style={{ padding: '12px', color: depositTrackingTotals.income - depositTrackingTotals.expense < 0 ? '#b91c1c' : '#047857', whiteSpace: 'nowrap' }}>
+                  <td className="whitespace-nowrap" style={{ padding: '12px', color: depositTrackingTotals.income - depositTrackingTotals.expense < 0 ? '#b91c1c' : '#047857', whiteSpace: 'nowrap' }}>
                     Còn Lại: {formatCurrency(depositTrackingTotals.income - depositTrackingTotals.expense)} VNĐ
                   </td>
                 </tr>
@@ -2888,21 +2888,21 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
               tabIndex={0}
               style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}
             >
-          <table className="min-w-full divide-y divide-gray-200 text-sm" style={{ borderCollapse: 'collapse' }}>
+          <table className="min-w-[750px] divide-y divide-gray-200 text-sm" style={{ borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ backgroundColor: '#eff6ff', borderBottom: '2px solid #93c5fd' }}>
-                  <th style={{ padding: '10px' }}>Mã Hàng</th>
-                  <th style={{ padding: '10px' }}>Số HĐ CTY</th>
-                  <th style={{ padding: '10px' }}>Công Ty</th>
-                  <th style={{ padding: '10px', textAlign: 'right' }}>SL Hợp Đồng</th>
-                  <th style={{ padding: '10px', textAlign: 'right' }}>Đã Nhận / Đã Giao</th>
-                  <th style={{ padding: '10px', textAlign: 'right' }}>Tiền Cọc Đã Nhận</th>
-                  <th style={{ padding: '10px' }}>Ngày Nhận Cọc</th>
-                  <th style={{ padding: '10px', textAlign: 'right' }}>Thành Tiền</th>
-                  <th style={{ padding: '10px', textAlign: 'right' }}>Còn Lại Thanh Toán</th>
-                  <th style={{ padding: '10px' }}>Hạn Giao Hàng</th>
-                  <th style={{ padding: '10px', textAlign: 'center' }}>Trạng Thái</th>
-                  <th style={{ padding: '10px', textAlign: 'center' }}>Thao Tác</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px' }}>Mã Hàng</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px' }}>Số HĐ CTY</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px' }}>Công Ty</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>SL Hợp Đồng</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Đã Nhận / Đã Giao</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Tiền Cọc Đã Nhận</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px' }}>Ngày Nhận Cọc</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Thành Tiền</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Còn Lại Thanh Toán</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px' }}>Hạn Giao Hàng</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>Trạng Thái</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>Thao Tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -2931,11 +2931,11 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
 
                   return (
                     <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                      <td style={{ padding: '10px', fontWeight: 'bold', color: '#7c3aed' }}>{item.productCode}</td>
-                      <td style={{ padding: '10px', fontWeight: 'bold', color: '#1e40af' }}>{item.contractNo}</td>
-                      <td style={{ padding: '10px', fontWeight: '600' }}>{item.companyName}</td>
-                      <td style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>{targetQty.toLocaleString()} {getUnitFromProductCode(String(item.productCode || '')) || item.unit || 'Bộ'}</td>
-                      <td style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold', color: '#7c3aed' }}>{item.productCode}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold', color: '#1e40af' }}>{item.contractNo}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: '600' }}>{item.companyName}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>{targetQty.toLocaleString()} {getUnitFromProductCode(String(item.productCode || '')) || item.unit || 'Bộ'}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <strong style={{ color: isQuantityComplete ? '#15803d' : '#c2410c' }}>
                           {receivedQty.toLocaleString()} / {targetQty.toLocaleString()}
                         </strong>
@@ -2943,19 +2943,19 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                           {targetQty > 0 ? `${Math.min(100, Math.round(receivedQty / targetQty * 100))}%` : '—'}
                         </div>
                       </td>
-                      <td style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700, color: depAmt > 0 ? '#15803d' : '#64748b' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700, color: depAmt > 0 ? '#15803d' : '#64748b' }}>
                         {depAmt > 0 ? `${formatCurrency(depAmt)} đ` : '—'}
                       </td>
-                      <td style={{ padding: '10px', whiteSpace: 'nowrap', fontWeight: 600, color: '#047857' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', whiteSpace: 'nowrap', fontWeight: 600, color: '#047857' }}>
                         {getParentDepositDate(item) || '—'}
                       </td>
-                      <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#15803d' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#15803d' }}>
                         {tAmt > 0 ? `${formatCurrency(tAmt)} VNĐ` : '—'}
                       </td>
-                      <td style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 800, color: remAmt > 0 ? '#b91c1c' : '#15803d' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 800, color: remAmt > 0 ? '#b91c1c' : '#15803d' }}>
                         {formatCurrency(remAmt)} đ
                       </td>
-                      <td style={{ padding: '10px', whiteSpace: 'nowrap' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', whiteSpace: 'nowrap' }}>
                         <span style={{
                           color: isOverdue ? '#b91c1c' : isNearDue ? '#c2410c' : '#334155',
                           fontWeight: isOverdue || isNearDue ? 800 : 600
@@ -2968,7 +2968,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                           </div>
                         )}
                       </td>
-                      <td style={{ padding: '10px', textAlign: 'center' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>
                         <span style={{
                           display: 'inline-block',
                           padding: '5px 8px',
@@ -2982,7 +2982,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                           {isContractComplete ? 'Đã thanh toán đủ / Hoàn thành' : 'Chưa thanh toán đủ'}
                         </span>
                       </td>
-                      <td style={{ padding: '10px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                         <div className="slip-action-buttons" style={{ flexWrap: 'nowrap' }}>
                           <button
                             type="button"
@@ -3186,24 +3186,24 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
 
             {/* GIAO DIỆN DẠNG BẢNG (TABLE) */}
             {contractViewMode === 'TABLE' && <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-  <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-full divide-y divide-gray-200 text-sm">
+  <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
               <thead>
                 <tr style={{ backgroundColor: '#faf5ff', borderBottom: '2px solid #d8b4fe' }}>
-                  <th style={{ padding: '10px' }}>Mã Hàng</th>
-                  <th style={{ padding: '10px' }}>Truy Vết HĐ Cty</th>
-                  <th style={{ padding: '10px' }}>Tổ Đan</th>
-                  <th style={{ padding: '10px', textAlign: 'right' }}>SL Hợp Đồng</th>
-                  <th style={{ padding: '10px', textAlign: 'right' }}>Đang Ở Tổ</th>
-                  <th style={{ padding: '10px', textAlign: 'right' }}>Đang Ở Tổ / Tổng Khung Phát</th>
-                  <th style={{ padding: '10px', textAlign: 'right' }}>Còn Lại</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px' }}>Mã Hàng</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px' }}>Truy Vết HĐ Cty</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px' }}>Tổ Đan</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>SL Hợp Đồng</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Đang Ở Tổ</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Đang Ở Tổ / Tổng Khung Phát</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Còn Lại</th>
                   {!isWarehouseUser && <>
-                    <th style={{ padding: '10px', textAlign: 'right' }}>Tiền Cọc Đã Nhận</th>
-                    <th style={{ padding: '10px', textAlign: 'right' }}>Còn Lại Thanh Toán</th>
-                    <th style={{ padding: '10px', textAlign: 'center' }}>Trạng Thái Thanh Toán</th>
+                    <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Tiền Cọc Đã Nhận</th>
+                    <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Còn Lại Thanh Toán</th>
+                    <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>Trạng Thái Thanh Toán</th>
                   </>}
-                  <th style={{ padding: '10px' }}>Hạn Đan</th>
-                  {!isWarehouseUser && <th style={{ padding: '10px' }}>Nguyên Phụ Liệu Kèm Theo</th>}
-                  {!isWarehouseUser && <th style={{ padding: '10px', textAlign: 'center' }}>Thao Tác</th>}
+                  <th className="whitespace-nowrap" style={{ padding: '10px' }}>Hạn Đan</th>
+                  {!isWarehouseUser && <th className="whitespace-nowrap" style={{ padding: '10px' }}>Nguyên Phụ Liệu Kèm Theo</th>}
+                  {!isWarehouseUser && <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>Thao Tác</th>}
                 </tr>
               </thead>
               <tbody>
@@ -3260,12 +3260,12 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                   const deadlineWarning = !isKnittingComplete && daysUntilDue !== null && daysUntilDue <= 3;
                   return (
                     <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                      <td style={{ padding: '10px', fontWeight: 'bold', color: '#7c3aed' }}>{item.productCode}</td>
-                      <td style={{ padding: '10px', fontWeight: 'bold', color: '#1e40af' }}>{item.parentContractNo || '—'}</td>
-                      <td style={{ padding: '10px', fontWeight: 'bold' }}>{item.craftGroupLeader}</td>
-                      <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#b45309' }}>{itemTarget.toLocaleString()}</td>
-                      <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#059669' }}>{itemRec.toLocaleString()}</td>
-                      <td style={{ padding: '10px', textAlign: 'right' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold', color: '#7c3aed' }}>{item.productCode}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold', color: '#1e40af' }}>{item.parentContractNo || '—'}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold' }}>{item.craftGroupLeader}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#b45309' }}>{itemTarget.toLocaleString()}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#059669' }}>{itemRec.toLocaleString()}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>
                         <strong style={{ color: issueComplete ? '#15803d' : '#c2410c' }}>
                           {itemRec.toLocaleString()} / {grossIssued.toLocaleString()}
                         </strong>
@@ -3273,15 +3273,15 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                           Đã thu hồi: {returnedFrames.toLocaleString()}
                         </div>
                       </td>
-                      <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#2563eb' }}>{itemRemain.toLocaleString()}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#2563eb' }}>{itemRemain.toLocaleString()}</td>
                       {!isWarehouseUser && <>
-                      <td style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700, color: depositReceived > 0 ? '#15803d' : '#64748b' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700, color: depositReceived > 0 ? '#15803d' : '#64748b' }}>
                         {depositReceived > 0 ? `${formatCurrency(depositReceived)} đ` : '—'}
                       </td>
-                      <td style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 800, color: remainingPayment > 0 ? '#b91c1c' : '#15803d' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 800, color: remainingPayment > 0 ? '#b91c1c' : '#15803d' }}>
                         {formatCurrency(remainingPayment)} đ
                       </td>
-                      <td style={{ padding: '10px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                         <span style={{
                           display: 'inline-block',
                           padding: '5px 8px',
@@ -3295,7 +3295,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                         </span>
                       </td>
                       </>}
-                      <td style={{ padding: '10px', whiteSpace: 'nowrap' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', whiteSpace: 'nowrap' }}>
                         <span style={{
                           color: deadlineWarning ? (daysUntilDue !== null && daysUntilDue < 0 ? '#b91c1c' : '#c2410c') : '#334155',
                           fontWeight: deadlineWarning ? 800 : 600
@@ -3315,7 +3315,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                           </div>
                         )}
                       </td>
-                      {!isWarehouseUser && <td style={{ padding: '10px' }}>
+                      {!isWarehouseUser && <td className="whitespace-nowrap" style={{ padding: '10px' }}>
                         {Array.isArray(item.accompanyingMaterials) && item.accompanyingMaterials.length > 0
                           ? item.accompanyingMaterials.map((material: AccompanyingMaterial, index: number) => (
                             <div key={`${material.materialId}-${index}`} style={{ whiteSpace: 'nowrap' }}>
@@ -3326,7 +3326,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                           ))
                           : <span style={{ color: '#94a3b8' }}>—</span>}
                       </td>}
-                      {!isWarehouseUser && <td style={{ padding: '10px', textAlign: 'center' }}>
+                      {!isWarehouseUser && <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>
                         <div className="slip-action-buttons">
                           <button type="button" className="slip-action-button slip-action-zalo" onClick={() => handleOpenSubContractSlip(item)}>📲 Gửi Zalo</button>
                           <button type="button" className="slip-action-button slip-action-edit" onClick={() => handleEdit(item)}>✏️ Sửa</button>

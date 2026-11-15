@@ -488,18 +488,18 @@ export default function CategoryManager() {
       {/* Bảng hiển thị Xe 4 bánh */}
       {activeTab === 'xe' ? (
         <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{  }}>
-          <table style={{ borderCollapse: 'collapse', fontFamily: 'inherit' }} className="min-w-full divide-y divide-gray-200 text-sm">
+          <table style={{ borderCollapse: 'collapse', fontFamily: 'inherit' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
             <thead>
               <tr style={{ background: '#f1f5f9', textAlign: 'left', color: '#334155' }}>
-                <th style={{ padding: '10px' }}>STT</th>
-                <th style={{ padding: '10px' }}>Tên Xe</th>
-                <th style={{ padding: '10px' }}>Đời Xe</th>
-                <th style={{ padding: '10px' }}>Biển Số</th>
-                <th style={{ padding: '10px' }}>Bảo Hiểm (Ngày Hết Hạn)</th>
-                <th style={{ padding: '10px' }}>Giấy Đăng Kiểm (Ngày Hết Hạn)</th>
-                <th style={{ padding: '10px', whiteSpace: 'nowrap' }}>Định Mức Bảo Dưỡng</th>
-                <th style={{ padding: '10px' }}>Bảo Dưỡng</th>
-                <th style={{ padding: '10px', textAlign: 'center' }}>Thao Tác</th>
+                <th className="whitespace-nowrap" style={{ padding: '10px' }}>STT</th>
+                <th className="whitespace-nowrap" style={{ padding: '10px' }}>Tên Xe</th>
+                <th className="whitespace-nowrap" style={{ padding: '10px' }}>Đời Xe</th>
+                <th className="whitespace-nowrap" style={{ padding: '10px' }}>Biển Số</th>
+                <th className="whitespace-nowrap" style={{ padding: '10px' }}>Bảo Hiểm (Ngày Hết Hạn)</th>
+                <th className="whitespace-nowrap" style={{ padding: '10px' }}>Giấy Đăng Kiểm (Ngày Hết Hạn)</th>
+                <th className="whitespace-nowrap" style={{ padding: '10px', whiteSpace: 'nowrap' }}>Định Mức Bảo Dưỡng</th>
+                <th className="whitespace-nowrap" style={{ padding: '10px' }}>Bảo Dưỡng</th>
+                <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>Thao Tác</th>
               </tr>
             </thead>
             <tbody>
@@ -521,24 +521,24 @@ export default function CategoryManager() {
                   );
                   return (
                   <tr key={v.id} style={{ borderBottom: '1px solid #f8fafc', background: hasExpiredDocument ? '#fef2f2' : idx % 2 === 0 ? '#fff' : '#fafafa' }}>
-                    <td style={{ padding: '10px', fontWeight: 'bold' }}>{idx + 1}</td>
-                    <td style={{ padding: '10px', fontWeight: 'bold', color: '#0f172a' }}>{v.vehicleName}</td>
-                    <td style={{ padding: '10px' }}>{v.modelYear}</td>
-                    <td style={{ padding: '10px', fontWeight: 'bold', color: '#2563eb' }}>{v.plateNo}</td>
-                    <td style={{ padding: '10px', color: insuranceExpiredDate && insuranceExpiredDate < todayISODate ? '#b91c1c' : undefined, fontWeight: insuranceExpiredDate && insuranceExpiredDate < todayISODate ? 800 : undefined }}>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold' }}>{idx + 1}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold', color: '#0f172a' }}>{v.vehicleName}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px' }}>{v.modelYear}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold', color: '#2563eb' }}>{v.plateNo}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', color: insuranceExpiredDate && insuranceExpiredDate < todayISODate ? '#b91c1c' : undefined, fontWeight: insuranceExpiredDate && insuranceExpiredDate < todayISODate ? 800 : undefined }}>
                       {formatVehicleDate(v.insuranceExpiry) || 'Chưa cập nhật'}
                       {insuranceExpiredDate && insuranceExpiredDate < todayISODate && <strong style={{ display: 'block' }}>Đã quá hạn</strong>}
                     </td>
-                    <td style={{ padding: '10px', color: registrationExpiredDate && registrationExpiredDate < todayISODate ? '#b91c1c' : '#dc2626', fontWeight: 700 }}>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', color: registrationExpiredDate && registrationExpiredDate < todayISODate ? '#b91c1c' : '#dc2626', fontWeight: 700 }}>
                       {formatVehicleDate(v.registrationExpiry) || 'Chưa cập nhật'}
                       {registrationExpiredDate && registrationExpiredDate < todayISODate && <strong style={{ display: 'block' }}>Đã quá hạn</strong>}
                     </td>
-                    <td style={{ padding: '10px', fontWeight: 800, color: Number(v.maintenanceIntervalKm) > 0 ? '#1d4ed8' : '#64748b', whiteSpace: 'nowrap' }}>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 800, color: Number(v.maintenanceIntervalKm) > 0 ? '#1d4ed8' : '#64748b', whiteSpace: 'nowrap' }}>
                       {Number(v.maintenanceIntervalKm) > 0
                         ? `${Number(v.maintenanceIntervalKm).toLocaleString('vi-VN')} km`
                         : 'Chưa cấu hình'}
                     </td>
-                    <td style={{ padding: '10px' }}>
+                    <td className="whitespace-nowrap" style={{ padding: '10px' }}>
                       <div>Hiện tại: {Number(v.currentKm || 0).toLocaleString('vi-VN')} km</div>
                       <div>Mốc: {Number(v.lastOilChangeKm || 0).toLocaleString('vi-VN')} + {Number(v.maintenanceIntervalKm || 0).toLocaleString('vi-VN')} km</div>
                       {maintenanceHistory.length ? (
@@ -557,7 +557,7 @@ export default function CategoryManager() {
                         Đã thay & sửa chữa
                       </button>
                     </td>
-                    <td style={{ padding: '10px', textAlign: 'center' }}>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>
                       <button onClick={() => handleOpenForm(v)} style={{ background: '#f59e0b', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', marginRight: '4px' }}>Sửa</button>
                       <button onClick={() => handleDelete(v.id)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>Xóa</button>
                     </td>
@@ -566,7 +566,7 @@ export default function CategoryManager() {
                 })
               ) : (
                 <tr>
-                  <td colSpan={9} style={{ padding: '12px', textAlign: 'center', color: '#64748b' }}>Chưa có xe nào được thêm</td>
+                  <td className="whitespace-nowrap" colSpan={9} style={{ padding: '12px', textAlign: 'center', color: '#64748b' }}>Chưa có xe nào được thêm</td>
                 </tr>
               )}
             </tbody>
@@ -575,20 +575,20 @@ export default function CategoryManager() {
       ) : (
         /* Bảng hiển thị Hàng hóa / NVL / Chi phí */
         <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{  }}>
-          <table style={{ borderCollapse: 'collapse', fontFamily: 'inherit' }} className="min-w-full divide-y divide-gray-200 text-sm">
+          <table style={{ borderCollapse: 'collapse', fontFamily: 'inherit' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
             <thead>
               <tr style={{ background: '#f1f5f9', textAlign: 'left', color: '#334155' }}>
                 {activeTab === 'nguyenvatlieu' ? (
                   <>
-                    <th style={{ padding: '10px', whiteSpace: 'nowrap' }}>STT</th>
-                    <th style={{ padding: '10px', whiteSpace: 'nowrap' }}>Mã Danh Mục</th>
-                    <th style={{ padding: '10px', whiteSpace: 'nowrap' }}>Tên Danh Mục</th>
-                    <th style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>Hạn Mức Tồn Kho</th>
-                    <th style={{ padding: '10px', whiteSpace: 'nowrap' }}>Ghi Chú</th>
-                    <th style={{ padding: '10px', textAlign: 'center', whiteSpace: 'nowrap' }}>Thao Tác</th>
+                    <th className="whitespace-nowrap" style={{ padding: '10px', whiteSpace: 'nowrap' }}>STT</th>
+                    <th className="whitespace-nowrap" style={{ padding: '10px', whiteSpace: 'nowrap' }}>Mã Danh Mục</th>
+                    <th className="whitespace-nowrap" style={{ padding: '10px', whiteSpace: 'nowrap' }}>Tên Danh Mục</th>
+                    <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>Hạn Mức Tồn Kho</th>
+                    <th className="whitespace-nowrap" style={{ padding: '10px', whiteSpace: 'nowrap' }}>Ghi Chú</th>
+                    <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center', whiteSpace: 'nowrap' }}>Thao Tác</th>
                   </>
                 ) : visibleCategoryColumns.map(column => (
-                  <th key={column.key} style={{ padding: '10px', textAlign: column.key === 'actions' ? 'center' : 'left', whiteSpace: 'nowrap' }}>{column.label}</th>
+                  <th className="whitespace-nowrap" key={column.key} style={{ padding: '10px', textAlign: column.key === 'actions' ? 'center' : 'left', whiteSpace: 'nowrap' }}>{column.label}</th>
                 ))}
               </tr>
             </thead>
@@ -597,16 +597,16 @@ export default function CategoryManager() {
                 categoryList.map((item, idx) => (
                   activeTab === 'nguyenvatlieu' ? (
                     <tr key={item.id} style={{ borderBottom: '1px solid #f8fafc', background: idx % 2 === 0 ? '#fff' : '#fafafa' }}>
-                      <td style={{ padding: '10px', fontWeight: 'bold', verticalAlign: 'middle' }}>{idx + 1}</td>
-                      <td style={{ padding: '10px', fontWeight: 'bold', color: '#2563eb', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>{item.code}</td>
-                      <td style={{ padding: '10px', fontWeight: 'bold', color: '#0f172a', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>{item.name}</td>
-                      <td style={{ padding: '10px', textAlign: 'right', verticalAlign: 'middle' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold', verticalAlign: 'middle' }}>{idx + 1}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold', color: '#2563eb', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>{item.code}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold', color: '#0f172a', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>{item.name}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', verticalAlign: 'middle' }}>
                         {Number(item.lowStockLimit) > 0
                           ? `${Number(item.lowStockLimit).toLocaleString('vi-VN')} ${item.unit || ''}`.trim()
                           : '—'}
                       </td>
-                      <td style={{ padding: '10px', color: '#64748b', verticalAlign: 'middle' }}>{item.note}</td>
-                      <td style={{ padding: '10px', textAlign: 'center', verticalAlign: 'middle' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', color: '#64748b', verticalAlign: 'middle' }}>{item.note}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center', verticalAlign: 'middle' }}>
                         <button onClick={() => handleOpenForm(item)} style={{ background: '#f59e0b', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', marginRight: '4px' }}>Sửa</button>
                         <button onClick={() => handleDelete(item.id)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>Xóa</button>
                       </td>
@@ -614,7 +614,7 @@ export default function CategoryManager() {
                   ) : (
                     <tr key={item.id} style={{ borderBottom: '1px solid #f8fafc', background: idx % 2 === 0 ? '#fff' : '#fafafa' }}>
                       {visibleCategoryColumns.map(column => (
-                        <td
+                        <td className="whitespace-nowrap"
                           key={column.key}
                           style={{
                             padding: '10px',
@@ -632,7 +632,7 @@ export default function CategoryManager() {
                 ))
               ) : (
                   <tr>
-                    <td colSpan={activeTab === 'nguyenvatlieu' ? 6 : visibleCategoryColumns.length} style={{ padding: '12px', textAlign: 'center', color: '#64748b' }}>Chưa có danh mục nào được thêm</td>
+                    <td className="whitespace-nowrap" colSpan={activeTab === 'nguyenvatlieu' ? 6 : visibleCategoryColumns.length} style={{ padding: '12px', textAlign: 'center', color: '#64748b' }}>Chưa có danh mục nào được thêm</td>
                   </tr>
               )}
             </tbody>

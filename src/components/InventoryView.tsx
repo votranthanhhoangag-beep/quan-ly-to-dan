@@ -102,23 +102,23 @@ ${item.note ? `💬 Ghi chú: ${item.note}` : ''}
       </div>
 
       <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px'}}>
-        <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-full divide-y divide-gray-200 text-sm">
+        <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
           <thead>
             <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
-              <th style={{ padding: '10px' }}>Số Phiếu</th>
-              <th style={{ padding: '10px' }}>Loại Phiếu</th>
-              <th style={{ padding: '10px' }}>Ngày Giao Dịch</th>
-              <th style={{ padding: '10px' }}>Mã & Tên Hàng</th>
-              <th style={{ padding: '10px', textAlign: 'right' }}>Số Lượng</th>
-              <th style={{ padding: '10px' }}>Đơn Vị Tính</th>
-              <th style={{ padding: '10px' }}>Đối Tác / Tổ Đan</th>
-              <th style={{ padding: '10px', textAlign: 'center' }}>Thao Tác</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Số Phiếu</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Loại Phiếu</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Ngày Giao Dịch</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Mã & Tên Hàng</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Số Lượng</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Đơn Vị Tính</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Đối Tác / Tổ Đan</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>Thao Tác</th>
             </tr>
           </thead>
           <tbody>
             {filteredLogs.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>
+                <td className="whitespace-nowrap" colSpan={8} style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>
                   Chưa có dữ liệu phiếu kho nào được ghi nhận trong hệ thống!
                 </td>
               </tr>
@@ -127,24 +127,24 @@ ${item.note ? `💬 Ghi chú: ${item.note}` : ''}
                 const isKs = isWeavingFrameReceipt(item);
                 return (
                   <tr key={item.id || idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '10px', fontWeight: 'bold', color: isKs ? '#0284c7' : '#16a34a' }}>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold', color: isKs ? '#0284c7' : '#16a34a' }}>
                       {item.slipNo}
                     </td>
-                    <td style={{ padding: '10px', fontWeight: '600', fontSize: '12px' }}>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: '600', fontSize: '12px' }}>
                       {isKs ? 'Nhập KS Từ Tổ Đan / Trả Khung Lỗi' : 'Nhập Khung Từ CTY'}
                     </td>
-                    <td style={{ padding: '10px', color: '#047857', fontWeight: 'bold' }}>{formatDateVN(item.date)}</td>
-                    <td style={{ padding: '10px' }}>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', color: '#047857', fontWeight: 'bold' }}>{formatDateVN(item.date)}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px' }}>
                       <span style={{ fontWeight: 'bold', color: '#7c3aed' }}>[{item.productCode}]</span> {item.productName}
                     </td>
-                    <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#b45309' }}>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#b45309' }}>
                       {Number(item.quantity || 0).toLocaleString()}
                     </td>
-                    <td style={{ padding: '10px', fontSize: '12px' }}>{item.unit || 'Cái'}</td>
-                    <td style={{ padding: '10px', fontWeight: 'bold', color: '#334155' }}>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', fontSize: '12px' }}>{item.unit || 'Cái'}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold', color: '#334155' }}>
                       {item.partnerName || item.partner || '—'}
                     </td>
-                    <td style={{ padding: '10px', textAlign: 'center' }}>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>
                       <button
                         type="button"
                         className="slip-action-button slip-action-zalo"

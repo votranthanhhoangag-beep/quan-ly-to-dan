@@ -46,20 +46,20 @@ export default function VehicleManager() {
       </form>
 
       <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
-        <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+        <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
           <thead>
             <tr style={{ background: '#f1f5f9', textAlign: 'left' }}>
-              <th style={{ padding: '8px' }}>Ngày</th>
-              <th style={{ padding: '8px' }}>Nội dung</th>
-              <th style={{ padding: '8px', textAlign: 'right' }}>Chi phí</th>
+              <th className="whitespace-nowrap" style={{ padding: '8px' }}>Ngày</th>
+              <th className="whitespace-nowrap" style={{ padding: '8px' }}>Nội dung</th>
+              <th className="whitespace-nowrap" style={{ padding: '8px', textAlign: 'right' }}>Chi phí</th>
             </tr>
           </thead>
           <tbody>
             {logs.map(item => (
               <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                <td style={{ padding: '8px' }}>{item.date}</td>
-                <td style={{ padding: '8px' }}>{item.content}</td>
-                <td style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold' }}>{item.cost.toLocaleString()} đ</td>
+                <td className="whitespace-nowrap" style={{ padding: '8px' }}>{item.date}</td>
+                <td className="whitespace-nowrap" style={{ padding: '8px' }}>{item.content}</td>
+                <td className="whitespace-nowrap" style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold' }}>{item.cost.toLocaleString()} đ</td>
               </tr>
             ))}
           </tbody>

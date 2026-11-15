@@ -56,24 +56,24 @@ export default function ContractSummaryView() {
         </button>
       </form>
 
-      <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+      <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
         <thead>
           <tr style={{ background: '#f8fafc', textAlign: 'left' }}>
-            <th style={{ padding: '8px' }}>Số Hợp Đồng</th>
-            <th style={{ padding: '8px' }}>Mã Sản Phẩm</th>
-            <th style={{ padding: '8px' }}>Đối Tác</th>
-            <th style={{ padding: '8px', textAlign: 'right' }}>Số Lượng</th>
-            <th style={{ padding: '8px', textAlign: 'center' }}>Trạng Thái</th>
+            <th className="whitespace-nowrap" style={{ padding: '8px' }}>Số Hợp Đồng</th>
+            <th className="whitespace-nowrap" style={{ padding: '8px' }}>Mã Sản Phẩm</th>
+            <th className="whitespace-nowrap" style={{ padding: '8px' }}>Đối Tác</th>
+            <th className="whitespace-nowrap" style={{ padding: '8px', textAlign: 'right' }}>Số Lượng</th>
+            <th className="whitespace-nowrap" style={{ padding: '8px', textAlign: 'center' }}>Trạng Thái</th>
           </tr>
         </thead>
         <tbody>
           {contracts.map(c => (
             <tr key={c.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-              <td style={{ padding: '8px', fontWeight: 'bold', color: '#2563eb' }}>{c.contractNo}</td>
-              <td style={{ padding: '8px' }}>{c.productCode}</td>
-              <td style={{ padding: '8px' }}>{c.partner || '—'}</td>
-              <td style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold' }}>{c.totalQty}</td>
-              <td style={{ padding: '8px', textAlign: 'center' }}>{c.isLiquidated ? 'Đã thanh lý' : 'Đang thực hiện'}</td>
+              <td className="whitespace-nowrap" style={{ padding: '8px', fontWeight: 'bold', color: '#2563eb' }}>{c.contractNo}</td>
+              <td className="whitespace-nowrap" style={{ padding: '8px' }}>{c.productCode}</td>
+              <td className="whitespace-nowrap" style={{ padding: '8px' }}>{c.partner || '—'}</td>
+              <td className="whitespace-nowrap" style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold' }}>{c.totalQty}</td>
+              <td className="whitespace-nowrap" style={{ padding: '8px', textAlign: 'center' }}>{c.isLiquidated ? 'Đã thanh lý' : 'Đang thực hiện'}</td>
             </tr>
           ))}
         </tbody>

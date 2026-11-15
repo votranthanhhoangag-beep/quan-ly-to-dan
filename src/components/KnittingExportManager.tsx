@@ -1205,12 +1205,12 @@ export default function KnittingExportManager() {
                 </label>
               </div>
             )}
-            <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+            <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
               <thead>
                 <tr>
-                  <th style={tableHeaderStyle}>{isSetProduct ? 'Size 1' : 'ĐVT'}</th>
-                  <th style={{ ...tableHeaderStyle, color: '#166534' }}>Đạt · Cái</th>
-                  <th style={{ ...tableHeaderStyle, color: '#b91c1c' }}>Loại · Cái</th>
+                  <th className="whitespace-nowrap" style={tableHeaderStyle}>{isSetProduct ? 'Size 1' : 'ĐVT'}</th>
+                  <th className="whitespace-nowrap" style={{ ...tableHeaderStyle, color: '#166534' }}>Đạt · Cái</th>
+                  <th className="whitespace-nowrap" style={{ ...tableHeaderStyle, color: '#b91c1c' }}>Loại · Cái</th>
                 </tr>
               </thead>
               <tbody>
@@ -1218,11 +1218,11 @@ export default function KnittingExportManager() {
                   const sizeLabel = isSetProduct ? getSizeLabel(sizeIndex) : getSizeDisplayLabel(size, sizeNames);
                   return (
                   <tr key={size} style={{ borderTop: '1px solid #e2e8f0' }}>
-                    <td style={{ padding: '9px 10px', fontWeight: 700 }}>{sizeLabel}</td>
-                    <td style={{ padding: '7px 10px' }}>
+                    <td className="whitespace-nowrap" style={{ padding: '9px 10px', fontWeight: 700 }}>{sizeLabel}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '7px 10px' }}>
                       <input aria-label={`Số lượng đạt ${sizeLabel}`} type="number" min="0" step="any" value={goodSizeQuantities[size] || ''} onChange={event => setGoodSizeQuantities(current => ({ ...current, [size]: event.target.value }))} style={{ ...inputStyle, borderColor: '#86efac' }} />
                     </td>
-                    <td style={{ padding: '7px 10px' }}>
+                    <td className="whitespace-nowrap" style={{ padding: '7px 10px' }}>
                       <input aria-label={`Số lượng loại ${sizeLabel}`} type="number" min="0" step="any" value={defectiveSizeQuantities[size] || ''} onChange={event => setDefectiveSizeQuantities(current => ({ ...current, [size]: event.target.value }))} style={{ ...inputStyle, borderColor: '#fca5a5' }} />
                     </td>
                   </tr>
@@ -1301,23 +1301,23 @@ export default function KnittingExportManager() {
 
       <section style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', backgroundColor: '#fff' }}>
         <h3 style={{ padding: '14px 16px', margin: 0, color: '#1e293b', fontSize: '15px' }}>Lịch Sử Phiếu Xuất Hàng Đan</h3>
-        <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead><tr>{['Phiếu / Ngày', 'Mã hàng', 'HĐ Công ty A', 'Tổng giao (cái)', 'Đạt', 'Loại', 'Trạng thái kiểm định', 'HĐ đối chiếu B-A', 'Chứng từ', 'Thao tác'].map(label => <th key={label} style={tableHeaderStyle}>{label}</th>)}</tr></thead>
+        <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+          <thead><tr>{['Phiếu / Ngày', 'Mã hàng', 'HĐ Công ty A', 'Tổng giao (cái)', 'Đạt', 'Loại', 'Trạng thái kiểm định', 'HĐ đối chiếu B-A', 'Chứng từ', 'Thao tác'].map(label => <th className="whitespace-nowrap" key={label} style={tableHeaderStyle}>{label}</th>)}</tr></thead>
           <tbody>
             {allSlips.map(slip => (
               <tr key={slip.id} style={{ borderTop: '1px solid #e2e8f0' }}>
-                <td style={{ padding: '10px', whiteSpace: 'nowrap' }}><strong>{slip.slipNo}</strong><br /><small>{formatDate(slip.date)}</small></td>
-                <td style={{ padding: '10px' }}><strong>{slip.productCode}</strong><br /><small>{slip.productName}</small></td>
-                <td style={{ padding: '10px' }}>{slip.parentContractNo || '—'}<br /><small>{slip.parentCompanyName || '—'}</small></td>
-                <td style={{ padding: '10px', fontWeight: 700 }}>{formatNumber(Number(slip.totalExportedPieces) ||
+                <td className="whitespace-nowrap" style={{ padding: '10px', whiteSpace: 'nowrap' }}><strong>{slip.slipNo}</strong><br /><small>{formatDate(slip.date)}</small></td>
+                <td className="whitespace-nowrap" style={{ padding: '10px' }}><strong>{slip.productCode}</strong><br /><small>{slip.productName}</small></td>
+                <td className="whitespace-nowrap" style={{ padding: '10px' }}>{slip.parentContractNo || '—'}<br /><small>{slip.parentCompanyName || '—'}</small></td>
+                <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 700 }}>{formatNumber(Number(slip.totalExportedPieces) ||
                   ((Number(slip.goodBundles) || 0) + (Number(slip.defectiveBundles) || 0)) * (Number(slip.piecesPerSet) || 1) +
                   (Number(slip.goodPieces) || 0) + (Number(slip.defectivePieces) || 0))} cái</td>
-                <td style={{ padding: '10px', color: '#166534', fontWeight: 700 }}>{slip.is_graded === false ? '—' : <>{formatNumber(slip.goodContractQuantity)} {slip.unit}<br /><small>{getQuantitySummary(slip.goodBundles, slip.goodSizeQuantities, getSlipSizeNames(slip), getSlipPreviousSizeCounts(slip, 'good'))}</small></>}</td>
-                <td style={{ padding: '10px', color: '#b91c1c' }}>{slip.is_graded === false ? '—' : <>{formatNumber(slip.defectiveContractQuantity)} {slip.unit}<br /><small>{getQuantitySummary(slip.defectiveBundles, slip.defectiveSizeQuantities, getSlipSizeNames(slip), getSlipPreviousSizeCounts(slip, 'defective'))}</small></>}</td>
-                <td style={{ padding: '10px', color: slip.is_graded === false ? '#b91c1c' : '#166534', fontWeight: 800 }}>{slip.is_graded === false ? 'Chưa có kết quả' : 'Đã phân loại'}</td>
-                <td style={{ padding: '10px' }}>{slip.companyBContractNo || '—'}</td>
-                <td style={{ padding: '10px', textAlign: 'center' }}>{slip.attachments?.length || 0}</td>
-                <td style={{ padding: '10px' }}>
+                <td className="whitespace-nowrap" style={{ padding: '10px', color: '#166534', fontWeight: 700 }}>{slip.is_graded === false ? '—' : <>{formatNumber(slip.goodContractQuantity)} {slip.unit}<br /><small>{getQuantitySummary(slip.goodBundles, slip.goodSizeQuantities, getSlipSizeNames(slip), getSlipPreviousSizeCounts(slip, 'good'))}</small></>}</td>
+                <td className="whitespace-nowrap" style={{ padding: '10px', color: '#b91c1c' }}>{slip.is_graded === false ? '—' : <>{formatNumber(slip.defectiveContractQuantity)} {slip.unit}<br /><small>{getQuantitySummary(slip.defectiveBundles, slip.defectiveSizeQuantities, getSlipSizeNames(slip), getSlipPreviousSizeCounts(slip, 'defective'))}</small></>}</td>
+                <td className="whitespace-nowrap" style={{ padding: '10px', color: slip.is_graded === false ? '#b91c1c' : '#166534', fontWeight: 800 }}>{slip.is_graded === false ? 'Chưa có kết quả' : 'Đã phân loại'}</td>
+                <td className="whitespace-nowrap" style={{ padding: '10px' }}>{slip.companyBContractNo || '—'}</td>
+                <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>{slip.attachments?.length || 0}</td>
+                <td className="whitespace-nowrap" style={{ padding: '10px' }}>
                   <div className="slip-action-buttons">
                     <button type="button" className="slip-action-button slip-action-edit" onClick={() => startEdit(slip.id)}>{slip.is_graded === false ? '✏️ Cập nhật Đạt/Loại' : '✏️ Sửa'}</button>
                     {hasPermission('delete_knitting_exports') && <button type="button" className="slip-action-button slip-action-delete" onClick={() => handleDelete(slip)}>🗑️ Xóa</button>}
@@ -1328,7 +1328,7 @@ export default function KnittingExportManager() {
                 </td>
               </tr>
             ))}
-            {allSlips.length === 0 && <tr><td colSpan={10} style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>Chưa có phiếu xuất hàng đan.</td></tr>}
+            {allSlips.length === 0 && <tr><td className="whitespace-nowrap" colSpan={10} style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>Chưa có phiếu xuất hàng đan.</td></tr>}
           </tbody>
         </table></div>
       </section>
@@ -1389,19 +1389,19 @@ export default function KnittingExportManager() {
                 <div><strong>HĐ đối chiếu Công ty B - A:</strong> {printSlip.companyBContractNo || '—'}</div>
                 <div><strong>ĐVT:</strong> {printSlip.unit}</div>
               </div>
-              <table style={{ borderCollapse: 'collapse', marginBottom: '20px' }} className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead><tr>{['Phân loại', 'Bộ', 'Cái', 'Quy đổi'].map(label => <th key={label} style={{ border: '1px solid #94a3b8', padding: '9px', textAlign: 'left' }}>{label}</th>)}</tr></thead>
+              <table style={{ borderCollapse: 'collapse', marginBottom: '20px' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+                <thead><tr>{['Phân loại', 'Bộ', 'Cái', 'Quy đổi'].map(label => <th className="whitespace-nowrap" key={label} style={{ border: '1px solid #94a3b8', padding: '9px', textAlign: 'left' }}>{label}</th>)}</tr></thead>
                 <tbody>
                   {printSlip.is_graded === false ? (
                     <tr>
-                      <td colSpan={4} style={{ border: '1px solid #94a3b8', padding: '9px', color: '#b91c1c', fontWeight: 700 }}>
+                      <td className="whitespace-nowrap" colSpan={4} style={{ border: '1px solid #94a3b8', padding: '9px', color: '#b91c1c', fontWeight: 700 }}>
                         Chưa có kết quả kiểm định Đạt/Loại · Tổng số đã giao: {formatNumber(Number(printSlip.totalExportedPieces) || 0)} cái
                       </td>
                     </tr>
                   ) : (
                     <>
-                      <tr><td style={{ border: '1px solid #94a3b8', padding: '9px' }}>Hàng Đạt<br /><small>{getQuantitySummary(printSlip.goodBundles, printSlip.goodSizeQuantities, getSlipSizeNames(printSlip), getSlipPreviousSizeCounts(printSlip, 'good'))}</small></td><td style={{ border: '1px solid #94a3b8', padding: '9px' }}>{formatNumber(printSlip.goodBundles)}</td><td style={{ border: '1px solid #94a3b8', padding: '9px' }}>{formatNumber(printSlip.goodPieces)}</td><td style={{ border: '1px solid #94a3b8', padding: '9px' }}>{formatNumber(printSlip.goodContractQuantity)} {printSlip.unit}</td></tr>
-                      <tr><td style={{ border: '1px solid #94a3b8', padding: '9px' }}>Hàng Loại<br /><small>{getQuantitySummary(printSlip.defectiveBundles, printSlip.defectiveSizeQuantities, getSlipSizeNames(printSlip), getSlipPreviousSizeCounts(printSlip, 'defective'))}</small></td><td style={{ border: '1px solid #94a3b8', padding: '9px' }}>{formatNumber(printSlip.defectiveBundles)}</td><td style={{ border: '1px solid #94a3b8', padding: '9px' }}>{formatNumber(printSlip.defectivePieces)}</td><td style={{ border: '1px solid #94a3b8', padding: '9px' }}>{formatNumber(printSlip.defectiveContractQuantity)} {printSlip.unit}</td></tr>
+                      <tr><td className="whitespace-nowrap" style={{ border: '1px solid #94a3b8', padding: '9px' }}>Hàng Đạt<br /><small>{getQuantitySummary(printSlip.goodBundles, printSlip.goodSizeQuantities, getSlipSizeNames(printSlip), getSlipPreviousSizeCounts(printSlip, 'good'))}</small></td><td className="whitespace-nowrap" style={{ border: '1px solid #94a3b8', padding: '9px' }}>{formatNumber(printSlip.goodBundles)}</td><td className="whitespace-nowrap" style={{ border: '1px solid #94a3b8', padding: '9px' }}>{formatNumber(printSlip.goodPieces)}</td><td className="whitespace-nowrap" style={{ border: '1px solid #94a3b8', padding: '9px' }}>{formatNumber(printSlip.goodContractQuantity)} {printSlip.unit}</td></tr>
+                      <tr><td className="whitespace-nowrap" style={{ border: '1px solid #94a3b8', padding: '9px' }}>Hàng Loại<br /><small>{getQuantitySummary(printSlip.defectiveBundles, printSlip.defectiveSizeQuantities, getSlipSizeNames(printSlip), getSlipPreviousSizeCounts(printSlip, 'defective'))}</small></td><td className="whitespace-nowrap" style={{ border: '1px solid #94a3b8', padding: '9px' }}>{formatNumber(printSlip.defectiveBundles)}</td><td className="whitespace-nowrap" style={{ border: '1px solid #94a3b8', padding: '9px' }}>{formatNumber(printSlip.defectivePieces)}</td><td className="whitespace-nowrap" style={{ border: '1px solid #94a3b8', padding: '9px' }}>{formatNumber(printSlip.defectiveContractQuantity)} {printSlip.unit}</td></tr>
                     </>
                   )}
                 </tbody>

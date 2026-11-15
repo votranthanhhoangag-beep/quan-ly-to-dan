@@ -186,37 +186,37 @@ export default function RepairReceiptAndDeliveryManager() {
       )}
 
       <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-        <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+        <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
           <thead>
             <tr style={{ background: '#f1f5f9', textAlign: 'left', color: '#334155' }}>
-              <th style={{ padding: '10px' }}>Số Phiếu</th>
-              <th style={{ padding: '10px' }}>Hộ Đan</th>
-              <th style={{ padding: '10px' }}>Mã HĐ Cty B</th>
-              <th style={{ padding: '10px' }}>Mã Hàng</th>
-              <th style={{ padding: '10px', textAlign: 'right' }}>Tổng Nhận Sửa</th>
-              <th style={{ padding: '10px', textAlign: 'right' }}>Giao HĐ Hiện Tại</th>
-              <th style={{ padding: '10px', textAlign: 'right' }}>Tự Động Tràn HĐ Tiếp</th>
-              <th style={{ padding: '10px', textAlign: 'center' }}>Ảnh Đăng Tải</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Số Phiếu</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Hộ Đan</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Mã HĐ Cty B</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Mã Hàng</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Tổng Nhận Sửa</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Giao HĐ Hiện Tại</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Tự Động Tràn HĐ Tiếp</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>Ảnh Đăng Tải</th>
             </tr>
           </thead>
           <tbody>
             {slips.length > 0 ? (
               slips.map((item, idx) => (
                 <tr key={item.id} style={{ borderBottom: '1px solid #f8fafc', background: idx % 2 === 0 ? '#fff' : '#fafafa' }}>
-                  <td style={{ padding: '10px', fontWeight: 'bold', color: '#16a34a' }}>{item.slipNo}</td>
-                  <td style={{ padding: '10px', fontWeight: 'bold' }}>{item.artisanName}</td>
-                  <td style={{ padding: '10px', fontWeight: 'bold', color: '#2563eb' }}>{item.contractNoB}</td>
-                  <td style={{ padding: '10px' }}>{item.productCode}</td>
-                  <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold' }}>{item.receivedQty} {item.unitType}</td>
-                  <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#16a34a' }}>{item.deliveredToBQty} {item.unitType}</td>
-                  <td style={{ padding: '10px', textAlign: 'right', color: item.overflowQty ? '#d97706' : '#94a3b8' }}>
+                  <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold', color: '#16a34a' }}>{item.slipNo}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold' }}>{item.artisanName}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold', color: '#2563eb' }}>{item.contractNoB}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '10px' }}>{item.productCode}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold' }}>{item.receivedQty} {item.unitType}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#16a34a' }}>{item.deliveredToBQty} {item.unitType}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', color: item.overflowQty ? '#d97706' : '#94a3b8' }}>
                     {item.overflowQty ? (
                       <strong>+{item.overflowQty} {item.unitType} (HĐ: {item.overflowContractNoB})</strong>
                     ) : (
                       '—'
                     )}
                   </td>
-                  <td style={{ padding: '10px', textAlign: 'center' }}>
+                  <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>
                     <span style={{ background: '#dcfce7', color: '#15803d', padding: '3px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '11px' }}>
                       📸 {item.images.length} ảnh
                     </span>
@@ -225,7 +225,7 @@ export default function RepairReceiptAndDeliveryManager() {
               ))
             ) : (
               <tr>
-                <td colSpan={8} style={{ textAlign: 'center', padding: '20px', color: '#94a3b8' }}>Chưa có phiếu nhập hàng sửa & giao Cty B nào!</td>
+                <td className="whitespace-nowrap" colSpan={8} style={{ textAlign: 'center', padding: '20px', color: '#94a3b8' }}>Chưa có phiếu nhập hàng sửa & giao Cty B nào!</td>
               </tr>
             )}
           </tbody>

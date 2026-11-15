@@ -91,11 +91,11 @@ export default function DashboardView() {
     <article style={{ ...cardStyle, backgroundColor: '#fff', borderColor: '#fecaca' }}>
       <h3 style={{ margin: '0 0 10px', color: accent, fontSize: '15px' }}>{title}</h3>
       <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-        <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+        <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
           <thead>
             <tr>
               {['Tên xe', 'Biển số xe', 'Ngày hết hạn', 'Trạng thái'].map(header => (
-                <th key={header} style={{ padding: '8px', backgroundColor: '#f1f5f9', color: '#475569', textAlign: 'left' }}>{header}</th>
+                <th className="whitespace-nowrap" key={header} style={{ padding: '8px', backgroundColor: '#f1f5f9', color: '#475569', textAlign: 'left' }}>{header}</th>
               ))}
             </tr>
           </thead>
@@ -105,10 +105,10 @@ export default function DashboardView() {
               const status = overdue ? 'Đã quá hạn' : daysRemaining === 0 ? 'Hết hạn hôm nay' : `Còn ${daysRemaining} ngày`;
               return (
                 <tr key={vehicle.id} style={{ borderTop: '1px solid #e2e8f0' }}>
-                  <td style={{ padding: '8px' }}>{vehicle.vehicleName || '—'}</td>
-                  <td style={{ padding: '8px', fontWeight: 700 }}>{vehicle.plateNo || '—'}</td>
-                  <td style={{ padding: '8px', whiteSpace: 'nowrap' }}>{expiryDate}</td>
-                  <td style={{ padding: '8px', color: overdue ? '#b91c1c' : '#b45309', fontWeight: 800 }}>{status}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '8px' }}>{vehicle.vehicleName || '—'}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '8px', fontWeight: 700 }}>{vehicle.plateNo || '—'}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '8px', whiteSpace: 'nowrap' }}>{expiryDate}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '8px', color: overdue ? '#b91c1c' : '#b45309', fontWeight: 800 }}>{status}</td>
                 </tr>
               );
             })}
@@ -363,21 +363,21 @@ export default function DashboardView() {
             ⚠️ Phiếu Xuất Hàng Đan Quá 3 Ngày Chưa Có Kết Quả Đạt/Loại
           </h3>
           <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-            <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+            <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
               <thead>
                 <tr>
                   {['Mã phiếu', 'Ngày xuất', 'Mã hàng / Tên hàng', 'Cảnh báo'].map(header => (
-                    <th key={header} style={{ padding: '9px 10px', backgroundColor: '#fee2e2', color: '#7f1d1d', textAlign: 'left' }}>{header}</th>
+                    <th className="whitespace-nowrap" key={header} style={{ padding: '9px 10px', backgroundColor: '#fee2e2', color: '#7f1d1d', textAlign: 'left' }}>{header}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {ungradedExportWarnings.map(({ slip, daysOverdue }) => (
                   <tr key={String(slip.id)} style={{ borderTop: '1px solid #fecaca' }}>
-                    <td style={{ padding: '9px 10px', fontWeight: 800, color: '#991b1b' }}>{slip.slipNo || '—'}</td>
-                    <td style={{ padding: '9px 10px', whiteSpace: 'nowrap' }}>{formatScheduleDate(slip.date)}</td>
-                    <td style={{ padding: '9px 10px' }}><strong>{slip.productCode || '—'}</strong><br />{slip.productName || '—'}</td>
-                    <td style={{ padding: '9px 10px', color: '#b91c1c', fontWeight: 800 }}>
+                    <td className="whitespace-nowrap" style={{ padding: '9px 10px', fontWeight: 800, color: '#991b1b' }}>{slip.slipNo || '—'}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '9px 10px', whiteSpace: 'nowrap' }}>{formatScheduleDate(slip.date)}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '9px 10px' }}><strong>{slip.productCode || '—'}</strong><br />{slip.productName || '—'}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '9px 10px', color: '#b91c1c', fontWeight: 800 }}>
                       ⚠️ Quá hạn chưa có kết quả Đạt/Loại: đã qua {formatNumber(daysOverdue)} ngày
                     </td>
                   </tr>
@@ -461,11 +461,11 @@ export default function DashboardView() {
         <section aria-label="Cảnh báo bảo dưỡng xe" style={{ ...cardStyle, backgroundColor: '#fffbeb', borderColor: '#fbbf24' }}>
           <h3 style={{ margin: '0 0 10px', color: '#92400e', fontSize: '16px' }}>⚠️ Cảnh Báo Bảo Dưỡng / Thay Nhớt Xe</h3>
           <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-            <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+            <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
               <thead>
                 <tr>
                   {['Biển số xe', 'Km hiện tại', 'Km mốc cần bảo dưỡng', 'Km còn lại', 'Trung bình Km/ngày', 'Thao tác'].map(header => (
-                    <th key={header} style={{ padding: '8px', backgroundColor: '#fef3c7', color: '#78350f', textAlign: 'left' }}>{header}</th>
+                    <th className="whitespace-nowrap" key={header} style={{ padding: '8px', backgroundColor: '#fef3c7', color: '#78350f', textAlign: 'left' }}>{header}</th>
                   ))}
                 </tr>
               </thead>
@@ -474,15 +474,15 @@ export default function DashboardView() {
                   const overdue = warning.kmRemaining <= 0;
                   return (
                     <tr key={warning.vehicle.id} style={{ borderTop: '1px solid #fde68a', backgroundColor: overdue ? '#fef2f2' : 'transparent' }}>
-                      <td style={{ padding: '8px', fontWeight: 800 }}>{warning.vehicle.plateNo}</td>
-                      <td style={{ padding: '8px' }}>{formatNumber(warning.currentKm)} km</td>
-                      <td style={{ padding: '8px' }}>{formatNumber(warning.targetKm)} km</td>
-                      <td style={{ padding: '8px', color: overdue ? '#b91c1c' : '#92400e', fontWeight: 800 }}>
+                      <td className="whitespace-nowrap" style={{ padding: '8px', fontWeight: 800 }}>{warning.vehicle.plateNo}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '8px' }}>{formatNumber(warning.currentKm)} km</td>
+                      <td className="whitespace-nowrap" style={{ padding: '8px' }}>{formatNumber(warning.targetKm)} km</td>
+                      <td className="whitespace-nowrap" style={{ padding: '8px', color: overdue ? '#b91c1c' : '#92400e', fontWeight: 800 }}>
                         {overdue ? `Vượt ${formatNumber(Math.abs(warning.kmRemaining))} km` : `${formatNumber(warning.kmRemaining)} km`}
                         {!overdue && warning.estimatedDaysRemaining !== null && ` · ~${warning.estimatedDaysRemaining} ngày`}
                       </td>
-                      <td style={{ padding: '8px' }}>{formatNumber(warning.averageKmPerDay)} km/ngày</td>
-                      <td style={{ padding: '8px' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '8px' }}>{formatNumber(warning.averageKmPerDay)} km/ngày</td>
+                      <td className="whitespace-nowrap" style={{ padding: '8px' }}>
                         <button type="button" onClick={() => confirmMaintenance(warning)} style={{ padding: '6px 9px', border: 0, borderRadius: '5px', background: '#059669', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
                           Đã thay & sửa chữa
                         </button>
@@ -510,11 +510,11 @@ export default function DashboardView() {
                   <span>{formatNumber(group.rows.length)} mốc hạn</span>
                 </h4>
                 <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-                  <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+                  <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
                     <thead>
                       <tr>
                         {['Loại hợp đồng', 'Số hợp đồng', 'Công ty / Tổ đan', 'Số lượng', 'Điện thoại / Zalo', 'Ngày giao', 'Trạng thái', 'Liên hệ'].map(header => (
-                          <th key={header} style={{ padding: '9px 10px', backgroundColor: '#f8fafc', color: '#475569', textAlign: 'left', fontSize: '12px' }}>{header}</th>
+                          <th className="whitespace-nowrap" key={header} style={{ padding: '9px 10px', backgroundColor: '#f8fafc', color: '#475569', textAlign: 'left', fontSize: '12px' }}>{header}</th>
                         ))}
                       </tr>
                     </thead>
@@ -528,16 +528,16 @@ export default function DashboardView() {
                             : `Còn ${formatNumber(daysRemaining)} ngày`;
                         return (
                           <tr key={`${contract.id}-${contractKind}-${deadlineDate}`} style={{ borderTop: '1px solid #e2e8f0' }}>
-                            <td style={{ padding: '9px 10px', fontWeight: 700 }}>{contractKind}</td>
-                            <td style={{ padding: '9px 10px', fontWeight: 800 }}>{contract.contractNo || '—'}</td>
-                            <td style={{ padding: '9px 10px' }}>{contactName}</td>
-                            <td style={{ padding: '9px 10px', whiteSpace: 'nowrap' }}>
+                            <td className="whitespace-nowrap" style={{ padding: '9px 10px', fontWeight: 700 }}>{contractKind}</td>
+                            <td className="whitespace-nowrap" style={{ padding: '9px 10px', fontWeight: 800 }}>{contract.contractNo || '—'}</td>
+                            <td className="whitespace-nowrap" style={{ padding: '9px 10px' }}>{contactName}</td>
+                            <td className="whitespace-nowrap" style={{ padding: '9px 10px', whiteSpace: 'nowrap' }}>
                               {formatNumber(Number(contract.quantity) || 0)} {contract.unit || 'sản phẩm'}
                             </td>
-                            <td style={{ padding: '9px 10px' }}>{contactPhone || '—'}</td>
-                            <td style={{ padding: '9px 10px', whiteSpace: 'nowrap' }}>{formatScheduleDate(deadlineDate)}</td>
-                            <td style={{ padding: '9px 10px', color: group.color, fontWeight: 800 }}>{status}</td>
-                            <td style={{ padding: '9px 10px' }}>
+                            <td className="whitespace-nowrap" style={{ padding: '9px 10px' }}>{contactPhone || '—'}</td>
+                            <td className="whitespace-nowrap" style={{ padding: '9px 10px', whiteSpace: 'nowrap' }}>{formatScheduleDate(deadlineDate)}</td>
+                            <td className="whitespace-nowrap" style={{ padding: '9px 10px', color: group.color, fontWeight: 800 }}>{status}</td>
+                            <td className="whitespace-nowrap" style={{ padding: '9px 10px' }}>
                               <a
                                 href={phoneNumber ? `tel:${phoneNumber}` : '#'}
                                 target="_self"
@@ -595,11 +595,11 @@ export default function DashboardView() {
           ))}
         </div>
         <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-            <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+            <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
               <thead>
                 <tr>
                   {['Tổ Đan / Hợp Đồng', 'Mã Hàng', 'Công Nợ Còn Lại', 'Hạn Trả Nợ', 'Cảnh Báo'].map(header => (
-                    <th key={header} style={{ padding: '9px 10px', backgroundColor: '#f1f5f9', color: '#475569', textAlign: 'left', fontSize: '12px' }}>{header}</th>
+                    <th className="whitespace-nowrap" key={header} style={{ padding: '9px 10px', backgroundColor: '#f1f5f9', color: '#475569', textAlign: 'left', fontSize: '12px' }}>{header}</th>
                   ))}
                 </tr>
               </thead>
@@ -608,11 +608,11 @@ export default function DashboardView() {
                   const badge = getDebtDueBadge(dueStatus);
                   return (
                     <tr key={contract.id} style={{ borderTop: '1px solid #e2e8f0' }}>
-                      <td style={{ padding: '9px 10px' }}>{contract.craftGroupLeader || '—'} · {contract.contractNo || '—'}</td>
-                      <td style={{ padding: '9px 10px' }}>{contract.productCode || '—'}</td>
-                      <td style={{ padding: '9px 10px', color: '#b91c1c', fontWeight: 800 }}>{formatCurrency(summary.outstanding)}</td>
-                      <td style={{ padding: '9px 10px', whiteSpace: 'nowrap' }}>{summary.debtDueDate}</td>
-                      <td style={{ padding: '9px 10px' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '9px 10px' }}>{contract.craftGroupLeader || '—'} · {contract.contractNo || '—'}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '9px 10px' }}>{contract.productCode || '—'}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '9px 10px', color: '#b91c1c', fontWeight: 800 }}>{formatCurrency(summary.outstanding)}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '9px 10px', whiteSpace: 'nowrap' }}>{summary.debtDueDate}</td>
+                      <td className="whitespace-nowrap" style={{ padding: '9px 10px' }}>
                         {badge ? (
                           <span style={{ display: 'inline-block', padding: '4px 8px', borderRadius: '999px', color: badge.color, backgroundColor: badge.backgroundColor, fontWeight: 800 }}>{badge.label}</span>
                         ) : <span style={{ color: '#64748b' }}>Chưa đến hạn</span>}

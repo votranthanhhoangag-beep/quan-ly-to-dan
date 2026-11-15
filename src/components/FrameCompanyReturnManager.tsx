@@ -638,23 +638,23 @@ export default function FrameCompanyReturnManager() {
       </div>
 
       <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-        <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead><tr>{['Số phiếu / Ngày', 'Mã hàng / Tên hàng', 'Tổ đan trả khung', 'Phân bổ hợp đồng công ty', 'Số lượng', 'Ghi chú', 'Thao tác'].map(label => <th key={label} style={tableHeaderStyle}>{label}</th>)}</tr></thead>
+        <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+          <thead><tr>{['Số phiếu / Ngày', 'Mã hàng / Tên hàng', 'Tổ đan trả khung', 'Phân bổ hợp đồng công ty', 'Số lượng', 'Ghi chú', 'Thao tác'].map(label => <th className="whitespace-nowrap" key={label} style={tableHeaderStyle}>{label}</th>)}</tr></thead>
           <tbody>
             {savedSlips.length === 0 ? (
-              <tr><td colSpan={7} style={{ padding: '18px', textAlign: 'center', color: '#64748b' }}>Chưa có phiếu xuất khung trả công ty.</td></tr>
+              <tr><td className="whitespace-nowrap" colSpan={7} style={{ padding: '18px', textAlign: 'center', color: '#64748b' }}>Chưa có phiếu xuất khung trả công ty.</td></tr>
             ) : savedSlips.map(slip => (
               <tr key={slip.id} style={{ borderTop: '1px solid #e2e8f0', verticalAlign: 'top' }}>
-                <td style={{ padding: '9px', whiteSpace: 'nowrap' }}><strong>{slip.slipNo}</strong><br />{slip.date}</td>
-                <td style={{ padding: '9px' }}>{slip.companyReturnLines.map(line => {
+                <td className="whitespace-nowrap" style={{ padding: '9px', whiteSpace: 'nowrap' }}><strong>{slip.slipNo}</strong><br />{slip.date}</td>
+                <td className="whitespace-nowrap" style={{ padding: '9px' }}>{slip.companyReturnLines.map(line => {
                   const breakdown = getSavedLineBreakdown(line);
                   return <div key={line.id}><strong>{line.productCode}</strong><br />{line.productName || '—'}<br /><small>{formatReturnSummary(breakdown.bundleQuantity, breakdown.sizeQuantities)}</small></div>;
                 })}</td>
-                <td style={{ padding: '9px' }}>{slip.companyReturnLines.map(line => <div key={line.id}>{line.sourceContractNo} · {line.artisanName || '—'}<br /><small>{line.artisanPhone || 'Chưa có SĐT'}</small></div>)}</td>
-                <td style={{ padding: '9px' }}>{slip.companyReturnLines.map(line => <div key={line.id}>{line.allocations.map(allocation => <div key={allocation.contractId}>{allocation.companyName} · HĐ {allocation.contractNo}: {formatNumber(allocation.quantity)}</div>)}</div>)}</td>
-                <td style={{ padding: '9px', textAlign: 'right', fontWeight: 700 }}>{formatNumber(Number(slip.quantity) || 0)} bộ tương đương</td>
-                <td style={{ padding: '9px' }}>{slip.note || '—'}</td>
-                <td style={{ padding: '9px' }}>
+                <td className="whitespace-nowrap" style={{ padding: '9px' }}>{slip.companyReturnLines.map(line => <div key={line.id}>{line.sourceContractNo} · {line.artisanName || '—'}<br /><small>{line.artisanPhone || 'Chưa có SĐT'}</small></div>)}</td>
+                <td className="whitespace-nowrap" style={{ padding: '9px' }}>{slip.companyReturnLines.map(line => <div key={line.id}>{line.allocations.map(allocation => <div key={allocation.contractId}>{allocation.companyName} · HĐ {allocation.contractNo}: {formatNumber(allocation.quantity)}</div>)}</div>)}</td>
+                <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right', fontWeight: 700 }}>{formatNumber(Number(slip.quantity) || 0)} bộ tương đương</td>
+                <td className="whitespace-nowrap" style={{ padding: '9px' }}>{slip.note || '—'}</td>
+                <td className="whitespace-nowrap" style={{ padding: '9px' }}>
                   <div className="slip-action-buttons">
                     <button type="button" className="slip-action-button slip-action-edit" onClick={() => startEdit(slip)}>✏️ Sửa</button>
                     {hasPermission('manage_settings') && <button type="button" className="slip-action-button slip-action-delete" onClick={() => {
@@ -703,17 +703,17 @@ export default function FrameCompanyReturnManager() {
                   <h2 style={{ margin: '12px 0 6px', fontSize: '18px' }}>PHIẾU XUẤT KHUNG SƠN TRẢ CÔNG TY</h2>
                   <div>Số phiếu: <strong>{printSlip.slipNo}</strong> · Ngày: {printSlip.date}</div>
                 </header>
-                <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead><tr>{['Mã hàng', 'Tên hàng', 'Tổ đan trả', 'Công ty / Hợp đồng nhận', 'Số lượng chi tiết'].map(label => <th key={label} style={{ border: '1px solid #94a3b8', padding: '7px', backgroundColor: '#f1f5f9', textAlign: 'left' }}>{label}</th>)}</tr></thead>
+                <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+                  <thead><tr>{['Mã hàng', 'Tên hàng', 'Tổ đan trả', 'Công ty / Hợp đồng nhận', 'Số lượng chi tiết'].map(label => <th className="whitespace-nowrap" key={label} style={{ border: '1px solid #94a3b8', padding: '7px', backgroundColor: '#f1f5f9', textAlign: 'left' }}>{label}</th>)}</tr></thead>
                   <tbody>{printSlip.companyReturnLines.map(line => {
                     const breakdown = getSavedLineBreakdown(line);
                     return (
                       <tr key={line.id}>
-                        <td style={{ border: '1px solid #94a3b8', padding: '7px' }}>{line.productCode}</td>
-                        <td style={{ border: '1px solid #94a3b8', padding: '7px' }}>{line.productName || '—'}</td>
-                        <td style={{ border: '1px solid #94a3b8', padding: '7px' }}>{line.sourceContractNo} · {line.artisanName}<br />{line.artisanPhone}</td>
-                        <td style={{ border: '1px solid #94a3b8', padding: '7px' }}>{line.allocations.map(allocation => <div key={allocation.contractId}>{allocation.companyName} · HĐ {allocation.contractNo}: {formatNumber(allocation.quantity)}</div>)}</td>
-                        <td style={{ border: '1px solid #94a3b8', padding: '7px' }}>{formatReturnSummary(breakdown.bundleQuantity, breakdown.sizeQuantities)}<br /><strong>{formatNumber(line.quantity)} bộ tương đương</strong></td>
+                        <td className="whitespace-nowrap" style={{ border: '1px solid #94a3b8', padding: '7px' }}>{line.productCode}</td>
+                        <td className="whitespace-nowrap" style={{ border: '1px solid #94a3b8', padding: '7px' }}>{line.productName || '—'}</td>
+                        <td className="whitespace-nowrap" style={{ border: '1px solid #94a3b8', padding: '7px' }}>{line.sourceContractNo} · {line.artisanName}<br />{line.artisanPhone}</td>
+                        <td className="whitespace-nowrap" style={{ border: '1px solid #94a3b8', padding: '7px' }}>{line.allocations.map(allocation => <div key={allocation.contractId}>{allocation.companyName} · HĐ {allocation.contractNo}: {formatNumber(allocation.quantity)}</div>)}</td>
+                        <td className="whitespace-nowrap" style={{ border: '1px solid #94a3b8', padding: '7px' }}>{formatReturnSummary(breakdown.bundleQuantity, breakdown.sizeQuantities)}<br /><strong>{formatNumber(line.quantity)} bộ tương đương</strong></td>
                       </tr>
                     );
                   })}</tbody>

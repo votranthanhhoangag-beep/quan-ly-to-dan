@@ -107,27 +107,27 @@ export default function AuditLogView() {
         {serverError && <p role="alert" style={{ flexBasis: '100%', margin: 0, color: '#b91c1c', fontSize: '13px' }}>{serverError}</p>}
       </header>
       <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto', backgroundColor: '#fff' }}>
-        <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+        <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
           <thead>
             <tr>
               {['Thời gian', 'Người thực hiện', 'Vai trò', 'Thao tác', 'Phân hệ', 'Mã đối tượng', 'Chi tiết'].map(label => (
-                <th key={label} style={{ padding: '10px', textAlign: 'left', color: '#334155', backgroundColor: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>{label}</th>
+                <th className="whitespace-nowrap" key={label} style={{ padding: '10px', textAlign: 'left', color: '#334155', backgroundColor: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>{label}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {logs.map(log => (
               <tr key={log.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                <td style={cellStyle}>{formatTimestamp(log.timestamp)}</td>
-                <td style={cellStyle}>{log.username}</td>
-                <td style={cellStyle}>{log.role}</td>
-                <td style={cellStyle}>{actionLabels[log.actionType] || log.actionType}</td>
-                <td style={cellStyle}>{log.moduleName}</td>
-                <td style={cellStyle}>{log.targetId}</td>
-                <td style={cellStyle}>{log.description}</td>
+                <td className="whitespace-nowrap" style={cellStyle}>{formatTimestamp(log.timestamp)}</td>
+                <td className="whitespace-nowrap" style={cellStyle}>{log.username}</td>
+                <td className="whitespace-nowrap" style={cellStyle}>{log.role}</td>
+                <td className="whitespace-nowrap" style={cellStyle}>{actionLabels[log.actionType] || log.actionType}</td>
+                <td className="whitespace-nowrap" style={cellStyle}>{log.moduleName}</td>
+                <td className="whitespace-nowrap" style={cellStyle}>{log.targetId}</td>
+                <td className="whitespace-nowrap" style={cellStyle}>{log.description}</td>
               </tr>
             ))}
-            {!isLoading && logs.length === 0 && !serverError && <tr><td colSpan={7} style={{ padding: '24px', textAlign: 'center', color: '#64748b' }}>Chưa có thao tác được ghi nhận.</td></tr>}
+            {!isLoading && logs.length === 0 && !serverError && <tr><td className="whitespace-nowrap" colSpan={7} style={{ padding: '24px', textAlign: 'center', color: '#64748b' }}>Chưa có thao tác được ghi nhận.</td></tr>}
           </tbody>
         </table>
       </div>

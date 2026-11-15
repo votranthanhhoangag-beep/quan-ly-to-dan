@@ -516,18 +516,18 @@ export default function FrameExportManager() {
             </button>
           </div>
           <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-            <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+            <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
               <thead>
                 <tr>
-                  <th style={tableHeaderStyle}>Tên Tổ Đan / Hợp Đồng</th>
-                  <th style={tableHeaderStyle}>Mã Hàng / Tên Hàng</th>
-                  <th style={{ ...tableHeaderStyle, textAlign: 'right' }}>ĐVT / Đơn Giá</th>
-                  <th style={tableHeaderStyle}>Ngày Nhận</th>
-                  <th style={{ ...tableHeaderStyle, textAlign: 'right' }}>SL Nhận</th>
-                  <th style={{ ...tableHeaderStyle, textAlign: 'right' }}>Thành Tiền</th>
-                  <th style={{ ...tableHeaderStyle, textAlign: 'right' }}>Số Tiền Trả</th>
-                  <th style={tableHeaderStyle}>Hạn Trả Nợ</th>
-                  <th style={{ ...tableHeaderStyle, textAlign: 'center' }}>Thao Tác</th>
+                  <th className="whitespace-nowrap" style={tableHeaderStyle}>Tên Tổ Đan / Hợp Đồng</th>
+                  <th className="whitespace-nowrap" style={tableHeaderStyle}>Mã Hàng / Tên Hàng</th>
+                  <th className="whitespace-nowrap" style={{ ...tableHeaderStyle, textAlign: 'right' }}>ĐVT / Đơn Giá</th>
+                  <th className="whitespace-nowrap" style={tableHeaderStyle}>Ngày Nhận</th>
+                  <th className="whitespace-nowrap" style={{ ...tableHeaderStyle, textAlign: 'right' }}>SL Nhận</th>
+                  <th className="whitespace-nowrap" style={{ ...tableHeaderStyle, textAlign: 'right' }}>Thành Tiền</th>
+                  <th className="whitespace-nowrap" style={{ ...tableHeaderStyle, textAlign: 'right' }}>Số Tiền Trả</th>
+                  <th className="whitespace-nowrap" style={tableHeaderStyle}>Hạn Trả Nợ</th>
+                  <th className="whitespace-nowrap" style={{ ...tableHeaderStyle, textAlign: 'center' }}>Thao Tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -633,7 +633,7 @@ export default function FrameExportManager() {
                   return (
                     <Fragment key={row.id}>
                     <tr style={{ borderTop: '1px solid #e2e8f0', verticalAlign: 'top' }}>
-                      <td style={{ padding: '8px' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '8px' }}>
                         <select
                           aria-label={`Chọn tổ đan dòng ${index + 1}`}
                           required
@@ -660,7 +660,7 @@ export default function FrameExportManager() {
                         </select>
                         {contract && <small style={{ display: 'block', marginTop: '5px', color: '#64748b' }}>HĐ CTY: {contract.parentContractNo || '—'}</small>}
                       </td>
-                      <td style={{ padding: '8px', color: '#334155', fontSize: '12px' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '8px', color: '#334155', fontSize: '12px' }}>
                         {contract ? (
                           <>
                             <strong style={{ color: '#1d4ed8' }}>{contract.productCode}</strong>
@@ -668,7 +668,7 @@ export default function FrameExportManager() {
                           </>
                         ) : '—'}
                       </td>
-                      <td style={{ padding: '8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         {contract ? (
                           <>
                             <strong>{getContractUnit(contract)}</strong>
@@ -676,10 +676,10 @@ export default function FrameExportManager() {
                           </>
                         ) : '—'}
                       </td>
-                      <td style={{ padding: '8px' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '8px' }}>
                         <input type="date" required value={row.receivedDate} onChange={event => updateRow(row.id, { receivedDate: event.target.value })} style={inputStyle} />
                       </td>
-                      <td style={{ padding: '8px' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '8px' }}>
                         <input
                           type="number"
                           min="0"
@@ -706,7 +706,7 @@ export default function FrameExportManager() {
                           </div>
                         )}
                       </td>
-                      <td style={{ padding: '8px', textAlign: 'right', color: '#b91c1c', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '8px', textAlign: 'right', color: '#b91c1c', fontWeight: 800, whiteSpace: 'nowrap' }}>
                         {contract ? formatCurrency(amount) : '—'}
                         {contract && (
                           <>
@@ -722,7 +722,7 @@ export default function FrameExportManager() {
                           </>
                         )}
                       </td>
-                      <td style={{ padding: '8px' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '8px' }}>
                         <input
                           type="number"
                           min="0"
@@ -741,7 +741,7 @@ export default function FrameExportManager() {
                           </small>
                         )}
                       </td>
-                      <td style={{ padding: '8px' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '8px' }}>
                         {requiresDebtDueDate ? (
                           <>
                             <input
@@ -763,7 +763,7 @@ export default function FrameExportManager() {
                           <small style={{ color: '#15803d', fontWeight: 700 }}>Không phát sinh nợ</small>
                         ) : '—'}
                       </td>
-                      <td style={{ padding: '8px', textAlign: 'center' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '8px', textAlign: 'center' }}>
                         <button type="button" aria-label={`Xóa dòng nhận hàng ${index + 1}`} onClick={() => setRows(current => {
                           const remainingRows = current.filter(item => item.id !== row.id);
                           return remainingRows.length ? remainingRows : [createRow()];
@@ -774,7 +774,7 @@ export default function FrameExportManager() {
                     </tr>
                     {contract && sizeKeys.length > 0 && (
                       <tr>
-                      <td colSpan={9} style={{ padding: '0 8px 10px' }}>
+                      <td className="whitespace-nowrap" colSpan={9} style={{ padding: '0 8px 10px' }}>
                           <div style={{ padding: '10px', border: '1px solid #e2e8f0', borderRadius: '6px', backgroundColor: '#f8fafc' }}>
                             <strong style={{ color: '#475569', fontSize: '11px' }}>
                               Chọn chỉ tiêu nhận hàng · Mã bộ gồm {sizeKeys.length} size
@@ -850,7 +850,7 @@ export default function FrameExportManager() {
                     )}
                     {contract && exceedsIssued && nextContract && (
                       <tr>
-                        <td colSpan={9} style={{ padding: '0 8px 10px' }}>
+                        <td className="whitespace-nowrap" colSpan={9} style={{ padding: '0 8px 10px' }}>
                           <div role="alert" style={{ padding: '9px 11px', border: '1px solid #fdba74', borderRadius: '6px', backgroundColor: '#fff7ed', color: '#9a3412', fontSize: '12px' }}>
                             Số nhận vượt khung đã phát. Hợp đồng tiếp theo cùng tổ và mã hàng: <strong>{nextContract.contractNo}</strong> · {nextContract.productCode}.
                             <button type="button" onClick={() => {
@@ -898,11 +898,11 @@ export default function FrameExportManager() {
       <section style={cardStyle}>
         <h3 style={{ margin: '0 0 12px', color: '#1e293b', fontSize: '15px' }}>📋 Lịch Sử Nhận Hàng Đan</h3>
         <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+          <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
             <thead>
               <tr>
                 {['Ngày', 'Tổ Đan / HĐ', 'Mã Hàng', 'SL Nhận đợt này', 'Lũy kế SL / HĐ', 'Đơn Giá', 'Tiền công', 'Trừ nguyên phụ liệu', 'Trừ cọc', 'Đã Trả đợt này', 'Đã Trả lũy kế', 'Công Nợ lũy kế', 'Hạn trả nợ', 'Trạng thái', 'Thao Tác'].map(header => (
-                  <th key={header} style={tableHeaderStyle}>{header}</th>
+                  <th className="whitespace-nowrap" key={header} style={tableHeaderStyle}>{header}</th>
                 ))}
               </tr>
             </thead>
@@ -912,19 +912,19 @@ export default function FrameExportManager() {
                 const dueBadge = getDebtDueBadge(getDebtDueStatus(summary.debtDueDate, summary.outstanding));
                 return (
                 <tr key={`${contract.id}-${log.id}`} style={{ borderTop: '1px solid #e2e8f0' }}>
-                  <td style={{ padding: '9px 10px', whiteSpace: 'nowrap' }}>{log.receivedDate}</td>
-                  <td style={{ padding: '9px 10px' }}>{contract.craftGroupLeader || '—'}<br /><small>{contract.contractNo}</small></td>
-                  <td style={{ padding: '9px 10px' }}>{contract.productCode}</td>
-                  <td style={{ padding: '9px 10px', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatNumber(log.quantity)} {getContractUnit(contract).toLowerCase()}</td>
-                  <td style={{ padding: '9px 10px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700 }}>{formatNumber(summary.receivedQuantity)} / {formatNumber(summary.totalQuantity)}</td>
-                  <td style={{ padding: '9px 10px', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(Number(contract.unitPrice) || 0)}</td>
-                  <td style={{ padding: '9px 10px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700 }}>{formatCurrency(log.amount)}</td>
-                  <td style={{ padding: '9px 10px', textAlign: 'right', whiteSpace: 'nowrap', color: '#0f766e', fontWeight: 700 }}>{formatCurrency(Number(log.deductedMaterialAmount) || 0)}</td>
-                  <td style={{ padding: '9px 10px', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(log.deductedDeposit)}</td>
-                  <td style={{ padding: '9px 10px', textAlign: 'right', whiteSpace: 'nowrap', color: '#1d4ed8', fontWeight: 700 }}>{formatCurrency(Number(log.paidAmount) || 0)}</td>
-                  <td style={{ padding: '9px 10px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700 }}>{formatCurrency(summary.paidAmount)}</td>
-                  <td style={{ padding: '9px 10px', textAlign: 'right', whiteSpace: 'nowrap', color: summary.outstanding > 0 ? '#b91c1c' : '#15803d', fontWeight: 800 }}>{formatCurrency(summary.outstanding)}</td>
-                  <td style={{ padding: '9px 10px', whiteSpace: 'nowrap', color: summary.debtDueDate ? '#b91c1c' : '#64748b' }}>
+                  <td className="whitespace-nowrap" style={{ padding: '9px 10px', whiteSpace: 'nowrap' }}>{log.receivedDate}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px 10px' }}>{contract.craftGroupLeader || '—'}<br /><small>{contract.contractNo}</small></td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px 10px' }}>{contract.productCode}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px 10px', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatNumber(log.quantity)} {getContractUnit(contract).toLowerCase()}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px 10px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700 }}>{formatNumber(summary.receivedQuantity)} / {formatNumber(summary.totalQuantity)}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px 10px', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(Number(contract.unitPrice) || 0)}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px 10px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700 }}>{formatCurrency(log.amount)}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px 10px', textAlign: 'right', whiteSpace: 'nowrap', color: '#0f766e', fontWeight: 700 }}>{formatCurrency(Number(log.deductedMaterialAmount) || 0)}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px 10px', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(log.deductedDeposit)}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px 10px', textAlign: 'right', whiteSpace: 'nowrap', color: '#1d4ed8', fontWeight: 700 }}>{formatCurrency(Number(log.paidAmount) || 0)}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px 10px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700 }}>{formatCurrency(summary.paidAmount)}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px 10px', textAlign: 'right', whiteSpace: 'nowrap', color: summary.outstanding > 0 ? '#b91c1c' : '#15803d', fontWeight: 800 }}>{formatCurrency(summary.outstanding)}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px 10px', whiteSpace: 'nowrap', color: summary.debtDueDate ? '#b91c1c' : '#64748b' }}>
                     {summary.debtDueDate || '—'}
                     {dueBadge && (
                       <span style={{ display: 'block', width: 'fit-content', marginTop: '5px', padding: '3px 7px', borderRadius: '999px', color: dueBadge.color, backgroundColor: dueBadge.backgroundColor, fontWeight: 800 }}>
@@ -932,8 +932,8 @@ export default function FrameExportManager() {
                       </span>
                     )}
                   </td>
-                  <td style={{ padding: '9px 10px', whiteSpace: 'nowrap', color: summary.outstanding > 0 && summary.complete ? '#b91c1c' : '#15803d', fontWeight: 700 }}>{summary.status}</td>
-                  <td style={{ padding: '9px 10px' }}>
+                  <td className="whitespace-nowrap" style={{ padding: '9px 10px', whiteSpace: 'nowrap', color: summary.outstanding > 0 && summary.complete ? '#b91c1c' : '#15803d', fontWeight: 700 }}>{summary.status}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '9px 10px' }}>
                     <div className="slip-action-buttons">
                       <button type="button" className="slip-action-button slip-action-edit" onClick={() => enterEdit(contract.id, log.id)}>✏️ Sửa</button>
                       <button type="button" className="slip-action-button slip-action-delete" onClick={() => deleteReceipt(contract, log)}>🗑️ Xóa</button>
@@ -943,7 +943,7 @@ export default function FrameExportManager() {
                 </tr>
               );
               }) : (
-                <tr><td colSpan={14} style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>Chưa có phiếu nhận hàng đan nào.</td></tr>
+                <tr><td className="whitespace-nowrap" colSpan={14} style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>Chưa có phiếu nhận hàng đan nào.</td></tr>
               )}
             </tbody>
           </table>

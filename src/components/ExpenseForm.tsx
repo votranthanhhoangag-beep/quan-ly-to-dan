@@ -480,15 +480,15 @@ export const ExpenseForm = () => {
             </button>
           </div>
           <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll">
-            <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+            <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
               <thead>
                 <tr style={{ backgroundColor: '#f1f5f9', color: '#475569', textAlign: 'left' }}>
-                  <th style={{ padding: '10px 12px' }}>Tên Nguyên Liệu / Khoản Chi</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'right' }}>Số Lượng</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>ĐVT</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'right' }}>Đơn Giá</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'right' }}>Thành Tiền</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>Thao Tác</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px 12px' }}>Tên Nguyên Liệu / Khoản Chi</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px 12px', textAlign: 'right' }}>Số Lượng</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px 12px', textAlign: 'center' }}>ĐVT</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px 12px', textAlign: 'right' }}>Đơn Giá</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px 12px', textAlign: 'right' }}>Thành Tiền</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px 12px', textAlign: 'center' }}>Thao Tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -509,7 +509,7 @@ export const ExpenseForm = () => {
                     : matchingSuggestions;
                   return (
                     <tr key={item.id} style={{ borderTop: '1px solid #e2e8f0' }}>
-                      <td style={{ padding: '8px 12px' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '8px 12px' }}>
                         <div style={{ position: 'relative' }}>
                           <input
                             aria-label={`Tên nguyên liệu hoặc khoản chi dòng ${index + 1}`}
@@ -595,7 +595,7 @@ export const ExpenseForm = () => {
                           )}
                         </div>
                       </td>
-                      <td style={{ padding: '8px 12px' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '8px 12px' }}>
                         <input
                           aria-label={`Số lượng dòng ${index + 1}`}
                           type="number"
@@ -612,7 +612,7 @@ export const ExpenseForm = () => {
                           style={{ ...inputStyle, textAlign: 'right', backgroundColor: item.isEditing ? '#fff' : '#f8fafc' }}
                         />
                       </td>
-                      <td style={{ padding: '8px 12px' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '8px 12px' }}>
                         <input
                           aria-label={`Đơn vị tính dòng ${index + 1}`}
                           list="expense-unit-options"
@@ -624,7 +624,7 @@ export const ExpenseForm = () => {
                           style={{ ...inputStyle, paddingLeft: '7px', paddingRight: '7px', backgroundColor: item.isEditing ? '#fff' : '#f8fafc' }}
                         />
                       </td>
-                      <td style={{ padding: '8px 12px' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '8px 12px' }}>
                         <input
                           aria-label={`Đơn giá dòng ${index + 1}`}
                           type="text"
@@ -640,10 +640,10 @@ export const ExpenseForm = () => {
                           style={{ ...inputStyle, textAlign: 'right', backgroundColor: item.isEditing ? '#fff' : '#f8fafc' }}
                         />
                       </td>
-                      <td style={{ padding: '8px 12px', textAlign: 'right', color: '#b91c1c', fontWeight: 700 }}>
+                      <td className="whitespace-nowrap" style={{ padding: '8px 12px', textAlign: 'right', color: '#b91c1c', fontWeight: 700 }}>
                         {formatCurrency(lineTotal)}
                       </td>
-                      <td style={{ padding: '8px 12px' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '8px 12px' }}>
                         <div style={{ display: 'flex', justifyContent: 'center', gap: '5px' }}>
                           <button
                             type="button"
@@ -669,9 +669,9 @@ export const ExpenseForm = () => {
               </tbody>
               <tfoot>
                 <tr style={{ borderTop: '2px solid #cbd5e1', backgroundColor: '#f8fafc' }}>
-                  <td colSpan={4} style={{ padding: '11px 12px', textAlign: 'right', fontWeight: 700 }}>Cộng tiền hàng</td>
-                  <td style={{ padding: '11px 12px', textAlign: 'right', fontWeight: 800 }}>{formatCurrency(subtotal)}</td>
-                  <td />
+                  <td className="whitespace-nowrap" colSpan={4} style={{ padding: '11px 12px', textAlign: 'right', fontWeight: 700 }}>Cộng tiền hàng</td>
+                  <td className="whitespace-nowrap" style={{ padding: '11px 12px', textAlign: 'right', fontWeight: 800 }}>{formatCurrency(subtotal)}</td>
+                  <td className="whitespace-nowrap" />
                 </tr>
               </tfoot>
             </table>
@@ -809,17 +809,17 @@ export const ExpenseForm = () => {
           </strong>
         </div>
         <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-full divide-y divide-gray-200 text-sm">
+          <table style={{ borderCollapse: 'collapse', textAlign: 'left' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
             <thead>
               <tr style={{ backgroundColor: '#f1f5f9', color: '#475569' }}>
-                <th style={{ padding: '9px' }}>Ngày Chi</th>
-                <th style={{ padding: '9px' }}>Cơ Sở / Đối Tác</th>
-                <th style={{ padding: '9px' }}>Chi Tiết</th>
-                <th style={{ padding: '9px', textAlign: 'right' }}>Tổng Tiền</th>
-                <th style={{ padding: '9px', textAlign: 'right' }}>Đã Thanh Toán</th>
-                <th style={{ padding: '9px', textAlign: 'right' }}>Còn Lại</th>
-                <th style={{ padding: '9px' }}>Hẹn Thanh Toán</th>
-                <th style={{ padding: '9px', textAlign: 'center' }}>Thao Tác</th>
+                <th className="whitespace-nowrap" style={{ padding: '9px' }}>Ngày Chi</th>
+                <th className="whitespace-nowrap" style={{ padding: '9px' }}>Cơ Sở / Đối Tác</th>
+                <th className="whitespace-nowrap" style={{ padding: '9px' }}>Chi Tiết</th>
+                <th className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right' }}>Tổng Tiền</th>
+                <th className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right' }}>Đã Thanh Toán</th>
+                <th className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right' }}>Còn Lại</th>
+                <th className="whitespace-nowrap" style={{ padding: '9px' }}>Hẹn Thanh Toán</th>
+                <th className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'center' }}>Thao Tác</th>
               </tr>
             </thead>
             <tbody>
@@ -835,18 +835,18 @@ export const ExpenseForm = () => {
                 const expenseTotal = Number(expense.amount) || 0;
                 return (
                   <tr key={expense.id || index} style={{ borderTop: '1px solid #e2e8f0' }}>
-                    <td style={{ padding: '9px', whiteSpace: 'nowrap' }}>{formatExpenseDate(expense.date)}</td>
-                    <td style={{ padding: '9px' }}>{expense.supplierName || expense.handler || '—'}</td>
-                    <td style={{ padding: '9px' }}>{details}</td>
-                    <td style={{ padding: '9px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700 }}>{formatCurrency(expenseTotal)}</td>
-                    <td style={{ padding: '9px', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(expensePaid)}</td>
-                    <td style={{ padding: '9px', textAlign: 'right', whiteSpace: 'nowrap', color: expenseTotal - expensePaid > 0 ? '#b91c1c' : '#15803d', fontWeight: 700 }}>{formatCurrency(expenseTotal - expensePaid)}</td>
-                    <td style={{ padding: '9px', whiteSpace: 'nowrap' }}>
+                    <td className="whitespace-nowrap" style={{ padding: '9px', whiteSpace: 'nowrap' }}>{formatExpenseDate(expense.date)}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '9px' }}>{expense.supplierName || expense.handler || '—'}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '9px' }}>{details}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700 }}>{formatCurrency(expenseTotal)}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(expensePaid)}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '9px', textAlign: 'right', whiteSpace: 'nowrap', color: expenseTotal - expensePaid > 0 ? '#b91c1c' : '#15803d', fontWeight: 700 }}>{formatCurrency(expenseTotal - expensePaid)}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '9px', whiteSpace: 'nowrap' }}>
                       {(expenseTotal - expensePaid > 0 && expense.nextPaymentDate)
                         ? formatExpenseDate(expense.nextPaymentDate)
                         : '—'}
                     </td>
-                    <td style={{ padding: '9px' }}>
+                    <td className="whitespace-nowrap" style={{ padding: '9px' }}>
                       <div style={{ display: 'flex', justifyContent: 'center', gap: '6px' }}>
                         <button type="button" onClick={() => handleEditExpense(expense.id)} style={{ padding: '6px 9px', border: 0, borderRadius: '5px', backgroundColor: '#2563eb', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>Sửa</button>
                         {hasPermission('delete_expenses') && <button type="button" onClick={() => handleDeleteExpense(expense)} style={{ padding: '6px 9px', border: 0, borderRadius: '5px', backgroundColor: '#dc2626', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>Xóa</button>}
@@ -855,7 +855,7 @@ export const ExpenseForm = () => {
                   </tr>
                 );
               }) : (
-                <tr><td colSpan={8} style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>Chưa có phiếu chi nào được lưu.</td></tr>
+                <tr><td className="whitespace-nowrap" colSpan={8} style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>Chưa có phiếu chi nào được lưu.</td></tr>
               )}
             </tbody>
           </table>

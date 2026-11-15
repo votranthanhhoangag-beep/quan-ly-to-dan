@@ -91,17 +91,19 @@ const getDefectiveSourceQuantity = (
     )
     .forEach(slip => {
       result.bundles += Number(slip.defectiveBundles) || 0;
-      if (slip.defectiveSizeQuantities) {
-        const sizes = normalizeSizeCounts(slip.defectiveSizeQuantities, sizeNames);
-        sizeNames.forEach(size => { result.sizes[size] += sizes[size]; });
+      const savedSizes = normalizeSizeCounts(slip.defectiveSizeQuantities, sizeNames);
+      if (Object.values(savedSizes).some(quantity => quantity > 0)) {
+        sizeNames.forEach(size => { result.sizes[size] += savedSizes[size]; });
       } else if (Number(slip.defectivePieces) > 0) {
         const eachSize = Number(slip.defectivePieces) / sizeNames.length;
         sizeNames.forEach(size => { result.sizes[size] += eachSize; });
-      } else if (!slip.goodSizeQuantities) {
-        result.bundles += Math.max(
+      } else {
+        const legacyRejectedQuantity = Math.max(
           0,
           (Number(slip.defectiveContractQuantity) || 0) - (Number(slip.defectiveBundles) || 0)
         );
+        if (sizeNames.length === 1) result.sizes[sizeNames[0]] += legacyRejectedQuantity;
+        else result.bundles += legacyRejectedQuantity;
       }
     });
   return result;
@@ -171,16 +173,37 @@ export default function DefectiveGoodsImportManager() {
   const [printSlip, setPrintSlip] = useState<DefectiveGoodsImportSlip | null>(null);
   const printAreaRef = useRef<HTMLDivElement>(null);
 
-  const receiptSources = useMemo<ReceiptSource[]>(() => contracts
+  const allReceiptSources = useMemo<ReceiptSource[]>(() => contracts
     .filter(contract => contract.contractType === 'SUB')
     .flatMap(contract => (Array.isArray(contract.receivedGoodsLogs) ? contract.receivedGoodsLogs : [])
-      .filter(receipt => Number(receipt.quantity) > 0)
       .map(receipt => ({
         contract,
         receipt,
         key: `${contract.id}::${receipt.id}`
       })))
     .sort((first, second) => second.receipt.receivedDate.localeCompare(first.receipt.receivedDate)), [contracts]);
+
+  const receiptSources = useMemo<ReceiptSource[]>(() => {
+    const editingSlip = defectiveGoodsImportSlips.find(
+      slip => String(slip.id) === String(editingId ?? '')
+    );
+    return allReceiptSources.filter(source => {
+      const isEditingSource = Boolean(editingSlip &&
+        String(editingSlip.sourceContractId) === String(source.contract.id) &&
+        String(editingSlip.sourceReceiptId) === String(source.receipt.id));
+      const sourceSizes = getSizeNames(source.contract);
+      const defectiveQuantity = getDefectiveSourceQuantity(source, knittingExportSlips, sourceSizes);
+      const hasDefectiveQuantity = defectiveQuantity.bundles > 0 ||
+        Object.values(defectiveQuantity.sizes).some(quantity => quantity > 0);
+      if (!hasDefectiveQuantity && !isEditingSource) return false;
+      const wasAlreadyImported = defectiveGoodsImportSlips.some(slip =>
+        String(slip.id) !== String(editingId ?? '') &&
+        String(slip.sourceContractId) === String(source.contract.id) &&
+        String(slip.sourceReceiptId) === String(source.receipt.id)
+      );
+      return isEditingSource || !wasAlreadyImported;
+    });
+  }, [allReceiptSources, knittingExportSlips, defectiveGoodsImportSlips, editingId]);
 
   const selectedSource = receiptSources.find(source => source.key === selectedSourceKey);
   const selectedContract = selectedSource?.contract;
@@ -298,7 +321,7 @@ export default function DefectiveGoodsImportManager() {
   };
 
   const startEdit = (slip: DefectiveGoodsImportSlip) => {
-    const source = receiptSources.find(item =>
+    const source = allReceiptSources.find(item =>
       String(item.contract.id) === String(slip.sourceContractId) &&
       String(item.receipt.id) === String(slip.sourceReceiptId)
     );
@@ -329,6 +352,15 @@ export default function DefectiveGoodsImportManager() {
     event.preventDefault();
     if (!selectedSource || !selectedContract) {
       setError('Vui lòng chọn phiếu nhận hàng đan làm nguồn nhập.');
+      return;
+    }
+    const alreadyImported = defectiveGoodsImportSlips.some(slip =>
+      String(slip.id) !== String(editingId ?? '') &&
+      String(slip.sourceContractId) === String(selectedSource.contract.id) &&
+      String(slip.sourceReceiptId) === String(selectedSource.receipt.id)
+    );
+    if (alreadyImported) {
+      setError('Phiếu nhận nguồn này đã có phiếu nhập loại. Vui lòng chọn phiếu nguồn khác.');
       return;
     }
     const quantities = detailLines.map(line => line.quantity.trim() ? Number(line.quantity) : 0);
@@ -570,16 +602,16 @@ export default function DefectiveGoodsImportManager() {
                 ])}>＋ Thêm dòng</button>
               </div>
               <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-                <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+                <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
                   <thead><tr>
-                    <th style={tableHeaderStyle}>Quy cách</th>
-                    <th style={tableHeaderStyle}>Số lượng</th>
-                    <th style={{ ...tableHeaderStyle, textAlign: 'center' }}>Thao tác</th>
+                    <th className="whitespace-nowrap" style={tableHeaderStyle}>Quy cách</th>
+                    <th className="whitespace-nowrap" style={tableHeaderStyle}>Số lượng</th>
+                    <th className="whitespace-nowrap" style={{ ...tableHeaderStyle, textAlign: 'center' }}>Thao tác</th>
                   </tr></thead>
                   <tbody>
                     {detailLines.map(line => (
                       <tr key={line.id} style={{ borderTop: '1px solid #e2e8f0' }}>
-                        <td style={{ padding: '7px 10px' }}>
+                        <td className="whitespace-nowrap" style={{ padding: '7px 10px' }}>
                           <select value={line.kind} onChange={event => setDetailLines(lines => lines.map(item =>
                             item.id === line.id ? { ...item, kind: event.target.value } : item
                           ))} style={inputStyle}>
@@ -589,7 +621,7 @@ export default function DefectiveGoodsImportManager() {
                             ))}
                           </select>
                         </td>
-                        <td style={{ padding: '7px 10px' }}>
+                        <td className="whitespace-nowrap" style={{ padding: '7px 10px' }}>
                           <input
                             type="number"
                             min="0"
@@ -602,7 +634,7 @@ export default function DefectiveGoodsImportManager() {
                             style={inputStyle}
                           />
                         </td>
-                        <td style={{ padding: '7px 10px', textAlign: 'center' }}>
+                        <td className="whitespace-nowrap" style={{ padding: '7px 10px', textAlign: 'center' }}>
                           <button
                             type="button"
                             className="slip-action-button slip-action-delete"
@@ -612,7 +644,7 @@ export default function DefectiveGoodsImportManager() {
                         </td>
                       </tr>
                     ))}
-                    {detailLines.length === 0 && <tr><td colSpan={3} style={{ padding: '12px', textAlign: 'center', color: '#64748b' }}>Chưa có dòng quy cách. Bấm “Thêm dòng” để nhập.</td></tr>}
+                    {detailLines.length === 0 && <tr><td className="whitespace-nowrap" colSpan={3} style={{ padding: '12px', textAlign: 'center', color: '#64748b' }}>Chưa có dòng quy cách. Bấm “Thêm dòng” để nhập.</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -643,23 +675,23 @@ export default function DefectiveGoodsImportManager() {
       {actionError && <div role="alert" style={{ color: '#b91c1c', fontSize: '13px', fontWeight: 700 }}>{actionError}</div>}
       <section style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', backgroundColor: '#fff' }}>
         <h3 style={{ padding: '14px 16px', margin: 0, color: '#1e293b', fontSize: '15px' }}>Lịch Sử Phiếu Nhập Hàng Loại</h3>
-        <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+        <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll"><table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
           <thead><tr>
             {['Phiếu / Ngày', 'Mã hàng / Tên hàng', 'Tổ đan / Phiếu nguồn', 'HĐ Công ty A', 'HĐ đối chiếu B-A', 'Quy cách nhập', 'Số lượng quy đổi', 'Thao tác'].map(label => (
-              <th key={label} style={tableHeaderStyle}>{label}</th>
+              <th className="whitespace-nowrap" key={label} style={tableHeaderStyle}>{label}</th>
             ))}
           </tr></thead>
           <tbody>
             {allSlips.map(slip => (
               <tr key={slip.id} style={{ borderTop: '1px solid #e2e8f0', verticalAlign: 'top' }}>
-                <td style={{ padding: '10px', whiteSpace: 'nowrap' }}><strong>{slip.slipNo}</strong><br />{formatDate(slip.date)}</td>
-                <td style={{ padding: '10px' }}><strong>{slip.productCode}</strong><br />{slip.productName}</td>
-                <td style={{ padding: '10px' }}>{slip.sourceContractNo}<br /><small>{slip.sourceReceiptId}</small></td>
-                <td style={{ padding: '10px' }}>{slip.parentContractNo || '—'}<br /><small>{slip.parentCompanyName || '—'}</small></td>
-                <td style={{ padding: '10px' }}>{slip.companyBContractNo || '—'}</td>
-                <td style={{ padding: '10px', color: '#b91c1c', fontWeight: 700 }}>{getSlipSummary(slip)}</td>
-                <td style={{ padding: '10px', whiteSpace: 'nowrap' }}>{formatNumber(slip.quantity)} {slip.unit}<br /><small>{formatNumber(slip.physicalQuantity)} cái thực nhập</small></td>
-                <td style={{ padding: '10px' }}>
+                <td className="whitespace-nowrap" style={{ padding: '10px', whiteSpace: 'nowrap' }}><strong>{slip.slipNo}</strong><br />{formatDate(slip.date)}</td>
+                <td className="whitespace-nowrap" style={{ padding: '10px' }}><strong>{slip.productCode}</strong><br />{slip.productName}</td>
+                <td className="whitespace-nowrap" style={{ padding: '10px' }}>{slip.sourceContractNo}<br /><small>{slip.sourceReceiptId}</small></td>
+                <td className="whitespace-nowrap" style={{ padding: '10px' }}>{slip.parentContractNo || '—'}<br /><small>{slip.parentCompanyName || '—'}</small></td>
+                <td className="whitespace-nowrap" style={{ padding: '10px' }}>{slip.companyBContractNo || '—'}</td>
+                <td className="whitespace-nowrap" style={{ padding: '10px', color: '#b91c1c', fontWeight: 700 }}>{getSlipSummary(slip)}</td>
+                <td className="whitespace-nowrap" style={{ padding: '10px', whiteSpace: 'nowrap' }}>{formatNumber(slip.quantity)} {slip.unit}<br /><small>{formatNumber(slip.physicalQuantity)} cái thực nhập</small></td>
+                <td className="whitespace-nowrap" style={{ padding: '10px' }}>
                   <div className="slip-action-buttons">
                     <button type="button" className="slip-action-button slip-action-edit" onClick={() => startEdit(slip)}>✏️ Sửa</button>
                     <button type="button" className="slip-action-button slip-action-delete" onClick={() => handleDelete(slip)}>🗑️ Xóa</button>
@@ -669,7 +701,7 @@ export default function DefectiveGoodsImportManager() {
                 </td>
               </tr>
             ))}
-            {allSlips.length === 0 && <tr><td colSpan={8} style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>Chưa có phiếu nhập hàng loại.</td></tr>}
+            {allSlips.length === 0 && <tr><td className="whitespace-nowrap" colSpan={8} style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>Chưa có phiếu nhập hàng loại.</td></tr>}
           </tbody>
         </table></div>
       </section>
@@ -699,10 +731,10 @@ export default function DefectiveGoodsImportManager() {
                 <div><strong>Mã hàng:</strong> {printSlip.productCode}</div>
                 <div><strong>Tên hàng:</strong> {printSlip.productName}</div>
               </div>
-              <table style={{ borderCollapse: 'collapse', marginBottom: '20px' }} className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead><tr>{['Quy cách', 'Số lượng'].map(label => <th key={label} style={{ border: '1px solid #94a3b8', padding: '9px', textAlign: 'left' }}>{label}</th>)}</tr></thead>
+              <table style={{ borderCollapse: 'collapse', marginBottom: '20px' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
+                <thead><tr>{['Quy cách', 'Số lượng'].map(label => <th className="whitespace-nowrap" key={label} style={{ border: '1px solid #94a3b8', padding: '9px', textAlign: 'left' }}>{label}</th>)}</tr></thead>
                 <tbody>
-                  <tr><td style={{ border: '1px solid #94a3b8', padding: '9px' }}>{getSlipSummary(printSlip)}</td><td style={{ border: '1px solid #94a3b8', padding: '9px' }}>{formatNumber(printSlip.quantity)} {printSlip.unit} · {formatNumber(printSlip.physicalQuantity)} cái thực nhập</td></tr>
+                  <tr><td className="whitespace-nowrap" style={{ border: '1px solid #94a3b8', padding: '9px' }}>{getSlipSummary(printSlip)}</td><td className="whitespace-nowrap" style={{ border: '1px solid #94a3b8', padding: '9px' }}>{formatNumber(printSlip.quantity)} {printSlip.unit} · {formatNumber(printSlip.physicalQuantity)} cái thực nhập</td></tr>
                 </tbody>
               </table>
               <div style={{ minHeight: '48px' }}><strong>Ghi chú:</strong> {printSlip.note || '—'}</div>

@@ -196,31 +196,31 @@ export default function CompanyBExportManager() {
       )}
 
       <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-        <table style={{ borderCollapse: 'collapse' }} className="min-w-full divide-y divide-gray-200 text-sm">
+        <table style={{ borderCollapse: 'collapse' }} className="min-w-[750px] divide-y divide-gray-200 text-sm">
           <thead>
             <tr style={{ background: '#f1f5f9', textAlign: 'left', color: '#334155' }}>
-              <th style={{ padding: '10px' }}>Số Phiếu Xuất</th>
-              <th style={{ padding: '10px' }}>Ngày Giao</th>
-              <th style={{ padding: '10px' }}>Mã HĐ Cty B</th>
-              <th style={{ padding: '10px' }}>Mã Sản Phẩm</th>
-              <th style={{ padding: '10px', textAlign: 'right' }}>Số Lượng Giao</th>
-              <th style={{ padding: '10px' }}>Người Nhận</th>
-              <th style={{ padding: '10px', textAlign: 'center' }}>Chứng Từ</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Số Phiếu Xuất</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Ngày Giao</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Mã HĐ Cty B</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Mã Sản Phẩm</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Số Lượng Giao</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px' }}>Người Nhận</th>
+              <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>Chứng Từ</th>
             </tr>
           </thead>
           <tbody>
             {slips.length > 0 ? (
               slips.map((item, idx) => (
                 <tr key={item.id} style={{ borderBottom: '1px solid #f8fafc', background: idx % 2 === 0 ? '#fff' : '#fafafa' }}>
-                  <td style={{ padding: '10px', fontWeight: 'bold', color: '#2563eb' }}>{item.slipNo}</td>
-                  <td style={{ padding: '10px' }}>{item.date}</td>
-                  <td style={{ padding: '10px', fontWeight: 'bold' }}>{item.contractNoB}</td>
-                  <td style={{ padding: '10px', color: '#0f172a' }}>{item.productCode}</td>
-                  <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#16a34a', fontSize: '13px' }}>
+                  <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold', color: '#2563eb' }}>{item.slipNo}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '10px' }}>{item.date}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold' }}>{item.contractNoB}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '10px', color: '#0f172a' }}>{item.productCode}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#16a34a', fontSize: '13px' }}>
                     {item.exportQty.toLocaleString()} {item.unitType}
                   </td>
-                  <td style={{ padding: '10px' }}>{item.recipientName}</td>
-                  <td style={{ padding: '10px', textAlign: 'center' }}>
+                  <td className="whitespace-nowrap" style={{ padding: '10px' }}>{item.recipientName}</td>
+                  <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>
                     <span style={{ background: '#dcfce7', color: '#15803d', padding: '3px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '11px' }}>
                       📸 {item.images.length} ảnh
                     </span>
@@ -229,7 +229,7 @@ export default function CompanyBExportManager() {
               ))
             ) : (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '20px', color: '#94a3b8' }}>Chưa có phiếu xuất thành phẩm giao Công ty B nào!</td>
+                <td className="whitespace-nowrap" colSpan={7} style={{ textAlign: 'center', padding: '20px', color: '#94a3b8' }}>Chưa có phiếu xuất thành phẩm giao Công ty B nào!</td>
               </tr>
             )}
           </tbody>
