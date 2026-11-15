@@ -303,6 +303,22 @@ export default function InventoryStockReport() {
 
   const repairSlips = slips.filter(slip => slip?.type === 'XUAT_SUA_KHOAN');
   const repairReceiptSlips = slips.filter(slip => slip?.type === 'NHAN_SUA_KHOAN');
+  const hasRepairReceipt = (repairSlip: SlipItem) => repairReceiptSlips.some(receipt =>
+    String(receipt.sourceRepairSlipId || '') === String(repairSlip.id) ||
+    (Boolean(receipt.contractNo) && receipt.contractNo === repairSlip.slipNo)
+  );
+  const editingRepairReceipt = repairReceiptSlips.find(
+    slip => String(slip.id) === String(editingReceiptId ?? '')
+  );
+  const editingRepairSource = editingRepairReceipt
+    ? repairSlips.find(slip =>
+      String(slip.id) === String(editingRepairReceipt.sourceRepairSlipId || '') ||
+      slip.slipNo === editingRepairReceipt.contractNo
+    )
+    : undefined;
+  const availableRepairSlips = repairSlips.filter(slip =>
+    !hasRepairReceipt(slip) || String(slip.id) === String(editingRepairSource?.id || '')
+  );
   const companyFrameReturnSlips = slips.filter(slip =>
     slip?.type === 'XUAT_KS_TRA_CTY' && Array.isArray(slip.companyReturnLines)
   );
@@ -1324,6 +1340,10 @@ export default function InventoryStockReport() {
     event.preventDefault();
     if (!selectedRepairSource || !receiptDate || receiptLines.length === 0) {
       setReceiptError('Vui lòng chọn phiếu xuất sửa khoán và nhập ngày nhận hàng.');
+      return;
+    }
+    if (editingReceiptId === null && hasRepairReceipt(selectedRepairSource)) {
+      setReceiptError('Phiếu xuất sửa khoán này đã có trong lịch sử nhận hàng. Vui lòng chọn phiếu xuất khác.');
       return;
     }
     if (receiptOverageWarnings.length > 0) {
@@ -2450,7 +2470,7 @@ export default function InventoryStockReport() {
               <label style={{ display: 'grid', gap: '5px', fontSize: '12px', fontWeight: 700 }}>Phiếu xuất sửa khoán đối ứng
                 <select disabled={editingReceiptId !== null} value={receiptSourceSlipId} onChange={event => handleReceiptSourceChange(event.target.value)} style={inputStyle}>
                   <option value="">Chọn phiếu đã xuất sửa</option>
-                  {repairSlips.map(slip => (
+                  {availableRepairSlips.map(slip => (
                     <option key={slip.id} value={String(slip.id)}>
                       {slip.slipNo} · {slip.repairWorkerName || slip.partnerName || slip.partner || 'Chưa rõ thợ'} · {slip.date}
                     </option>

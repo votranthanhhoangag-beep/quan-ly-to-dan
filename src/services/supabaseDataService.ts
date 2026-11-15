@@ -67,11 +67,28 @@ export async function saveDataStore(key: string, userId: string | undefined, ite
     if (previousSave) await previousSave.catch(() => undefined);
     
     const client = getSupabaseClient();
-    let saveError: unknown = null;
 
-    // Cách 1: Ghi với user_id (tương thích cả bảng cũ và bảng mới nếu có cột user_id)
+    // Ghi trực tiếp theo key chung của toàn hệ thống (bảng app_data_stores dùng khóa chính là key)
+    const payload: Record<string, unknown> = {
+      key,
+      data: items,
+      updated_at: new Date().toISOString()
+    };
     if (userId) {
-      const { error: upsertWithUserError } = await client
+      payload.updated_by = userId;
+    }
+
+    const { error: upsertError } = await client
+      .from('app_data_stores')
+      .upsert(payload, { onConflict: 'key' });
+
+    if (!upsertError) {
+      return queryDataStore(key, userId);
+    }
+
+    // Nếu xảy ra lỗi do schema cũ còn đòi hỏi cột user_id, fallback tương thích ngược
+    if (userId && upsertError.message?.includes('user_id')) {
+      const { error: legacyError } = await client
         .from('app_data_stores')
         .upsert({
           user_id: userId,
@@ -80,27 +97,13 @@ export async function saveDataStore(key: string, userId: string | undefined, ite
           updated_at: new Date().toISOString()
         });
 
-      if (!upsertWithUserError) {
+      if (!legacyError) {
         return queryDataStore(key, userId);
       }
-      saveError = upsertWithUserError;
+      throw new Error(formatSupabaseError(legacyError));
     }
 
-    // Cách 2: Nếu thất bại hoặc không có cột user_id, ghi theo key duy nhất
-    const { error: upsertKeyOnlyError } = await client
-      .from('app_data_stores')
-      .upsert({
-        key,
-        data: items,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'key' });
-
-    if (!upsertKeyOnlyError) {
-      return queryDataStore(key, userId);
-    }
-
-    // Nếu cả hai đều lỗi, ném ra thông tin chi tiết
-    throw new Error(formatSupabaseError(saveError || upsertKeyOnlyError));
+    throw new Error(formatSupabaseError(upsertError));
   })();
 
   pendingSaves.set(key, currentSave);
