@@ -269,6 +269,46 @@ export default function DashboardView() {
   const companyContractValue = parentContracts.reduce((sum, contract) => sum + (Number(contract.totalAmount) || 0), 0);
   const weavingContractValue = subContracts.reduce((sum, contract) => sum + (Number(contract.totalAmount) || 0), 0);
   const remainingContractValue = companyContractValue - weavingContractValue;
+
+  // TÍNH TOÁN DOANH THU THỰC TẾ (REALIZED REVENUE) TỪ CÁC ĐỢT XUẤT HÀNG ĐẠT
+  const findParentForExport = (slip: typeof knittingExportSlips[number]) => parentContracts.find(contract =>
+    (slip.companyBContractId !== undefined
+      ? String(contract.id) === String(slip.companyBContractId)
+      : String(contract.contractNo || '').trim().toLowerCase() === String(slip.companyBContractNo || '').trim().toLowerCase()) &&
+    String(contract.productCode || '').trim().toLowerCase() === String(slip.productCode || '').trim().toLowerCase()
+  );
+
+  const realizedRevenueContracts = parentContracts.map(contract => {
+    const matchedExports = knittingExportSlips.filter(slip => {
+      const parent = findParentForExport(slip);
+      return parent ? String(parent.id) === String(contract.id) : false;
+    });
+
+    const goodQuantity = matchedExports.reduce((sum, slip) => sum + Math.max(0, Number(slip.goodContractQuantity) || 0), 0);
+    const unitPrice = Number(contract.unitPrice) || 0;
+    const contractQuantity = Number(contract.quantity) || 0;
+    const contractTotalAmount = Number(contract.totalAmount) || (contractQuantity * unitPrice);
+    const realizedRevenue = goodQuantity * unitPrice;
+    const receivedFrames = getParentReceivedQuantity(contract);
+    const fulfillmentPercent = contractQuantity > 0 ? Math.min(100, Math.round((goodQuantity / contractQuantity) * 100)) : 0;
+
+    return {
+      contract,
+      contractQuantity,
+      unitPrice,
+      contractTotalAmount,
+      goodQuantity,
+      realizedRevenue,
+      receivedFrames,
+      fulfillmentPercent,
+      exportCount: matchedExports.length
+    };
+  });
+
+  const totalRealizedRevenue = realizedRevenueContracts.reduce((sum, item) => sum + item.realizedRevenue, 0);
+  const totalGoodExportQuantity = realizedRevenueContracts.reduce((sum, item) => sum + item.goodQuantity, 0);
+  const actualNetRevenue = totalRealizedRevenue - weavingContractValue;
+
   const materialTotals = new Map<string, { name: string; unit: string; quantity: number }>();
   subContracts.forEach(contract => {
     (Array.isArray(contract.accompanyingMaterials) ? contract.accompanyingMaterials : []).forEach(material => {
@@ -626,25 +666,142 @@ export default function DashboardView() {
       </section>
       )}
 
-      <section aria-label="Tổng hợp tài chính hợp đồng" style={{ ...cardStyle, backgroundColor: '#fff', borderColor: '#e2e8f0' }}>
-        <div style={{ marginBottom: '12px' }}>
-          <h3 style={{ margin: '0 0 4px', color: '#1e293b', fontSize: '16px' }}>💰 Tổng Hợp Giá Trị Hợp Đồng</h3>
-          <small style={{ color: '#64748b' }}>Số liệu theo tổng giá trị hợp đồng, không phải số tiền thực thu/chi.</small>
+      {/* SECTION TỔNG HỢP VÀ CHI TIẾT DOANH THU THỰC TẾ & DỰ KIẾN */}
+      <section aria-label="Tổng hợp tài chính hợp đồng" style={{ ...cardStyle, backgroundColor: '#fff', borderColor: '#e2e8f0', display: 'grid', gap: '16px' }}>
+        <div>
+          <h3 style={{ margin: '0 0 4px', color: '#1e293b', fontSize: '17px', fontWeight: 800 }}>💰 Doanh Thu &amp; Giá Trị Hợp Đồng</h3>
+          <small style={{ color: '#64748b' }}>Phân tách minh bạch giữa Doanh thu thực tế (đã xuất hàng đạt thành công cho Cty B) và Doanh thu dự kiến theo giá trị hợp đồng.</small>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '10px' }}>
-          <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: '#f0fdf4' }}>
-            <small style={{ color: '#166534', fontWeight: 800 }}>THU DỰ KIẾN · HĐ CTY</small>
-            <div style={{ marginTop: '5px', color: '#15803d', fontSize: '19px', fontWeight: 800 }}>{formatCurrency(companyContractValue)}</div>
-          </div>
-          <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: '#fff1f2' }}>
-            <small style={{ color: '#9f1239', fontWeight: 800 }}>CHI DỰ KIẾN · HĐ TỔ ĐAN</small>
-            <div style={{ marginTop: '5px', color: '#be123c', fontSize: '19px', fontWeight: 800 }}>{formatCurrency(weavingContractValue)}</div>
-          </div>
-          <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: remainingContractValue >= 0 ? '#eff6ff' : '#fff7ed' }}>
-            <small style={{ color: remainingContractValue >= 0 ? '#1e40af' : '#9a3412', fontWeight: 800 }}>CÒN LẠI DỰ KIẾN</small>
-            <div style={{ marginTop: '5px', color: remainingContractValue >= 0 ? '#1d4ed8' : '#c2410c', fontSize: '19px', fontWeight: 800 }}>
-              {formatCurrency(remainingContractValue)}
+
+        {/* CÁC THẺ METRIC TỔNG HỢP */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '12px' }}>
+          <div style={{ padding: '14px', borderRadius: '10px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <small style={{ color: '#166534', fontWeight: 800 }}>DOANH THU THỰC TẾ (ĐẠT)</small>
+              <span style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#15803d', padding: '2px 7px', borderRadius: '999px', fontWeight: 700 }}>Thực tế</span>
             </div>
+            <div style={{ marginTop: '7px', color: '#15803d', fontSize: '22px', fontWeight: 800 }}>{formatCurrency(totalRealizedRevenue)}</div>
+            <small style={{ display: 'block', marginTop: '4px', color: '#166534' }}>
+              Đã xuất đạt: <strong>{formatNumber(totalGoodExportQuantity)}</strong> sản phẩm
+            </small>
+          </div>
+
+          <div style={{ padding: '14px', borderRadius: '10px', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <small style={{ color: '#1e40af', fontWeight: 800 }}>DOANH THU DỰ KIẾN (HĐ CTY)</small>
+              <span style={{ fontSize: '11px', backgroundColor: '#dbeafe', color: '#1d4ed8', padding: '2px 7px', borderRadius: '999px', fontWeight: 700 }}>Dự kiến</span>
+            </div>
+            <div style={{ marginTop: '7px', color: '#1d4ed8', fontSize: '22px', fontWeight: 800 }}>{formatCurrency(companyContractValue)}</div>
+            <small style={{ display: 'block', marginTop: '4px', color: '#1e40af' }}>
+              Tổng HĐ Cty: <strong>{formatNumber(totalParentQty)}</strong> sản phẩm
+            </small>
+          </div>
+
+          <div style={{ padding: '14px', borderRadius: '10px', backgroundColor: '#fff1f2', border: '1px solid #fecdd3' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <small style={{ color: '#9f1239', fontWeight: 800 }}>CHI PHÍ KHOÁN TỔ ĐAN</small>
+              <span style={{ fontSize: '11px', backgroundColor: '#ffe4e6', color: '#be123c', padding: '2px 7px', borderRadius: '999px', fontWeight: 700 }}>HĐ Tổ Đan</span>
+            </div>
+            <div style={{ marginTop: '7px', color: '#be123c', fontSize: '22px', fontWeight: 800 }}>{formatCurrency(weavingContractValue)}</div>
+            <small style={{ display: 'block', marginTop: '4px', color: '#9f1239' }}>
+              Tổng khoán: <strong>{formatNumber(totalSubQty)}</strong> sản phẩm
+            </small>
+          </div>
+
+          <div style={{ padding: '14px', borderRadius: '10px', backgroundColor: actualNetRevenue >= 0 ? '#faf5ff' : '#fff7ed', border: `1px solid ${actualNetRevenue >= 0 ? '#e9d5ff' : '#fed7aa'}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <small style={{ color: actualNetRevenue >= 0 ? '#6b21a8' : '#9a3412', fontWeight: 800 }}>CHÊNH LỆCH THỰC TẾ / TỔNG DỰ THU</small>
+              <span style={{ fontSize: '11px', backgroundColor: actualNetRevenue >= 0 ? '#f3e8ff' : '#ffedd5', color: actualNetRevenue >= 0 ? '#7e22ce' : '#c2410c', padding: '2px 7px', borderRadius: '999px', fontWeight: 700 }}>
+                {companyContractValue > 0 ? `${Math.round((totalRealizedRevenue / companyContractValue) * 100)}% HĐ` : '0%'}
+              </span>
+            </div>
+            <div style={{ marginTop: '7px', color: actualNetRevenue >= 0 ? '#7e22ce' : '#c2410c', fontSize: '22px', fontWeight: 800 }}>
+              {formatCurrency(totalRealizedRevenue)}
+            </div>
+            <small style={{ display: 'block', marginTop: '4px', color: '#64748b' }}>
+              Dự kiến còn lại sau trừ khoán: <strong>{formatCurrency(remainingContractValue)}</strong>
+            </small>
+          </div>
+        </div>
+
+        {/* BẢNG CHI TIẾT DOANH THU THEO TỪNG HỢP ĐỒNG */}
+        <div>
+          <h4 style={{ margin: '8px 0 6px', color: '#0f172a', fontSize: '15px', fontWeight: 700 }}>
+            📋 Bảng Chi Tiết Doanh Thu Thực Tế Theo Từng Hợp Đồng
+          </h4>
+          <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-2 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
+            <table style={{ borderCollapse: 'collapse' }} className="min-w-[850px] divide-y divide-gray-200 text-sm">
+              <thead>
+                <tr style={{ backgroundColor: '#f8fafc' }}>
+                  {['Hợp Đồng / Đối Tác', 'Mã Hàng / Tên Hàng', 'Khung Nhận Cty B', 'Tổng HĐ (Dự kiến)', 'Đơn Giá HĐ', 'Đã Xuất Đạt', 'Doanh Thu Thực Tế (Đạt)', 'Tiến Độ Xuất'].map(header => (
+                    <th key={header} className="whitespace-nowrap" style={{ padding: '9px 10px', color: '#475569', textAlign: header.includes('Giá') || header.includes('Tổng HĐ') || header.includes('Xuất Đạt') || header.includes('Doanh Thu') || header.includes('Khung') ? 'right' : 'left', fontSize: '12px' }}>
+                      {header}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {realizedRevenueContracts.map(({ contract, contractQuantity, unitPrice, contractTotalAmount, goodQuantity, realizedRevenue, receivedFrames, fulfillmentPercent, exportCount }) => {
+                  const unit = contract.unit || 'sản phẩm';
+                  return (
+                    <tr key={String(contract.id)} style={{ borderTop: '1px solid #e2e8f0' }}>
+                      <td className="whitespace-nowrap" style={{ padding: '9px 10px' }}>
+                        <strong style={{ color: '#1e293b' }}>{contract.contractNo || '—'}</strong>
+                        <div style={{ color: '#64748b', fontSize: '12px' }}>{contract.companyName || contract.company || contract.partner || '—'}</div>
+                      </td>
+                      <td className="whitespace-nowrap" style={{ padding: '9px 10px' }}>
+                        <strong style={{ color: '#1d4ed8' }}>{contract.productCode || '—'}</strong>
+                        <div style={{ color: '#475569', fontSize: '12px' }}>{contract.productName || '—'}</div>
+                      </td>
+                      <td className="whitespace-nowrap" style={{ padding: '9px 10px', textAlign: 'right' }}>
+                        <span style={{ fontWeight: 600, color: '#0369a1' }}>{formatNumber(receivedFrames)}</span> / {formatNumber(contractQuantity)} {unit}
+                      </td>
+                      <td className="whitespace-nowrap" style={{ padding: '9px 10px', textAlign: 'right' }}>
+                        <div><strong>{formatNumber(contractQuantity)}</strong> {unit}</div>
+                        <small style={{ color: '#64748b' }}>{formatCurrency(contractTotalAmount)}</small>
+                      </td>
+                      <td className="whitespace-nowrap" style={{ padding: '9px 10px', textAlign: 'right' }}>
+                        {formatCurrency(unitPrice)}
+                      </td>
+                      <td className="whitespace-nowrap" style={{ padding: '9px 10px', textAlign: 'right' }}>
+                        <strong style={{ color: goodQuantity > 0 ? '#15803d' : '#64748b' }}>{formatNumber(goodQuantity)}</strong> {unit}
+                        {exportCount > 0 && <small style={{ display: 'block', color: '#64748b' }}>({exportCount} đợt xuất)</small>}
+                      </td>
+                      <td className="whitespace-nowrap" style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 800, color: realizedRevenue > 0 ? '#166534' : '#64748b' }}>
+                        {formatCurrency(realizedRevenue)}
+                      </td>
+                      <td className="whitespace-nowrap" style={{ padding: '9px 10px', textAlign: 'left' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ width: '60px', height: '6px', borderRadius: '999px', backgroundColor: '#e2e8f0', overflow: 'hidden' }}>
+                            <div style={{ width: `${fulfillmentPercent}%`, height: '100%', borderRadius: '999px', backgroundColor: fulfillmentPercent >= 100 ? '#16a34a' : '#2563eb' }} />
+                          </div>
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: fulfillmentPercent >= 100 ? '#166534' : '#1e40af' }}>{fulfillmentPercent}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {realizedRevenueContracts.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="whitespace-nowrap" style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>
+                      Chưa có hợp đồng công ty nào trong hệ thống.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+              {realizedRevenueContracts.length > 0 && (
+                <tfoot>
+                  <tr style={{ backgroundColor: '#f1f5f9', fontWeight: 800, borderTop: '2px solid #cbd5e1' }}>
+                    <td colSpan={3} className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', color: '#1e293b' }}>Tổng cộng:</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', color: '#1e40af' }}>{formatCurrency(companyContractValue)}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>—</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', color: '#166534' }}>{formatNumber(totalGoodExportQuantity)}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', color: '#166534', fontSize: '15px' }}>{formatCurrency(totalRealizedRevenue)}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px' }}>—</td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
           </div>
         </div>
       </section>

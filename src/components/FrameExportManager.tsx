@@ -630,6 +630,15 @@ export default function FrameExportManager() {
                     : 0;
                   const requiresDebtDueDate = stagedOutstanding > 0;
 
+                  const rowContractIdSet = new Set(
+                    rows
+                      .map(r => r.contractId)
+                      .filter(Boolean)
+                  );
+                  const availableSubContracts = selectableSubContracts.filter(
+                    item => String(item.id) === row.contractId || !rowContractIdSet.has(String(item.id))
+                  );
+
                   return (
                     <Fragment key={row.id}>
                     <tr style={{ borderTop: '1px solid #e2e8f0', verticalAlign: 'top' }}>
@@ -652,7 +661,7 @@ export default function FrameExportManager() {
                           style={inputStyle}
                         >
                           <option value="">-- Chọn HĐ Tổ Đan --</option>
-                          {selectableSubContracts.map(item => (
+                          {availableSubContracts.map(item => (
                             <option key={item.id} value={String(item.id)}>
                               {item.craftGroupLeader || 'Tổ chưa đặt tên'} · {item.contractNo} · {item.productCode}
                             </option>
