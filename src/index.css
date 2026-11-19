@@ -39,6 +39,35 @@ body,
   min-width: 0;
 }
 
+.erp-content-shell section,
+.erp-content-shell article,
+.erp-content-shell div {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Utility cho horizontal scroll cards/metrics */
+.erp-metric-scroll {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior-x: contain;
+  gap: 12px;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+}
+
+.erp-metric-scroll > * {
+  flex: 0 0 240px !important;
+  min-width: 0 !important;
+  max-width: 280px !important;
+}
+
 .report-sticky-column {
   position: sticky;
   left: 0;
@@ -119,69 +148,127 @@ main textarea {
   -webkit-overflow-scrolling: touch;
 }
 
-.erp-table-scroll,
-.erp-content-shell div:has(> table) {
-  display: block;
+.erp-table-scroll {
+  display: block !important;
   box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
   overflow-x: auto !important;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-x pan-y;
+  overflow-y: visible !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior-x: contain;
   scrollbar-width: thin;
   scrollbar-color: #94a3b8 #e2e8f0;
 }
 
+@supports selector(:has(> table)) {
+  .erp-content-shell div:has(> table) {
+    display: block !important;
+    box-sizing: border-box;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    scrollbar-color: #94a3b8 #e2e8f0;
+  }
+}
+
 .erp-table-scroll table,
-.erp-content-shell div:has(> table) > table {
-  width: 100%;
+.erp-table-scroll > table {
+  display: table !important;
+  width: max-content !important;
   min-width: max(850px, 100%) !important;
+  max-width: none !important;
   table-layout: auto !important;
 }
 
+@supports selector(:has(> table)) {
+  .erp-content-shell div:has(> table) > table {
+    width: max-content !important;
+    min-width: max(850px, 100%) !important;
+    max-width: none !important;
+    table-layout: auto !important;
+  }
+}
+
 .erp-table-scroll table td,
-.erp-table-scroll table th,
-.erp-content-shell div:has(> table) > table td,
-.erp-content-shell div:has(> table) > table th {
+.erp-table-scroll table th {
   white-space: nowrap !important;
 }
 
-.erp-table-scroll::-webkit-scrollbar,
-.erp-content-shell div:has(> table)::-webkit-scrollbar {
+@supports selector(:has(> table)) {
+  .erp-content-shell div:has(> table) > table td,
+  .erp-content-shell div:has(> table) > table th {
+    white-space: nowrap !important;
+  }
+}
+
+.erp-table-scroll::-webkit-scrollbar {
   height: 8px;
 }
 
-.erp-table-scroll::-webkit-scrollbar-track,
-.erp-content-shell div:has(> table)::-webkit-scrollbar-track {
+.erp-table-scroll::-webkit-scrollbar-track {
   background: #e2e8f0;
   border-radius: 999px;
 }
 
-.erp-table-scroll::-webkit-scrollbar-thumb,
-.erp-content-shell div:has(> table)::-webkit-scrollbar-thumb {
+.erp-table-scroll::-webkit-scrollbar-thumb {
   background: #94a3b8;
   border: 1px solid #e2e8f0;
   border-radius: 999px;
 }
 
-.erp-table-scroll::-webkit-scrollbar-thumb:hover,
-.erp-content-shell div:has(> table)::-webkit-scrollbar-thumb:hover {
+.erp-table-scroll::-webkit-scrollbar-thumb:hover {
   background: #64748b;
 }
 
+@supports selector(:has(> table)) {
+  .erp-content-shell div:has(> table)::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  .erp-content-shell div:has(> table)::-webkit-scrollbar-track {
+    background: #e2e8f0;
+    border-radius: 999px;
+  }
+
+  .erp-content-shell div:has(> table)::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+  }
+
+  .erp-content-shell div:has(> table)::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+  }
+}
+
 @media print {
-  .erp-table-scroll,
-  .erp-content-shell div:has(> table) {
+  .erp-table-scroll {
     overflow: visible !important;
     border: 0 !important;
     box-shadow: none !important;
   }
 
-  .erp-table-scroll table,
-  .erp-content-shell div:has(> table) > table {
+  .erp-table-scroll table {
     min-width: 0 !important;
+  }
+
+  @supports selector(:has(> table)) {
+    .erp-content-shell div:has(> table) {
+      overflow: visible !important;
+      border: 0 !important;
+      box-shadow: none !important;
+    }
+
+    .erp-content-shell div:has(> table) > table {
+      min-width: 0 !important;
+    }
   }
 }
 
@@ -353,34 +440,22 @@ main textarea {
     white-space: nowrap;
   }
 
-  .erp-content-shell .erp-table-scroll,
-  .erp-content-shell div:has(> table) {
+  .erp-content-shell .erp-table-scroll {
     box-sizing: border-box;
-    display: block;
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
     overflow-x: auto !important;
-    overflow-y: hidden !important;
+    overflow-y: visible !important;
     -webkit-overflow-scrolling: touch !important;
-    touch-action: pan-x pan-y !important;
+    overscroll-behavior-x: contain;
     scrollbar-width: thin;
     scrollbar-color: #64748b #e2e8f0;
   }
 
-  .erp-content-shell div:has(> table)::before {
-    display: block;
-    margin-bottom: 4px;
-    color: #64748b;
-    font-size: 12px;
-    content: "👉 Vuốt ngang để xem đầy đủ các cột số liệu";
-  }
-
-  .erp-content-shell div:has(> table) > table {
-    width: max-content !important;
-    min-width: max(850px, 100%) !important;
-    max-width: none !important;
-    table-layout: auto !important;
+  .erp-content-shell .erp-table-scroll::before {
+    display: none !important;
   }
 
   .erp-content-shell .erp-table-scroll > table {
@@ -390,6 +465,35 @@ main textarea {
     max-width: none !important;
     overflow: visible !important;
     table-layout: auto !important;
+  }
+
+  @supports selector(:has(> table)) {
+    .erp-content-shell div:has(> table) {
+      box-sizing: border-box;
+      display: block !important;
+      width: 100% !important;
+      min-width: 0 !important;
+      max-width: 100% !important;
+      overflow-x: auto !important;
+      overflow-y: visible !important;
+      -webkit-overflow-scrolling: touch !important;
+      overscroll-behavior-x: contain;
+      scrollbar-width: thin;
+      scrollbar-color: #64748b #e2e8f0;
+    }
+
+    .erp-content-shell div:has(> table)::before {
+      display: none !important;
+    }
+
+    .erp-content-shell div:has(> table) > table {
+      display: table !important;
+      width: max-content !important;
+      min-width: max(850px, 100%) !important;
+      max-width: none !important;
+      overflow: visible !important;
+      table-layout: auto !important;
+    }
   }
 
   .erp-content-shell table td,
@@ -482,11 +586,7 @@ main textarea {
   }
 
   .erp-content-shell .erp-table-scroll::before {
-    display: block;
-    margin-bottom: 4px;
-    color: #64748b;
-    font-size: 12px;
-    content: "👉 Vuốt ngang để xem đầy đủ các cột số liệu";
+    display: none !important;
   }
 }
 
@@ -523,35 +623,57 @@ main textarea {
     padding-right: 8px !important;
   }
 
-  .erp-content-shell .erp-table-scroll,
-  .erp-content-shell div:has(> table) {
-    width: 100%;
-    max-width: 100%;
+  .erp-content-shell .erp-table-scroll {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
     overflow-x: auto !important;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
+    overflow-y: visible !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-x: contain;
     scrollbar-width: thin;
     scrollbar-color: #64748b #e2e8f0;
   }
 
-  .erp-content-shell .erp-table-scroll::before,
-  .erp-content-shell div:has(> table)::before {
-    display: block;
-    margin-bottom: 4px;
-    color: #64748b;
-    font-size: 11px;
-    content: "👉 Vuốt ngang nếu cần xem thêm cột";
+  .erp-content-shell .erp-table-scroll::before {
+    display: none !important;
   }
 
   .erp-content-shell table,
-  .erp-content-shell .erp-table-scroll > table,
-  .erp-content-shell div:has(> table) > table {
+  .erp-content-shell .erp-table-scroll > table {
     display: table !important;
     width: max-content !important;
     min-width: max-content !important;
     max-width: none !important;
     table-layout: auto !important;
     font-size: 12px !important;
+  }
+
+  @supports selector(:has(> table)) {
+    .erp-content-shell div:has(> table) {
+      width: 100% !important;
+      max-width: 100% !important;
+      min-width: 0 !important;
+      overflow-x: auto !important;
+      overflow-y: visible !important;
+      -webkit-overflow-scrolling: touch !important;
+      overscroll-behavior-x: contain;
+      scrollbar-width: thin;
+      scrollbar-color: #64748b #e2e8f0;
+    }
+
+    .erp-content-shell div:has(> table)::before {
+      display: none !important;
+    }
+
+    .erp-content-shell div:has(> table) > table {
+      display: table !important;
+      width: max-content !important;
+      min-width: max-content !important;
+      max-width: none !important;
+      table-layout: auto !important;
+      font-size: 12px !important;
+    }
   }
 
   .erp-content-shell table th,

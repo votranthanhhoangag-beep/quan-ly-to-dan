@@ -524,8 +524,8 @@ export default function TaxExpenseManager() {
 
           <article style={cardStyle}>
             <h3 style={{ margin: '0 0 12px', color: '#1e293b', fontSize: '16px' }}>Tổng hợp doanh thu theo hợp đồng</h3>
-            <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-              <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
+            <div className="w-full max-w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
+              <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] w-max divide-y divide-gray-200 text-sm">
                 <thead><tr style={{ backgroundColor: '#f1f5f9' }}>
                   {['Hợp đồng Công ty B', 'Công ty / Đối tác', 'Mã hàng', 'Ngày xuất đạt gần nhất', 'Số lượng đạt trong kỳ', 'Đơn giá', 'Tổng doanh thu xuất đạt', 'Tiền cọc', 'Doanh thu thực nhận'].map(label => <th className="whitespace-nowrap" key={label} style={cellStyle}>{label}</th>)}
                 </tr></thead>
@@ -557,8 +557,8 @@ export default function TaxExpenseManager() {
 
           <article style={cardStyle}>
             <h3 style={{ margin: '0 0 12px', color: '#1e293b', fontSize: '16px' }}>Chi tiết doanh thu theo các đợt xuất hàng đạt</h3>
-            <div className="w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
-              <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] divide-y divide-gray-200 text-sm">
+            <div className="w-full max-w-full overflow-x-auto -webkit-overflow-scrolling-touch my-3 shadow-sm rounded-lg border border-gray-100 erp-table-scroll" style={{ overflowX: 'auto' }}>
+              <table style={{ borderCollapse: 'collapse' }} className="min-w-[800px] w-max divide-y divide-gray-200 text-sm">
                 <thead><tr style={{ backgroundColor: '#f1f5f9' }}>
                   {['Ngày xuất', 'Số phiếu', 'Hợp đồng Công ty B', 'Hợp đồng Công ty A / Tổ đan', 'Mã hàng', 'Số lượng đạt', 'Đơn giá', 'Doanh thu đợt'].map(label => <th className="whitespace-nowrap" key={label} style={cellStyle}>{label}</th>)}
                 </tr></thead>

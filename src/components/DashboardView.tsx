@@ -667,58 +667,58 @@ export default function DashboardView() {
       )}
 
       {/* SECTION TỔNG HỢP VÀ CHI TIẾT DOANH THU THỰC TẾ & DỰ KIẾN */}
-      <section aria-label="Tổng hợp tài chính hợp đồng" style={{ ...cardStyle, backgroundColor: '#fff', borderColor: '#e2e8f0', display: 'grid', gap: '16px' }}>
+      <section aria-label="Tổng hợp tài chính hợp đồng" style={{ ...cardStyle, backgroundColor: '#fff', borderColor: '#e2e8f0', display: 'grid', gap: '16px', minWidth: 0, maxWidth: '100%' }}>
         <div>
           <h3 style={{ margin: '0 0 4px', color: '#1e293b', fontSize: '17px', fontWeight: 800 }}>💰 Doanh Thu &amp; Giá Trị Hợp Đồng</h3>
           <small style={{ color: '#64748b' }}>Phân tách minh bạch giữa Doanh thu thực tế (đã xuất hàng đạt thành công cho Cty B) và Doanh thu dự kiến theo giá trị hợp đồng.</small>
         </div>
 
         {/* CÁC THẺ METRIC TỔNG HỢP */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '12px' }}>
-          <div style={{ padding: '14px', borderRadius: '10px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '12px', minWidth: 0, maxWidth: '100%' }}>
+          <div style={{ padding: '14px', borderRadius: '10px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minWidth: 0 }}>
               <small style={{ color: '#166534', fontWeight: 800 }}>DOANH THU THỰC TẾ (ĐẠT)</small>
-              <span style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#15803d', padding: '2px 7px', borderRadius: '999px', fontWeight: 700 }}>Thực tế</span>
+              <span style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#15803d', padding: '2px 7px', borderRadius: '999px', fontWeight: 700, flexShrink: 0 }}>Thực tế</span>
             </div>
-            <div style={{ marginTop: '7px', color: '#15803d', fontSize: '22px', fontWeight: 800 }}>{formatCurrency(totalRealizedRevenue)}</div>
-            <small style={{ display: 'block', marginTop: '4px', color: '#166534' }}>
+            <div style={{ marginTop: '7px', color: '#15803d', fontSize: '22px', fontWeight: 800, wordBreak: 'break-word' }}>{formatCurrency(totalRealizedRevenue)}</div>
+            <small style={{ display: 'block', marginTop: '4px', color: '#166534', wordBreak: 'break-word' }}>
               Đã xuất đạt: <strong>{formatNumber(totalGoodExportQuantity)}</strong> sản phẩm
             </small>
           </div>
 
-          <div style={{ padding: '14px', borderRadius: '10px', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ padding: '14px', borderRadius: '10px', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minWidth: 0 }}>
               <small style={{ color: '#1e40af', fontWeight: 800 }}>DOANH THU DỰ KIẾN (HĐ CTY)</small>
-              <span style={{ fontSize: '11px', backgroundColor: '#dbeafe', color: '#1d4ed8', padding: '2px 7px', borderRadius: '999px', fontWeight: 700 }}>Dự kiến</span>
+              <span style={{ fontSize: '11px', backgroundColor: '#dbeafe', color: '#1d4ed8', padding: '2px 7px', borderRadius: '999px', fontWeight: 700, flexShrink: 0 }}>Dự kiến</span>
             </div>
-            <div style={{ marginTop: '7px', color: '#1d4ed8', fontSize: '22px', fontWeight: 800 }}>{formatCurrency(companyContractValue)}</div>
-            <small style={{ display: 'block', marginTop: '4px', color: '#1e40af' }}>
+            <div style={{ marginTop: '7px', color: '#1d4ed8', fontSize: '22px', fontWeight: 800, wordBreak: 'break-word' }}>{formatCurrency(companyContractValue)}</div>
+            <small style={{ display: 'block', marginTop: '4px', color: '#1e40af', wordBreak: 'break-word' }}>
               Tổng HĐ Cty: <strong>{formatNumber(totalParentQty)}</strong> sản phẩm
             </small>
           </div>
 
-          <div style={{ padding: '14px', borderRadius: '10px', backgroundColor: '#fff1f2', border: '1px solid #fecdd3' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ padding: '14px', borderRadius: '10px', backgroundColor: '#fff1f2', border: '1px solid #fecdd3', minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minWidth: 0 }}>
               <small style={{ color: '#9f1239', fontWeight: 800 }}>CHI PHÍ KHOÁN TỔ ĐAN</small>
-              <span style={{ fontSize: '11px', backgroundColor: '#ffe4e6', color: '#be123c', padding: '2px 7px', borderRadius: '999px', fontWeight: 700 }}>HĐ Tổ Đan</span>
+              <span style={{ fontSize: '11px', backgroundColor: '#ffe4e6', color: '#be123c', padding: '2px 7px', borderRadius: '999px', fontWeight: 700, flexShrink: 0 }}>HĐ Tổ Đan</span>
             </div>
-            <div style={{ marginTop: '7px', color: '#be123c', fontSize: '22px', fontWeight: 800 }}>{formatCurrency(weavingContractValue)}</div>
-            <small style={{ display: 'block', marginTop: '4px', color: '#9f1239' }}>
+            <div style={{ marginTop: '7px', color: '#be123c', fontSize: '22px', fontWeight: 800, wordBreak: 'break-word' }}>{formatCurrency(weavingContractValue)}</div>
+            <small style={{ display: 'block', marginTop: '4px', color: '#9f1239', wordBreak: 'break-word' }}>
               Tổng khoán: <strong>{formatNumber(totalSubQty)}</strong> sản phẩm
             </small>
           </div>
 
-          <div style={{ padding: '14px', borderRadius: '10px', backgroundColor: actualNetRevenue >= 0 ? '#faf5ff' : '#fff7ed', border: `1px solid ${actualNetRevenue >= 0 ? '#e9d5ff' : '#fed7aa'}` }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ padding: '14px', borderRadius: '10px', backgroundColor: actualNetRevenue >= 0 ? '#faf5ff' : '#fff7ed', border: `1px solid ${actualNetRevenue >= 0 ? '#e9d5ff' : '#fed7aa'}`, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minWidth: 0 }}>
               <small style={{ color: actualNetRevenue >= 0 ? '#6b21a8' : '#9a3412', fontWeight: 800 }}>CHÊNH LỆCH THỰC TẾ / TỔNG DỰ THU</small>
-              <span style={{ fontSize: '11px', backgroundColor: actualNetRevenue >= 0 ? '#f3e8ff' : '#ffedd5', color: actualNetRevenue >= 0 ? '#7e22ce' : '#c2410c', padding: '2px 7px', borderRadius: '999px', fontWeight: 700 }}>
+              <span style={{ fontSize: '11px', backgroundColor: actualNetRevenue >= 0 ? '#f3e8ff' : '#ffedd5', color: actualNetRevenue >= 0 ? '#7e22ce' : '#c2410c', padding: '2px 7px', borderRadius: '999px', fontWeight: 700, flexShrink: 0 }}>
                 {companyContractValue > 0 ? `${Math.round((totalRealizedRevenue / companyContractValue) * 100)}% HĐ` : '0%'}
               </span>
             </div>
-            <div style={{ marginTop: '7px', color: actualNetRevenue >= 0 ? '#7e22ce' : '#c2410c', fontSize: '22px', fontWeight: 800 }}>
+            <div style={{ marginTop: '7px', color: actualNetRevenue >= 0 ? '#7e22ce' : '#c2410c', fontSize: '22px', fontWeight: 800, wordBreak: 'break-word' }}>
               {formatCurrency(totalRealizedRevenue)}
             </div>
-            <small style={{ display: 'block', marginTop: '4px', color: '#64748b' }}>
+            <small style={{ display: 'block', marginTop: '4px', color: '#64748b', wordBreak: 'break-word' }}>
               Dự kiến còn lại sau trừ khoán: <strong>{formatCurrency(remainingContractValue)}</strong>
             </small>
           </div>
