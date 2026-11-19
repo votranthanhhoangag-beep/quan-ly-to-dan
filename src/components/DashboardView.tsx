@@ -266,6 +266,82 @@ export default function DashboardView() {
     return quantity > 0 && received >= quantity;
   }).length;
 
+  // TÍNH TOÁN DANH SÁCH TỪNG MÃ KHUNG & LỌC MÃ CÒN KHUNG CHƯA PHÁT CHO TỔ ĐAN
+  const frameStockByCode = new Map<string, {
+    productCode: string;
+    productName: string;
+    daNhanCtyB: number;
+    daPhatToDan: number;
+  }>();
+
+  const getOrCreateFrameStock = (rawCode: string, fallbackName = '') => {
+    const code = String(rawCode || '').trim();
+    if (!code) return null;
+    const key = code.toLowerCase();
+    let entry = frameStockByCode.get(key);
+    if (!entry) {
+      entry = {
+        productCode: code,
+        productName: fallbackName,
+        daNhanCtyB: 0,
+        daPhatToDan: 0
+      };
+      frameStockByCode.set(key, entry);
+    } else if (!entry.productName && fallbackName) {
+      entry.productName = fallbackName;
+    }
+    return entry;
+  };
+
+  // Đăng ký trước mã từ hợp đồng Cty B để chuẩn hóa tên hàng và mã hàng
+  parentContracts.forEach(contract => {
+    if (contract.productCode) {
+      getOrCreateFrameStock(contract.productCode, contract.productName);
+    }
+  });
+
+  // 1. daNhanCtyB: tổng số khung của mã này đã nhận từ Cty B
+  frameReceipts.forEach(slip => {
+    let code = String(slip.productCode || '').trim();
+    let name = String(slip.productName || '').trim();
+    if (!code && slip.contractNo) {
+      const parent = parentContracts.find(p =>
+        String(p.contractNo || '').trim().toLowerCase() === String(slip.contractNo || '').trim().toLowerCase()
+      );
+      if (parent) {
+        code = String(parent.productCode || '').trim();
+        if (!name) name = String(parent.productName || '').trim();
+      }
+    }
+    if (!code) return;
+    const item = getOrCreateFrameStock(code, name);
+    if (item) {
+      item.daNhanCtyB += Number(slip.quantity) || 0;
+    }
+  });
+
+  // 2. daPhatToDan: tổng số khung của mã này đã xuất/phát cho tổ đan
+  subContracts.forEach(contract => {
+    const code = String(contract.productCode || '').trim();
+    if (!code) return;
+    const item = getOrCreateFrameStock(code, contract.productName);
+    if (item) {
+      const logTotal = (Array.isArray(contract.exportLogs) ? contract.exportLogs : [])
+        .reduce((sum, log) => sum + (Number(log.actualQty) || 0), 0);
+      const issuedQty = Math.max(Number(contract.totalActualExported) || 0, logTotal);
+      item.daPhatToDan += issuedQty;
+    }
+  });
+
+  // 3. conLaiChuaPhat = Math.max(0, daNhanCtyB - daPhatToDan) & chỉ render mã có conLaiChuaPhat > 0
+  const unallocatedFrames = Array.from(frameStockByCode.values())
+    .map(item => ({
+      ...item,
+      conLaiChuaPhat: Math.max(0, item.daNhanCtyB - item.daPhatToDan)
+    }))
+    .filter(item => item.conLaiChuaPhat > 0)
+    .sort((a, b) => b.conLaiChuaPhat - a.conLaiChuaPhat || a.productCode.localeCompare(b.productCode, 'vi'));
+
   const companyContractValue = parentContracts.reduce((sum, contract) => sum + (Number(contract.totalAmount) || 0), 0);
   const weavingContractValue = subContracts.reduce((sum, contract) => sum + (Number(contract.totalAmount) || 0), 0);
   const remainingContractValue = companyContractValue - weavingContractValue;
@@ -461,13 +537,74 @@ export default function DashboardView() {
       </section>
 
       <section aria-label="Tình hình kho" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
-        <article style={{ ...cardStyle, backgroundColor: '#f0f9ff', borderColor: '#bae6fd' }}>
-          <div style={{ color: '#0369a1', fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em' }}>KHO KHUNG SƠN</div>
-          <div style={{ marginTop: '12px', color: '#075985', fontSize: '28px', fontWeight: 800 }}>{formatNumber(totalReceivedFrames)}</div>
-          <div style={{ marginTop: '3px', color: '#475569', fontSize: '13px' }}>Tổng số khung nhập kho theo phiếu KS</div>
-          <small style={{ display: 'block', marginTop: '12px', color: '#64748b' }}>
+        <article style={{ ...cardStyle, backgroundColor: '#f0f9ff', borderColor: '#bae6fd', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+            <div style={{ color: '#0369a1', fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em' }}>KHO KHUNG SƠN</div>
+            {unallocatedFrames.length > 0 ? (
+              <span style={{ fontSize: '11px', backgroundColor: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '999px', fontWeight: 700 }}>
+                {unallocatedFrames.length} mã còn khung
+              </span>
+            ) : (
+              <span style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '999px', fontWeight: 700 }}>
+                Đã phát đủ
+              </span>
+            )}
+          </div>
+          <div style={{ marginTop: '10px', color: '#075985', fontSize: '26px', fontWeight: 800 }}>{formatNumber(totalReceivedFrames)}</div>
+          <div style={{ marginTop: '2px', color: '#475569', fontSize: '13px' }}>Tổng số khung nhập kho theo phiếu KS</div>
+          <small style={{ display: 'block', marginTop: '6px', color: '#64748b' }}>
             Khung đối chiếu được với HĐ CTY: {formatNumber(matchedReceivedFrames)}
           </small>
+
+          {/* DANH SÁCH TỪNG MÃ KHUNG CHƯA PHÁT CHO TỔ ĐAN */}
+          <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid #bae6fd', flex: 1 }}>
+            <div style={{ fontSize: '12px', fontWeight: 800, color: '#0369a1', marginBottom: '8px' }}>
+              📦 Khung còn lại chưa phát cho tổ đan theo mã:
+            </div>
+            {unallocatedFrames.length > 0 ? (
+              <div style={{ display: 'grid', gap: '8px', maxHeight: '360px', overflowY: 'auto', paddingRight: '2px' }}>
+                {unallocatedFrames.map(item => (
+                  <div
+                    key={item.productCode}
+                    style={{
+                      padding: '10px 12px',
+                      backgroundColor: '#fff',
+                      border: '1px solid #bae6fd',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '5px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <span style={{ fontWeight: 800, color: '#0369a1', fontSize: '13px', wordBreak: 'break-word' }}>
+                          {item.productCode}
+                        </span>
+                        {item.productName && (
+                          <div style={{ color: '#64748b', fontSize: '11px', marginTop: '1px', wordBreak: 'break-word' }}>
+                            {item.productName}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <span style={{ fontSize: '11px', color: '#64748b' }}>Còn lại: </span>
+                        <strong style={{ fontSize: '14px', color: '#b45309' }}>{formatNumber(item.conLaiChuaPhat)}</strong>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#475569', paddingTop: '4px', borderTop: '1px dashed #e2e8f0', flexWrap: 'wrap', gap: '4px' }}>
+                      <span>Đã phát: <strong style={{ color: '#166534' }}>{formatNumber(item.daPhatToDan)}</strong></span>
+                      <span>Tổng nhận Cty B: <strong style={{ color: '#1e40af' }}>{formatNumber(item.daNhanCtyB)}</strong></span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ padding: '12px 14px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', color: '#166534', fontSize: '13px', fontWeight: 600, textAlign: 'center' }}>
+                ✅ Đã phát hết khung nhận từ Cty B cho các tổ đan.
+              </div>
+            )}
+          </div>
         </article>
 
         <article style={{ ...cardStyle, backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' }}>
