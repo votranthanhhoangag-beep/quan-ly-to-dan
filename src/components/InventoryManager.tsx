@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { useApp, type CategoryItem } from '../context/AppContext';
 import { ImageCaptureInput } from './ImageCaptureInput';
 import { usePersistentFormDraft } from '../hooks/usePersistentFormDraft';
@@ -78,12 +78,12 @@ export const InventoryManager: React.FC<Props> = ({ onNavigateToTab }) => {
     deleteSlip
   } = appContext || {};
 
-  const masterLogs = (Array.isArray(inventoryLogs) && inventoryLogs.length > 0
+  const masterLogs = useMemo(() => (Array.isArray(inventoryLogs) && inventoryLogs.length > 0
     ? inventoryLogs
     : Array.isArray(slips) ? slips : [])
     .filter((item: unknown): item is StockTransaction =>
       Boolean(item) && typeof item === 'object'
-    );
+    ), [inventoryLogs, slips]);
   const contractItems = Array.isArray(contracts)
     ? contracts.filter((item: unknown) => Boolean(item) && typeof item === 'object')
     : [];
@@ -191,16 +191,20 @@ export const InventoryManager: React.FC<Props> = ({ onNavigateToTab }) => {
 
   useEffect(() => {
     if (selectedProductCode && isSetProduct) {
-      const newMap: { [key: string]: string } = {};
-      for (let i = 1; i <= maxAllowedSizes; i++) {
-        const sName = `Cái ${i}`;
-        newMap[sName] = sizeQuantities[sName] || '';
-      }
-      setSizeQuantities(newMap);
+      setSizeQuantities(current => {
+        const newMap: { [key: string]: string } = {};
+        for (let i = 1; i <= maxAllowedSizes; i++) {
+          const sName = `Cái ${i}`;
+          newMap[sName] = current[sName] || '';
+        }
+        const unchanged = Object.keys(newMap).length === Object.keys(current).length &&
+          Object.entries(newMap).every(([key, value]) => current[key] === value);
+        return unchanged ? current : newMap;
+      });
     }
-  }, [selectedProductCode, isSetProduct]);
+  }, [selectedProductCode, isSetProduct, maxAllowedSizes]);
 
-  const generateSlipNo = (type: 'NK' | 'NK_KHUNG', partner: string) => {
+  const generateSlipNo = useCallback((type: 'NK' | 'NK_KHUNG', partner: string) => {
     const yearShort = getYear2Digits();
     const cleanPartner = partner 
       ? partner.toUpperCase().replace(/(CTY|CÔNG TY|CP|CỔ PHẦN|TNHH)/g, '').trim().split(/\s+/)[0] || 'ARTEX' 
@@ -221,13 +225,13 @@ export const InventoryManager: React.FC<Props> = ({ onNavigateToTab }) => {
       return `NK-${seq}/${yearShort}`;
     }
     return `NK-${seq}/${yearShort}`;
-  };
+  }, [masterLogs]);
 
   useEffect(() => {
     if (!editingId) {
       setSlipNo(generateSlipNo(transType, partnerName));
     }
-  }, [transType, partnerName, editingId, masterLogs]);
+  }, [transType, partnerName, editingId, generateSlipNo]);
 
   const handleProductSelect = (code: string) => {
     const safeCode = typeof code === 'string' ? code : '';

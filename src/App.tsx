@@ -451,14 +451,6 @@ function AppContent({ initialTab }: { initialTab: string }) {
   const activeTab = visibleMenuItems.some(item => item.id === selectedTab)
     ? selectedTab
     : visibleMenuItems[0]?.id || 'auditLogs';
-  const previousActiveTab = useRef(activeTab);
-
-  useEffect(() => {
-    if (previousActiveTab.current === activeTab) return;
-    previousActiveTab.current = activeTab;
-    const refresh = window.setTimeout(reloadData, 0);
-    return () => window.clearTimeout(refresh);
-  }, [activeTab, reloadData]);
 
   const navigateToTab = (tabId: string) => {
     if (tabId === 'inventory') setInventoryInitialTab('FRAME_STOCK');

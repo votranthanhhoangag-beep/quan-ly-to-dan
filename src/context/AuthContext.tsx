@@ -109,7 +109,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.dispatchEvent(new CustomEvent('erp:auth-ready'));
     } catch (profileError) {
       const message = getErrorMessage(profileError);
-      await supabase?.auth.signOut();
+      try {
+        await supabase?.auth.signOut();
+      } catch (signOutError) {
+        console.error('Không thể kết thúc phiên Supabase sau khi xác minh hồ sơ thất bại:', signOutError);
+      }
       setUser(null);
       setError(message);
       setStatus('profile_error');
@@ -127,6 +131,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       void applySession(data.session);
+    }).catch(sessionError => {
+      if (!active) return;
+      console.error('Không thể khôi phục phiên Supabase:', sessionError);
+      setError(getErrorMessage(sessionError));
+      setStatus('signed_out');
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (active) void applySession(session);

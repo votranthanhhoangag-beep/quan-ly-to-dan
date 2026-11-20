@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useState, useEffect, useRef } from 'react';
 import {
-  fetchDataStore,
+  fetchDataStores,
   saveDataStore
 } from '../services/supabaseDataService';
 import { useAuth, type Permission } from './AuthContext';
@@ -656,11 +656,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       let failed = false;
       try {
-        const entries = await Promise.all(APP_DATA_SHEETS.map(async sheetName =>
-          [sheetName, await fetchDataStore(sheetName, userId)] as const
-        ));
+        const snapshots = await fetchDataStores(APP_DATA_SHEETS);
         if (!active) return;
-        applyAvailableSnapshots(new Map(entries), isBackground);
+        applyAvailableSnapshots(snapshots, isBackground);
         setDataLoadError('');
       } catch (e) {
         if (!active) return;
@@ -689,7 +687,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const intervalId = userId
       ? window.setInterval(() => {
         if (document.visibilityState === 'visible' && navigator.onLine) void initData(true);
-      }, 30000)
+      }, 300000)
       : null;
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && navigator.onLine) void initData(true);

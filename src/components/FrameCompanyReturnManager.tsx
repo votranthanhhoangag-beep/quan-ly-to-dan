@@ -166,9 +166,9 @@ const inputStyle = {
 export default function FrameCompanyReturnManager() {
   const { hasPermission } = useAuth();
   const { products, contracts, slips, systemConfiguration, addSlip, updateSlip, deleteSlip } = useApp();
-  const safeProducts = Array.isArray(products) ? products.filter(isRecord) : [];
-  const safeContracts = Array.isArray(contracts) ? contracts.filter(isRecord) : [];
-  const safeSlips = Array.isArray(slips) ? slips.filter(isRecord) : [];
+  const safeProducts = useMemo(() => Array.isArray(products) ? products.filter(isRecord) : [], [products]);
+  const safeContracts = useMemo(() => Array.isArray(contracts) ? contracts.filter(isRecord) : [], [contracts]);
+  const safeSlips = useMemo(() => Array.isArray(slips) ? slips.filter(isRecord) : [], [slips]);
   const sourceContracts = useMemo(
     () => safeContracts.filter(contract => contract.contractType === 'SUB'),
     [safeContracts]

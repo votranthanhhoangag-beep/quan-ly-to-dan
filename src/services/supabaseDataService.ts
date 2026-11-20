@@ -22,43 +22,31 @@ const formatSupabaseError = (err: unknown): string => {
 
 const pendingSaves = new Map<string, Promise<unknown[]>>();
 
-const queryDataStore = async (key: string, userId?: string): Promise<unknown[]> => {
+export async function fetchDataStores(keys: readonly string[]): Promise<Map<string, unknown[]>> {
+  if (keys.length === 0) return new Map();
+
+  const pending = keys
+    .map(key => pendingSaves.get(key))
+    .filter((save): save is Promise<unknown[]> => save !== undefined);
+  if (pending.length > 0) await Promise.all(pending);
+
   const client = getSupabaseClient();
-
-  // 1. Nếu có userId, kiểm tra theo (user_id, key) hoặc key
-  let { data, error } = await client
+  const { data, error } = await client
     .from('app_data_stores')
-    .select('data')
-    .eq('key', key)
-    .maybeSingle();
-
-  // 2. Nếu lỗi do cấu trúc bảng cần user_id
-  if (error && userId && (error.message?.includes('user_id') || error.code === 'PGRST116')) {
-    const fallback = await client
-      .from('app_data_stores')
-      .select('data')
-      .eq('user_id', userId)
-      .eq('key', key)
-      .maybeSingle();
-    error = fallback.error;
-    data = fallback.data;
-  }
-
+    .select('key, data')
+    .in('key', [...keys]);
   if (error) {
     throw new Error(formatSupabaseError(error));
   }
 
-  if (!data) return [];
-  if (!Array.isArray(data.data)) {
-    throw new Error(`Dữ liệu Supabase (${key}) không đúng định dạng mảng.`);
+  const snapshots = new Map(keys.map(key => [key, [] as unknown[]]));
+  for (const row of data || []) {
+    if (!Array.isArray(row.data)) {
+      throw new Error(`Dữ liệu Supabase (${row.key}) không đúng định dạng mảng.`);
+    }
+    snapshots.set(row.key, row.data);
   }
-  return data.data;
-};
-
-export async function fetchDataStore(key: string, userId?: string): Promise<unknown[]> {
-  const pendingSave = pendingSaves.get(key);
-  if (pendingSave) await pendingSave;
-  return queryDataStore(key, userId);
+  return snapshots;
 }
 
 export async function saveDataStore(key: string, userId: string | undefined, items: unknown[]): Promise<unknown[]> {
@@ -83,7 +71,7 @@ export async function saveDataStore(key: string, userId: string | undefined, ite
       .upsert(payload, { onConflict: 'key' });
 
     if (!upsertError) {
-      return queryDataStore(key, userId);
+      return items;
     }
 
     // Nếu xảy ra lỗi do schema cũ còn đòi hỏi cột user_id, fallback tương thích ngược
@@ -98,7 +86,7 @@ export async function saveDataStore(key: string, userId: string | undefined, ite
         });
 
       if (!legacyError) {
-        return queryDataStore(key, userId);
+          return items;
       }
       throw new Error(formatSupabaseError(legacyError));
     }

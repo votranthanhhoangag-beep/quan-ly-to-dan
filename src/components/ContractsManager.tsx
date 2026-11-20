@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useEffectEvent, useState, useEffect, useRef } from 'react';
 import { useApp, type CategoryItem, type ContractItem } from '../context/AppContext';
 import { filterPhoneDigits, isValidVietnamMobileNumber } from '../utils/vietnamPhone';
 import { getLatestMaterialUnitPrice, matchesMaterialNameSearch } from '../utils/materialSearch';
@@ -808,19 +808,20 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
         typeof name === 'string' && Boolean(name.trim()) && name !== 'Nội bộ Tổ Đan'))
   );
 
-  const autoGenerateParentNo = (compName: string = companyName): string => {
+  const parentContractCount = parentContractsList.length;
+  const autoGenerateParentNo = useCallback((compName: string = companyName): string => {
     const yearShort = new Date().getFullYear().toString().slice(-2);
-    const count = parentContractsList.length + 1;
+    const count = parentContractCount + 1;
     const seq = count < 10 ? `0${count}` : `${count}`;
     const compCode = compName ? compName.toUpperCase().replace(/(CTY|CÔNG TY|CP|CỔ PHẦN|TNHH)/g, '').trim().split(/\s+/)[0] || 'CTY' : 'CTY';
     return `HĐ-${seq}-${compCode}-${yearShort}`;
-  };
+  }, [companyName, parentContractCount]);
 
   useEffect(() => {
     if (!editingId && activeTab === 'PARENT') {
       setParentContractNo(autoGenerateParentNo(companyName));
     }
-  }, [activeTab, companyName, editingId]);
+  }, [activeTab, autoGenerateParentNo, companyName, editingId]);
 
   const resetForm = () => {
     clearDraft();
@@ -1194,12 +1195,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     }
   };
 
-  useEffect(() => {
-    if (requestedEditContractId === undefined || requestedEditContractId === null) return;
-    const contract = (Array.isArray(contracts) ? contracts : []).find(
-      (item: any) => item && typeof item === 'object' &&
-        String(item.id) === String(requestedEditContractId)
-    );
+  const handleRequestedEdit = useEffectEvent((contract: ContractItem | undefined) => {
     if (!contract) {
       onEditRequestHandled?.();
       return;
@@ -1207,6 +1203,15 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     handleEdit(contract);
     window.requestAnimationFrame(() => depositInputRef.current?.focus());
     onEditRequestHandled?.();
+  });
+
+  useEffect(() => {
+    if (requestedEditContractId === undefined || requestedEditContractId === null) return;
+    const contract = (Array.isArray(contracts) ? contracts : []).find(
+      (item: any) => item && typeof item === 'object' &&
+        String(item.id) === String(requestedEditContractId)
+    );
+    handleRequestedEdit(contract);
   }, [requestedEditContractId, contracts]);
 
   const handleDelete = async (item: ContractItem) => {

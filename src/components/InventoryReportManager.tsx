@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import { useApp, type CategoryItem, type SlipItem } from '../context/AppContext';
 import { ImageCaptureInput } from './ImageCaptureInput';
 import FrameStockReport from './FrameStockReport';
@@ -42,6 +42,17 @@ const createAccompanyingMaterialRow = (): AccompanyingMaterialFormRow => ({
   unitPrice: '',
   isDropdownOpen: false
 });
+
+const getMaxSizesFromCode = (codeStr: string): number => {
+  if (!codeStr) return 1;
+  if (codeStr.includes('/')) {
+    const parts = codeStr.trim().split('/');
+    const lastPart = parts[parts.length - 1];
+    const num = parseInt(lastPart, 10);
+    if (!isNaN(num) && num > 1 && num <= 20) return num;
+  }
+  return 1;
+};
 
 interface StockTransaction {
   id: string;
@@ -118,18 +129,18 @@ export default function InventoryManager({
     deleteSlip
   } = appContext || {};
 
-  const masterLogs = (Array.isArray(inventoryLogs) && inventoryLogs.length > 0
+  const masterLogs = useMemo(() => (Array.isArray(inventoryLogs) && inventoryLogs.length > 0
     ? inventoryLogs
     : Array.isArray(slips) ? slips : [])
     .filter((item: unknown): item is StockTransaction =>
       Boolean(item) && typeof item === 'object'
-    );
-  const contractItems = Array.isArray(contracts)
+    ), [inventoryLogs, slips]);
+  const contractItems = useMemo(() => Array.isArray(contracts)
     ? contracts.filter((item: unknown) => Boolean(item) && typeof item === 'object')
-    : [];
-  const materialItems = Array.isArray(materials)
+    : [], [contracts]);
+  const materialItems = useMemo(() => Array.isArray(materials)
     ? materials.filter((item: unknown) => Boolean(item) && typeof item === 'object')
-    : [];
+    : [], [materials]);
 
   const handleAdd = (payload: any) => {
     if (addInventoryLog) addInventoryLog(payload);
@@ -200,8 +211,14 @@ export default function InventoryManager({
   const [frameReceiptPreview, setFrameReceiptPreview] = useState<FrameReceiptPreview | null>(null);
   const frameReceiptPrintAreaRef = useRef<HTMLDivElement>(null);
 
-  const parentContracts = contractItems.filter((c: any) => c.contractType === 'PARENT' || !c.contractType);
-  const subContracts = contractItems.filter((c: any) => c.contractType === 'SUB' && !c.isLiquidated);
+  const parentContracts = useMemo(
+    () => contractItems.filter((c: any) => c.contractType === 'PARENT' || !c.contractType),
+    [contractItems]
+  );
+  const subContracts = useMemo(
+    () => contractItems.filter((c: any) => c.contractType === 'SUB' && !c.isLiquidated),
+    [contractItems]
+  );
   const weavingGroups: string[] = Array.from(new Set<string>(
     subContracts.map((contract: any) => String(contract.craftGroupLeader || '').trim()).filter(Boolean)
   ));
@@ -211,17 +228,7 @@ export default function InventoryManager({
   const selectedSubContract = subContracts.find((contract: any) =>
     String(contract.id) === selectedSubContractId
   );
-  const getMaxSizesFromCode = (codeStr: string): number => {
-    if (!codeStr) return 1;
-    if (codeStr.includes('/')) {
-      const parts = codeStr.trim().split('/');
-      const lastPart = parts[parts.length - 1];
-      const num = parseInt(lastPart, 10);
-      if (!isNaN(num) && num > 1 && num <= 20) return num;
-    }
-    return 1;
-  };
-  const getReceiptContractQuantity = (log: StockTransaction, contract?: any) => {
+  const getReceiptContractQuantity = useCallback((log: StockTransaction, contract?: any) => {
     const quantity = Number(log.quantity) || 0;
     const pieces = Object.values(log.sizeQuantities || {})
       .reduce<number>((sum, value) => sum + (Number(value) || 0), 0);
@@ -235,7 +242,7 @@ export default function InventoryManager({
       return (pieces > 0 ? pieces : quantity) / sizesPerSet;
     }
     return quantity;
-  };
+  }, [selectedProductCode]);
   const returnAllocationEntries: ReturnAllocationEntry[] = masterLogs
     .filter(slip => slip.type === 'XUAT_KS_TRA_CTY' && Array.isArray(slip.companyReturnLines))
     .flatMap(slip => (Array.isArray(slip.companyReturnLines) ? slip.companyReturnLines : [])
@@ -277,6 +284,9 @@ export default function InventoryManager({
   const selectedReturnAllocation = returnAllocationEntries.find(
     entry => entry.key === selectedReturnAllocationKey
   );
+  const selectedSubContractSizeQuantities = selectedSubContract?.sizeQuantities;
+  const selectedReturnSizeQuantities = selectedReturnAllocation?.line.sizeQuantities;
+  const hasSelectedReturnAllocation = Boolean(selectedReturnAllocation);
   const maxAllowedSizes = Math.max(
     getMaxSizesFromCode(selectedProductCode),
     Object.keys(selectedReturnAllocation?.line.sizeQuantities || {}).length || 1
@@ -296,7 +306,7 @@ export default function InventoryManager({
     : String(selectedSubContract?.unit || 'Bộ').toLowerCase() === 'cái' ? 'cái' : 'bộ';
   const companyProductCodes = Array.from(new Set(parentContracts.map((c: any) => c.productCode).filter(Boolean)));
 
-  const isCompanyFrameReceipt = (item: StockTransaction) => {
+  const isCompanyFrameReceipt = useCallback((item: StockTransaction) => {
     if (!item || typeof item !== 'object') return false;
     if (item.sourceReturnSlipId || item.sourceContractId || item.craftGroupLeader) return false;
     const slip = String(item.slipNo || '').toUpperCase();
@@ -328,7 +338,7 @@ export default function InventoryManager({
     const hasCompanyReference = /\b(artex|hđ|hd)\b/i.test(`${item.contractNo || ''} ${item.slipNo || ''}`);
     if (hasCompanyReference) return true;
     return type === 'NK' || type === 'NHAP' || slip.startsWith('NK');
-  };
+  }, [parentContracts, subContracts]);
 
   // TÌM HỢP ĐỒNG ĐỂ TÍNH SỐ LƯỢNG CÒN LẠI
   const matchedContract = transType === 'NK_KHUNG' && !isSupplementalFrameReceipt
@@ -462,27 +472,48 @@ export default function InventoryManager({
     setShowForm(true);
     setActiveTab('NK_KHUNG');
     onInitialFrameReceiptHandled?.();
-  }, [initialFrameReceiptContractId, contracts, masterLogs, onInitialFrameReceiptHandled]);
+  }, [
+    initialFrameReceiptContractId,
+    isCompanyFrameReceipt,
+    masterLogs,
+    onInitialFrameReceiptHandled,
+    parentContracts,
+    getReceiptContractQuantity
+  ]);
 
   useEffect(() => {
     if (selectedProductCode && isSetProduct) {
-      const newMap: { [key: string]: string } = {};
-      const contractSizeKeys = Object.keys(
-        selectedSubContract?.sizeQuantities || selectedReturnAllocation?.line.sizeQuantities || {}
-      );
-      const sizeKeys = contractSizeKeys.length
-        ? contractSizeKeys
-        : Array.from({ length: maxAllowedSizes }, (_, index) => `Cái ${index + 1}`);
-      sizeKeys.forEach(sizeName => {
-        newMap[sizeName] = selectedReturnAllocation && !editingId
-          ? ''
-          : sizeQuantities[sizeName] || '';
+      setSizeQuantities(current => {
+        const contractSizeKeys = Object.keys(
+          selectedSubContractSizeQuantities || selectedReturnSizeQuantities || {}
+        );
+        const sizeKeys = contractSizeKeys.length
+          ? contractSizeKeys
+          : Array.from({ length: maxAllowedSizes }, (_, index) => `Cái ${index + 1}`);
+        const newMap: { [key: string]: string } = {};
+        sizeKeys.forEach(sizeName => {
+          newMap[sizeName] = hasSelectedReturnAllocation && !editingId
+            ? ''
+            : current[sizeName] || '';
+        });
+        const unchanged = Object.keys(newMap).length === Object.keys(current).length &&
+          Object.entries(newMap).every(([key, value]) => current[key] === value);
+        return unchanged ? current : newMap;
       });
-      setSizeQuantities(newMap);
     }
-  }, [selectedProductCode, isSetProduct, selectedSubContractId, selectedReturnAllocationKey, editingId]);
+  }, [
+    selectedProductCode,
+    isSetProduct,
+    selectedSubContractId,
+    selectedSubContractSizeQuantities,
+    selectedReturnAllocationKey,
+    selectedReturnSizeQuantities,
+    hasSelectedReturnAllocation,
+    editingId,
+    maxAllowedSizes
+  ]);
 
-  const generateSlipNo = (type: 'NK' | 'NK_KHUNG', partner: string) => {
+  const generateSlipNo = useCallback((type: 'NK' | 'NK_KHUNG', partner: string) => {
     const yearShort = getYear2Digits();
     const cleanPartner = partner 
       ? partner.toUpperCase().replace(/(CTY|CÔNG TY|CP|CỔ PHẦN|TNHH)/g, '').trim().split(/\s+/)[0] || 'ARTEX' 
@@ -503,13 +534,13 @@ export default function InventoryManager({
       return `NK-${seq}/${yearShort}`;
     }
     return `NK-${seq}/${yearShort}`;
-  };
+  }, [masterLogs]);
 
   useEffect(() => {
     if (!editingId) {
       setSlipNo(generateSlipNo(transType, partnerName));
     }
-  }, [transType, partnerName, editingId, masterLogs]);
+  }, [transType, partnerName, editingId, generateSlipNo]);
 
   const handleProductSelect = (code: string) => {
     setSelectedProductCode(code);
