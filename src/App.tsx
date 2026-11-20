@@ -18,6 +18,7 @@ import { getVehicleExpiryWarnings } from './utils/vehicleExpiry';
 import { AuthProvider, useAuth, type Permission, type UserRole } from './context/AuthContext';
 import AuthGate from './components/AuthGate';
 import AuditLogView from './components/AuditLogView';
+import ErrorBoundary from './components/ErrorBoundary';
 import UserManagementView from './components/UserManagementView';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import Unauthorized from './pages/Unauthorized';
@@ -643,10 +644,12 @@ function AppContent({ initialTab }: { initialTab: string }) {
             {/* HIỂN THỊ CÁC COMPONENT CHỨC NĂNG */}
             {activeTab === 'categories' && <CategoryManager />}
             {activeTab === 'contracts' && (
-              <ContractsManager
-                requestedEditContractId={depositEditContractId}
-                onEditRequestHandled={() => setDepositEditContractId(null)}
-              />
+              <ErrorBoundary fallbackTitle="Không thể tải module Quản Lý Hợp Đồng">
+                <ContractsManager
+                  requestedEditContractId={depositEditContractId}
+                  onEditRequestHandled={() => setDepositEditContractId(null)}
+                />
+              </ErrorBoundary>
             )}
             {activeTab === 'inventory' && (
               <InventoryReportManager

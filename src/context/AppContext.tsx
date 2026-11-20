@@ -519,6 +519,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const loadedUserId = useRef<string | null>(null);
   const persistenceEffectsMounted = useRef(false);
   const suppressedSaveSnapshots = useRef(new Map<string, unknown>());
+  const lastFetchedSnapshots = useRef(new Map<string, string>());
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [isBackgroundLoad, setIsBackgroundLoad] = useState(false);
 
@@ -613,8 +614,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [user?.id]);
 
-  const applyAvailableSnapshots = useCallback((snapshots: Map<string, unknown[]>) => {
-    snapshots.forEach((value, sheetName) => applySheetSnapshot(sheetName, value));
+  const applyAvailableSnapshots = useCallback((snapshots: Map<string, unknown[]>, isBackground = false) => {
+    snapshots.forEach((value, sheetName) => {
+      const serialized = JSON.stringify(value);
+      if (isBackground && lastFetchedSnapshots.current.get(sheetName) === serialized) {
+        return;
+      }
+      lastFetchedSnapshots.current.set(sheetName, serialized);
+      applySheetSnapshot(sheetName, value);
+    });
   }, [applySheetSnapshot]);
 
   useEffect(() => {
@@ -643,6 +651,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isLoaded.current = false;
         loadedUserId.current = null;
         suppressedSaveSnapshots.current.clear();
+        lastFetchedSnapshots.current.clear();
       }
 
       let failed = false;
@@ -651,7 +660,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           [sheetName, await fetchDataStore(sheetName, userId)] as const
         ));
         if (!active) return;
-        applyAvailableSnapshots(new Map(entries));
+        applyAvailableSnapshots(new Map(entries), isBackground);
         setDataLoadError('');
       } catch (e) {
         if (!active) return;
@@ -680,7 +689,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const intervalId = userId
       ? window.setInterval(() => {
         if (document.visibilityState === 'visible' && navigator.onLine) void initData(true);
-      }, 5000)
+      }, 30000)
       : null;
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && navigator.onLine) void initData(true);

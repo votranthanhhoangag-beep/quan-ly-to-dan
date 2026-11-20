@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { logDailyAction } from '../utils/logger';
 import { ImageCaptureInput } from './ImageCaptureInput';
 import { saveDataStore } from '../services/supabaseDataService';
+import { ErrorBoundary } from './ErrorBoundary';
 
 type MaterialUnit = string;
 
@@ -118,7 +119,12 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   const minDateString = today.toISOString().split('T')[0];
 
   // Hàm chuyển đổi ngày an toàn cho thẻ input type="date" (luôn trả về YYYY-MM-DD)
-  const formatInputDate = (dateStr: string) => {
+  const formatInputDate = (dateVal: unknown) => {
+    if (!dateVal) return minDateString;
+    if (dateVal instanceof Date) {
+      return !isNaN(dateVal.getTime()) ? dateVal.toISOString().split('T')[0] : minDateString;
+    }
+    let dateStr = String(dateVal || '').trim();
     if (!dateStr) return minDateString;
     if (dateStr.includes('T')) {
       dateStr = dateStr.split('T')[0];
@@ -128,7 +134,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       return dateStr; // Đã đúng định dạng YYYY-MM-DD
     }
     if (parts.length === 3 && parts[2].length === 4) {
-      return `${parts[2]}-${parts[1]}-${parts[0]}`; // Đổi từ DD-MM-YYYY sang YYYY-MM-DD
+      return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`; // Đổi từ DD-MM-YYYY sang YYYY-MM-DD
     }
     const localDate = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(dateStr);
     if (localDate) {
@@ -138,7 +144,9 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   };
 
   // Hàm hiển thị định dạng Việt Nam DD-MM-YYYY
-  const formatDateVN = (dateStr: string) => {
+  const formatDateVN = (dateVal: unknown) => {
+    if (!dateVal) return '';
+    let dateStr = String(dateVal || '').trim();
     if (!dateStr) return '';
     if (dateStr.includes('T')) {
       dateStr = dateStr.split('T')[0];
@@ -153,12 +161,15 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     return dateStr;
   };
 
-  const subtractDaysFromDate = (dateStr: string, days: number) => {
+  const subtractDaysFromDate = (dateVal: unknown, days: number) => {
+    const dateStr = String(dateVal || '').trim();
+    if (!dateStr) return '';
     const normalizedDate = dateStr.split('T')[0];
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(normalizedDate);
     if (!match) return '';
 
     const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    if (isNaN(date.getTime())) return '';
     date.setDate(date.getDate() - days);
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -332,8 +343,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     return () => window.removeEventListener('keydown', handleModalKeyDown);
   }, [isSubContractSlipOpen, frameExportContract]);
 
-  const getMaxSizesFromCode = (codeStr: string): number => {
-    if (!codeStr) return 1;
+  const getMaxSizesFromCode = (codeStr: unknown): number => {
+    if (!codeStr || typeof codeStr !== 'string') return 1;
     if (codeStr.includes('/')) {
       const parts = codeStr.trim().split('/');
       const lastPart = parts[parts.length - 1];
@@ -343,7 +354,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     return 1;
   };
 
-  const getUnitFromProductCode = (codeStr: string): string | undefined => {
+  const getUnitFromProductCode = (codeStr: unknown): string | undefined => {
+    if (!codeStr || typeof codeStr !== 'string') return undefined;
     const suffix = /\/(\d+)\s*$/.exec(codeStr.trim())?.[1];
     if (!suffix) return undefined;
 
@@ -353,10 +365,10 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     return undefined;
   };
 
-  const maxAllowedSizes = getMaxSizesFromCode(productCode);
-  const isSinglePieceProduct = /\/1\s*$/.test(productCode.trim())
-    || (maxAllowedSizes === 1 && unit.toLowerCase() === 'cái');
-  const isSetItem = !isSinglePieceProduct && (maxAllowedSizes > 1 || unit.toLowerCase() === 'bộ');
+  const maxAllowedSizes = Math.min(20, Math.max(1, Number(getMaxSizesFromCode(productCode)) || 1));
+  const isSinglePieceProduct = /\/1\s*$/.test(String(productCode || '').trim())
+    || (maxAllowedSizes === 1 && String(unit || '').toLowerCase() === 'cái');
+  const isSetItem = !isSinglePieceProduct && (maxAllowedSizes > 1 || String(unit || '').toLowerCase() === 'bộ');
 
   // Tính toán Thành Tiền & Số tiền còn lại cho HĐ Cty
   const parentQtyNum = Number(quantity) || 0;
@@ -366,76 +378,76 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   const parentRemainingAmount = Math.max(0, parentTotalAmount - parentDepositNum);
 
   // Danh sách hợp đồng
-  const parentContractsList = contractItems.filter((c: any) => c.contractType === 'PARENT' || !c.contractType);
-  const subContractsList = contractItems.filter((c: any) => c.contractType === 'SUB');
+  const parentContractsList = contractItems.filter((c: any) => c && (c.contractType === 'PARENT' || !c.contractType));
+  const subContractsList = contractItems.filter((c: any) => c && c.contractType === 'SUB');
   const selectedParentContract = parentContractsList.find(
-    (contract: any) => String(contract.contractNo || '') === String(selectedParentNo)
+    (contract: any) => contract && String(contract.contractNo || '') === String(selectedParentNo)
   );
   const parentDueDate = selectedParentContract?.dueDate
     ? formatInputDate(selectedParentContract.dueDate)
     : '';
-  const isSubDueDateInvalid = Boolean(parentDueDate && dueDate >= parentDueDate);
+  const isSubDueDateInvalid = Boolean(parentDueDate && dueDate && dueDate >= parentDueDate);
   const isSubPhoneInvalid = !isValidVietnamMobileNumber(phone);
   const isSubZaloInvalid = !isValidVietnamMobileNumber(zalo);
   const parentProductCodeList = Array.from(new Set<string>(
     contractItems
-      .filter((contract: any) => contract.contractType === 'PARENT')
-      .map((contract: any) => String(contract.productCode || '').trim())
+      .filter((contract: any) => contract && contract.contractType === 'PARENT')
+      .map((contract: any) => String(contract?.productCode || '').trim())
       .filter(Boolean)
   ));
 
   const uniqueProductCodeList = Array.from(new Set<string>(
     [
-      ...productItems.map((p: CategoryItem) => p.code || p.id),
-      ...contractItems.map((c: any) => c.productCode)
+      ...productItems.map((p: CategoryItem) => p?.code || p?.id),
+      ...contractItems.map((c: any) => c?.productCode)
     ]
       .map(code => String(code || '').trim())
       .filter(Boolean)
   ));
   const productCodeOptions = activeTab === 'SUB' ? parentProductCodeList : uniqueProductCodeList;
   const filteredProductCodeOptions = productCodeOptions.filter(code =>
-    code.toLowerCase().includes(productCode.trim().toLowerCase())
+    typeof code === 'string' && code.toLowerCase().includes(String(productCode || '').trim().toLowerCase())
   );
 
   const handleProductCodeSelect = (codeStr: string) => {
     try {
-    const safeCode = typeof codeStr === 'string' ? codeStr : '';
-    setProductCode(safeCode);
-    setUnit(getUnitFromProductCode(safeCode) || 'Bộ');
-    const cleanCode = safeCode.trim().toLowerCase();
-    if (!cleanCode) {
-      setProductName('');
-      return;
-    }
+      const safeCode = typeof codeStr === 'string' ? codeStr : String(codeStr || '');
+      setProductCode(safeCode);
+      setUnit(getUnitFromProductCode(safeCode) || 'Bộ');
+      const cleanCode = safeCode.trim().toLowerCase();
+      if (!cleanCode) {
+        setProductName('');
+        return;
+      }
 
-    const matchedProduct = productItems.find(
-      (p: any) => String(p.code || p.id || '').trim().toLowerCase() === cleanCode
-    );
-    const matchedContract = contractItems.find(
-      (c: any) => c.contractType === 'PARENT' &&
-        String(c.productCode || '').trim().toLowerCase() === cleanCode
-    );
+      const matchedProduct = productItems.find(
+        (p: any) => p && String(p.code || p.id || '').trim().toLowerCase() === cleanCode
+      );
+      const matchedContract = contractItems.find(
+        (c: any) => c && c.contractType === 'PARENT' &&
+          String(c.productCode || '').trim().toLowerCase() === cleanCode
+      );
 
-    const matchedProductName = matchedProduct && 'productName' in matchedProduct
-      ? matchedProduct.name || matchedProduct.productName
-      : matchedProduct?.name;
-    if (typeof matchedProductName === 'string' && matchedProductName.trim()) {
-      setProductName(matchedProductName);
-    } else if (typeof matchedContract?.productName === 'string' && matchedContract?.productName) {
-      setProductName(matchedContract?.productName.split(' ')[0] || '');
-    } else {
-      setProductName('');
-    }
+      const matchedProductName = matchedProduct && 'productName' in matchedProduct
+        ? matchedProduct.name || matchedProduct.productName
+        : matchedProduct?.name;
+      if (typeof matchedProductName === 'string' && matchedProductName.trim()) {
+        setProductName(matchedProductName);
+      } else if (typeof matchedContract?.productName === 'string' && matchedContract?.productName) {
+        setProductName(matchedContract.productName.split(' ')[0] || '');
+      } else {
+        setProductName('');
+      }
 
-    const matchedParent = parentContractsList.find((p: any) => String(p.productCode || '').trim().toLowerCase() === cleanCode);
-    if (matchedParent) {
-      setSelectedParentNo(typeof matchedParent?.contractNo === 'string' ? matchedParent?.contractNo : '');
-      if (typeof matchedParent?.dueDate === 'string' && matchedParent?.dueDate) {
-        setDueDate(subtractDaysFromDate(formatInputDate(matchedParent?.dueDate), 4) || minDateString);
-      } else setDueDate(minDateString);
-      if (matchedParent?.unitPrice) setUnitPrice(String(matchedParent?.unitPrice));
-      if (matchedParent?.quantity) setContractQty(String(matchedParent?.quantity));
-    }
+      const matchedParent = parentContractsList.find((p: any) => p && String(p.productCode || '').trim().toLowerCase() === cleanCode);
+      if (matchedParent) {
+        setSelectedParentNo(String(matchedParent?.contractNo || ''));
+        if (matchedParent?.dueDate) {
+          setDueDate(subtractDaysFromDate(formatInputDate(matchedParent.dueDate), 4) || minDateString);
+        } else setDueDate(minDateString);
+        if (matchedParent?.unitPrice) setUnitPrice(String(matchedParent.unitPrice));
+        if (matchedParent?.quantity) setContractQty(String(matchedParent.quantity));
+      }
     } catch (error) {
       console.error('Không thể đối chiếu mã hàng hợp đồng công ty:', error);
       window.alert('Không thể đối chiếu mã hàng. Vui lòng kiểm tra lại dữ liệu hợp đồng và thử lại.');
@@ -445,34 +457,37 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
 
   const handleSubProductCodeSelect = (codeStr: string) => {
     try {
-    const safeCode = typeof codeStr === 'string' ? codeStr : '';
-    setProductCode(safeCode);
-    const cleanCode = safeCode.trim().toLowerCase();
-    const matchedParent = contractItems.find(
-      (contract: any) =>
-        contract.contractType === 'PARENT' &&
-        String(contract.productCode || '').trim().toLowerCase() === cleanCode
-    );
+      const safeCode = typeof codeStr === 'string' ? codeStr : String(codeStr || '');
+      setProductCode(safeCode);
+      const cleanCode = safeCode.trim().toLowerCase();
+      const matchedParent = contractItems.find(
+        (contract: any) =>
+          contract &&
+          contract.contractType === 'PARENT' &&
+          String(contract.productCode || '').trim().toLowerCase() === cleanCode
+      );
 
-    if (!cleanCode || !matchedParent) {
-      setSelectedParentNo('');
-      setProductName('');
-      setDueDate(minDateString);
-      setUnitPrice('');
-      setUnit(getUnitFromProductCode(safeCode) || 'Bộ');
-      setContractQty('1000');
-      return;
-    }
+      if (!cleanCode || !matchedParent) {
+        setSelectedParentNo('');
+        setProductName('');
+        setDueDate(minDateString);
+        setUnitPrice('');
+        setUnit(getUnitFromProductCode(safeCode) || 'Bộ');
+        setContractQty('1000');
+        return;
+      }
 
-    setSelectedParentNo(typeof matchedParent?.contractNo === 'string' ? matchedParent?.contractNo : '');
-    setProductName(typeof matchedParent?.productName === 'string' ? matchedParent?.productName : '');
-    setUnit(getUnitFromProductCode(safeCode) || (typeof matchedParent?.unit === 'string' ? matchedParent?.unit : 'Bộ'));
-    if (typeof matchedParent?.dueDate === 'string' && matchedParent?.dueDate) {
-      setDueDate(subtractDaysFromDate(formatInputDate(matchedParent?.dueDate), 4) || minDateString);
-    } else setDueDate(minDateString);
-    const companyUnitPrice = Number(matchedParent?.unitPrice);
-    setUnitPrice(companyUnitPrice > 0 ? String(Math.round(companyUnitPrice * 0.8)) : '');
-    if (matchedParent?.quantity) setContractQty(String(matchedParent?.quantity));
+      setSelectedParentNo(String(matchedParent?.contractNo || ''));
+      setProductName(String(matchedParent?.productName || ''));
+      setUnit(getUnitFromProductCode(safeCode) || (typeof matchedParent?.unit === 'string' && matchedParent.unit ? matchedParent.unit : 'Bộ'));
+      if (matchedParent?.dueDate) {
+        setDueDate(subtractDaysFromDate(formatInputDate(matchedParent.dueDate), 4) || minDateString);
+      } else {
+        setDueDate(minDateString);
+      }
+      const companyUnitPrice = Number(matchedParent?.unitPrice);
+      setUnitPrice(companyUnitPrice > 0 ? String(Math.round(companyUnitPrice * 0.8)) : '');
+      if (matchedParent?.quantity) setContractQty(String(matchedParent.quantity));
     } catch (error) {
       console.error('Không thể tính đơn giá hợp đồng tổ đan:', error);
       window.alert('Không thể tính đơn giá hoặc đối chiếu hợp đồng. Vui lòng kiểm tra dữ liệu mã hàng.');
@@ -884,52 +899,61 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     return quantity;
   };
 
-  const getParentReturnedTotal = (contract: any) =>
-    (Array.isArray(slips) ? slips : [])
-      .filter((slip: any) => String(slip.type || '').toUpperCase() === 'XUAT_KS_TRA_CTY')
+  const getParentReturnedTotal = (contract: any) => {
+    if (!contract) return 0;
+    return (Array.isArray(slips) ? slips : [])
+      .filter((slip: any) => slip && String(slip.type || '').toUpperCase() === 'XUAT_KS_TRA_CTY')
       .flatMap((slip: any) => Array.isArray(slip.companyReturnLines) ? slip.companyReturnLines : [])
       .reduce((sum: number, line: any) => {
+        if (!line) return sum;
         const sameProduct = String(line.productCode || '').trim().toLowerCase() ===
-          String(contract.productCode || '').trim().toLowerCase();
+          String(contract?.productCode || '').trim().toLowerCase();
         if (!sameProduct) return sum;
         const allocations = Array.isArray(line.allocations) ? line.allocations : [];
         const contractAllocations = allocations.filter((allocation: any) =>
-          String(allocation.contractId) === String(contract.id) ||
-          (
-            !allocation.contractId &&
-            String(allocation.contractNo || '').trim().toLowerCase() ===
-              String(contract.contractNo || '').trim().toLowerCase()
+          allocation && (
+            String(allocation.contractId) === String(contract?.id) ||
+            (
+              !allocation.contractId &&
+              String(allocation.contractNo || '').trim().toLowerCase() ===
+                String(contract?.contractNo || '').trim().toLowerCase()
+            )
           )
         );
         if (contractAllocations.length) {
           return sum + contractAllocations.reduce(
-            (allocationSum: number, allocation: any) => allocationSum + (Number(allocation.quantity) || 0),
+            (allocationSum: number, allocation: any) => allocationSum + (Number(allocation?.quantity) || 0),
             0
           );
         }
         return String(line.sourceContractNo || '').trim().toLowerCase() ===
-          String(contract.contractNo || '').trim().toLowerCase()
+          String(contract?.contractNo || '').trim().toLowerCase()
           ? sum + (Number(line.quantity) || 0)
           : sum;
       }, 0);
+  };
 
-  const getParentReceivedTotal = (contract: any) => Math.max(
-    0,
-    (Array.isArray(slips) ? slips : [])
-      .filter((slip: any) => {
-        const type = String(slip.type || '').toUpperCase();
-        const slipNo = String(slip.slipNo || '').toUpperCase();
-        if (slip.sourceReturnSlipId || slip.sourceContractId || slip.craftGroupLeader) return false;
-        if (type !== 'NK' && type !== 'NHAP' && !slipNo.startsWith('NK') && !slipNo.startsWith('KS')) return false;
-        return String(slip.productCode || '').trim().toLowerCase() ===
-            String(contract.productCode || '').trim().toLowerCase() &&
-          String(slip.contractNo || '').trim().toLowerCase() ===
-            String(contract.contractNo || '').trim().toLowerCase();
-      })
-      .reduce((sum: number, slip: any) =>
-        sum + getReceiptQuantityInContractUnits(slip, String(contract.productCode || '')), 0) -
-      getParentReturnedTotal(contract)
-  );
+  const getParentReceivedTotal = (contract: any) => {
+    if (!contract) return 0;
+    return Math.max(
+      0,
+      (Array.isArray(slips) ? slips : [])
+        .filter((slip: any) => {
+          if (!slip) return false;
+          const type = String(slip.type || '').toUpperCase();
+          const slipNo = String(slip.slipNo || '').toUpperCase();
+          if (slip.sourceReturnSlipId || slip.sourceContractId || slip.craftGroupLeader) return false;
+          if (type !== 'NK' && type !== 'NHAP' && !slipNo.startsWith('NK') && !slipNo.startsWith('KS')) return false;
+          return String(slip.productCode || '').trim().toLowerCase() ===
+              String(contract?.productCode || '').trim().toLowerCase() &&
+            String(slip.contractNo || '').trim().toLowerCase() ===
+              String(contract?.contractNo || '').trim().toLowerCase();
+        })
+        .reduce((sum: number, slip: any) =>
+          sum + getReceiptQuantityInContractUnits(slip, String(contract?.productCode || '')), 0) -
+        getParentReturnedTotal(contract)
+    );
+  };
 
   const getSubcontractFrameCapacity = (
     parentContractNo: string,
@@ -939,17 +963,19 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     const normalizedParentNo = String(parentContractNo || '').trim().toLowerCase();
     const normalizedCode = String(code || '').trim().toLowerCase();
     const parentContract = parentContractsList.find((contract: any) =>
+      contract &&
       String(contract.contractNo || '').trim().toLowerCase() === normalizedParentNo &&
       String(contract.productCode || '').trim().toLowerCase() === normalizedCode
     );
     const received = parentContract ? getParentReceivedTotal(parentContract) : 0;
     const assignedToOtherContracts = subContractsList
       .filter((contract: any) =>
+        contract &&
         String(contract.id) !== String(excludedSubContractId ?? '') &&
         String(contract.parentContractNo || '').trim().toLowerCase() === normalizedParentNo &&
         String(contract.productCode || '').trim().toLowerCase() === normalizedCode
       )
-      .reduce((sum: number, contract: any) => sum + (Number(contract.quantity) || 0), 0);
+      .reduce((sum: number, contract: any) => sum + (Number(contract?.quantity) || 0), 0);
     return {
       received,
       assignedToOtherContracts,
@@ -1735,6 +1761,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       </div>
       {/* FORM 2: HĐ TỔ ĐAN */}
       {activeTab === 'SUB' && hasPermission('manage_contracts') && (
+        <ErrorBoundary fallbackTitle="Lỗi hiển thị Form HĐ Tổ Đan" onReset={resetForm}>
         <form {...formDraftProps} onSubmit={(e) => {
           e.preventDefault();
           if (submissionLock.current) return;
@@ -2147,8 +2174,9 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
               <span />
             </div>
             {safeSubContractMaterials.map(row => {
+              if (!row) return null;
               const suggestions = materialItems.filter((material: CategoryItem) =>
-                matchesMaterialNameSearch(material, row.query)
+                material && matchesMaterialNameSearch(material, String(row.query || ''))
               );
               return (
                 <div key={row.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 2fr) minmax(90px, .7fr) minmax(100px, .8fr) minmax(120px, 1fr) minmax(140px, 1fr) 42px', gap: '8px', alignItems: 'start', marginTop: '8px' }}>
@@ -2209,8 +2237,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                     ))}
                     style={{ width: '100%', padding: '9px', border: '1px solid #94a3b8', borderRadius: '5px', backgroundColor: '#fff' }}
                   >
-                    {[...new Set(['kg', 'lọn', 'bó', 'cái', ...materialItems.map((material: CategoryItem) => material.unit).filter(Boolean), row.unit])].map(option => (
-                      <option key={option} value={option}>{option}</option>
+                    {[...new Set(['kg', 'lọn', 'bó', 'cái', ...materialItems.map((material: CategoryItem) => material?.unit).filter(Boolean), row.unit].filter(Boolean))].map(option => (
+                      <option key={String(option)} value={String(option)}>{String(option)}</option>
                     ))}
                   </select>
                   <input
@@ -2282,6 +2310,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             {isSubmitting ? '⏳ Đang lưu...' : '💾 Lưu Hợp Đồng Tổ Đan'}
           </button>
         </form>
+        </ErrorBoundary>
       )}
 
       {activeTab === 'SUB' && isSubContractSlipOpen && subContractSlipData && (
