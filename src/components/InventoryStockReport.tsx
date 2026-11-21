@@ -2432,9 +2432,11 @@ export default function InventoryStockReport() {
               if (!isRepairPriceOverLimit(line.productCode, value)) return null;
               const maxRepairUnitPrice = companyRepairPriceInfo?.maxRepairUnitPrice;
               if (maxRepairUnitPrice === null || maxRepairUnitPrice === undefined) return null;
+              const enteredPrice = parseFormattedNumber(value);
               return (
                 <small role="alert" style={{ color: '#b91c1c', fontSize: '11px', fontWeight: 700 }}>
-                  Vượt mức tối đa {formatCurrency(maxRepairUnitPrice)}.
+                  Đơn giá {formatCurrency(enteredPrice)} vượt mức tối đa {formatCurrency(maxRepairUnitPrice)}{' '}
+                  {`(vượt ${formatCurrency(enteredPrice - maxRepairUnitPrice)}).`}
                 </small>
               );
             };
