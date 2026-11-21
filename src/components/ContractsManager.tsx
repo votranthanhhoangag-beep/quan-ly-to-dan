@@ -9,6 +9,8 @@ import { logDailyAction } from '../utils/logger';
 import { ImageCaptureInput } from './ImageCaptureInput';
 import { saveDataStore } from '../services/supabaseDataService';
 import { ErrorBoundary } from './ErrorBoundary';
+import VoiceFillControl from './VoiceFillControl';
+import { parseVietnameseFormSpeech } from '../utils/voiceFormParser';
 
 type MaterialUnit = string;
 
@@ -1930,6 +1932,47 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
               👜 HĐ TỔ ĐAN
             </h3>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <VoiceFillControl onTranscript={transcript => {
+                const parsed = parseVietnameseFormSpeech(transcript);
+                const filledFields: string[] = [];
+                if (parsed.productCode) {
+                  handleSubProductCodeSelect(parsed.productCode);
+                  filledFields.push(`Mã hàng ${parsed.productCode}`);
+                }
+                if (parsed.productName) {
+                  setProductName(parsed.productName);
+                  filledFields.push('Tên hàng');
+                }
+                if (parsed.groupName) {
+                  setCraftGroupLeader(parsed.groupName);
+                  filledFields.push('Tên tổ đan');
+                }
+                if (parsed.quantity !== undefined) {
+                  setContractQty(String(parsed.quantity));
+                  setIsContractQtyManuallyEdited(true);
+                  filledFields.push(`Số lượng ${parsed.quantity}`);
+                }
+                const quantityForPrice = parsed.quantity ?? Number(contractQty);
+                const spokenUnitPrice = parsed.unitPrice ??
+                  (parsed.totalAmount !== undefined && quantityForPrice > 0
+                    ? Math.round(parsed.totalAmount / quantityForPrice)
+                    : undefined);
+                if (spokenUnitPrice !== undefined) {
+                  setUnitPrice(String(spokenUnitPrice));
+                  filledFields.push(parsed.unitPrice !== undefined ? 'Đơn giá' : 'Đơn giá suy ra từ thành tiền');
+                }
+                if (parsed.deposit !== undefined) {
+                  setRequiredDeposit(String(Math.round(parsed.deposit)));
+                  filledFields.push('Tiền cọc');
+                }
+                if (parsed.note) {
+                  setNote(parsed.note);
+                  filledFields.push('Ghi chú');
+                }
+                return filledFields.length
+                  ? `Đã điền: ${filledFields.join(', ')}. Vui lòng kiểm tra trước khi lưu.`
+                  : 'Chưa nhận ra trường cần điền. Hãy nói rõ mã hàng, số lượng, đơn giá, tên tổ hoặc ghi chú.';
+              }} />
               <button type="button" onClick={resetForm} style={{ padding: '6px 14px', backgroundColor: '#10b981', color: '#fff', fontWeight: 'bold', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '13px' }}>➕ Làm Mới</button>
             </div>
           </div>
