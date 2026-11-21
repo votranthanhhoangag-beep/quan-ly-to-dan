@@ -1062,6 +1062,7 @@ export default function InventoryStockReport() {
     };
     // Net completed repair cycles as good stock so internal repair movements do not inflate physical totals.
     const completedRepairsByLine = new Map<string, RepairQuantityBreakdown>();
+    const completedRepairsByReceiptLine = new Map<string, RepairQuantityBreakdown>();
     const completedRepairsByKnittingExport = new Map<string, RepairQuantityBreakdown>();
     const completedRepairsByDefectiveImport = new Map<string, RepairQuantityBreakdown>();
     const completedGoodExportsByRepairReceipt = new Map<string, CompletedRepairExport[]>();
@@ -1121,8 +1122,10 @@ export default function InventoryStockReport() {
       if (!repairSlip) return;
       const repairLines = getRepairLines(repairSlip);
       getRepairLines(receipt).forEach(receiptLine => {
-        const repairLine = repairLines.find(item => item.id === receiptLine.id);
-        if (!repairLine) return;
+        const matchingRepairLines = repairLines.filter(item =>
+          item.productCode.trim().toLowerCase() === receiptLine.productCode.trim().toLowerCase()
+        );
+        if (matchingRepairLines.length === 0) return;
         const sizeCount = getPiecesPerSet(receiptLine.productCode);
         const sizeKeys = Array.from({ length: sizeCount }, (_, index) => `Cái ${index + 1}`);
         const hasQualitySplit = receiptLine.goodQuantity !== undefined ||
@@ -1185,18 +1188,60 @@ export default function InventoryStockReport() {
           });
         });
         if (completed.bundles <= 0 && !Object.values(completed.sizes).some(quantity => quantity > 0)) return;
-        const sourceKnittingExportSlipId = receiptLine.sourceKnittingExportSlipId ??
-          repairLine.sourceKnittingExportSlipId;
-        const sourceDefectiveGoodsImportSlipId = receiptLine.sourceDefectiveGoodsImportSlipId ??
-          repairLine.sourceDefectiveGoodsImportSlipId;
-          if (sourceKnittingExportSlipId === undefined && sourceDefectiveGoodsImportSlipId === undefined) return;
-          addBreakdown(completedRepairsByLine, repairLineKey(repairSlip.id, repairLine.id), completed);
-          if (sourceKnittingExportSlipId !== undefined) {
-            addBreakdown(completedRepairsByKnittingExport, String(sourceKnittingExportSlipId), completed);
+          const remainingCompleted: RepairQuantityBreakdown = {
+            bundles: completed.bundles,
+            sizes: { ...completed.sizes }
+          };
+          const netted: RepairQuantityBreakdown = {
+            bundles: 0,
+            sizes: Object.fromEntries(sizeKeys.map(size => [size, 0]))
+          };
+          matchingRepairLines.forEach(repairLine => {
+            const sourceKnittingExportSlipId = repairLine.sourceKnittingExportSlipId;
+            const sourceDefectiveGoodsImportSlipId = repairLine.sourceDefectiveGoodsImportSlipId;
+            if (sourceKnittingExportSlipId === undefined && sourceDefectiveGoodsImportSlipId === undefined) return;
+            const sourceSizeCount = getPiecesPerSet(repairLine.productCode);
+            const sourceSizes = normalizeSizeCounts(
+              repairLine.sizeQuantities,
+              Array.from({ length: sourceSizeCount }, (_, index) => `Cái ${index + 1}`)
+            );
+            if (sourceSizeCount === 1) sourceSizes['Cái 1'] = Number(repairLine.quantity) || 0;
+            const allocated: RepairQuantityBreakdown = {
+              bundles: Math.min(
+                remainingCompleted.bundles,
+                Number(repairLine.bundleQuantity) || 0
+              ),
+              sizes: Object.fromEntries(sizeKeys.map(size => [
+                size,
+                Math.min(remainingCompleted.sizes[size] || 0, sourceSizes[size] || 0)
+              ]))
+            };
+            if (allocated.bundles <= 0 && !Object.values(allocated.sizes).some(quantity => quantity > 0)) return;
+            remainingCompleted.bundles -= allocated.bundles;
+            sizeKeys.forEach(size => {
+              remainingCompleted.sizes[size] -= allocated.sizes[size] || 0;
+              netted.sizes[size] += allocated.sizes[size] || 0;
+            });
+            netted.bundles += allocated.bundles;
+            addBreakdown(
+              completedRepairsByLine,
+              repairLineKey(repairSlip.id, repairLine.id),
+              allocated
+            );
+            if (sourceKnittingExportSlipId !== undefined) {
+              addBreakdown(completedRepairsByKnittingExport, String(sourceKnittingExportSlipId), allocated);
+            }
+            if (sourceDefectiveGoodsImportSlipId !== undefined) {
+              addBreakdown(completedRepairsByDefectiveImport, String(sourceDefectiveGoodsImportSlipId), allocated);
+            }
+          });
+          if (netted.bundles > 0 || Object.values(netted.sizes).some(quantity => quantity > 0)) {
+            addBreakdown(
+              completedRepairsByReceiptLine,
+              repairLineKey(receipt.id, receiptLine.id),
+              netted
+            );
           }
-        if (sourceDefectiveGoodsImportSlipId !== undefined) {
-          addBreakdown(completedRepairsByDefectiveImport, String(sourceDefectiveGoodsImportSlipId), completed);
-        }
       });
     });
     const subtractBreakdown = (
@@ -1389,10 +1434,6 @@ export default function InventoryStockReport() {
       const beforeMonth = Boolean(monthFilter && month < monthFilter);
       if (monthFilter && month > monthFilter) return;
       const bucket = beforeMonth ? buckets.opening : buckets.incoming;
-      const sourceRepairSlip = repairSlips.find(item =>
-        String(item.id) === String(slip.sourceRepairSlipId || '') ||
-        item.slipNo === slip.contractNo
-      );
       getRepairLines(slip).forEach(line => {
         const contract = contracts.find(item =>
           String(item.productCode || '').trim().toLowerCase() === line.productCode.trim().toLowerCase()
@@ -1416,9 +1457,7 @@ export default function InventoryStockReport() {
         const remainingGood = subtractBreakdown(
           Number(line.goodBundleQuantity ?? (!hasQualitySplit ? line.bundleQuantity : 0)) || 0,
           goodSizes,
-          sourceRepairSlip
-            ? completedRepairsByLine.get(repairLineKey(sourceRepairSlip.id, line.id))
-            : undefined
+          completedRepairsByReceiptLine.get(repairLineKey(slip.id, line.id))
         );
         addMovement(
           bucket,
