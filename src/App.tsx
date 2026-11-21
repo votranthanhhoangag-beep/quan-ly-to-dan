@@ -15,6 +15,7 @@ import SystemSettingsView from './components/SystemSettingsView';
 import VehicleFleetManager from './components/VehicleFleetManager';
 import TaxExpenseManager from './components/TaxExpenseManager';
 import { getVehicleExpiryWarnings } from './utils/vehicleExpiry';
+import { getContractReceivedDeposit } from './utils/contractDebt';
 import { AuthProvider, useAuth, type Permission, type UserRole } from './context/AuthContext';
 import AuthGate from './components/AuthGate';
 import AuditLogView from './components/AuditLogView';
@@ -272,8 +273,9 @@ function FrameReceiptDashboard({
     const total = Number(contract.quantity) || 0;
     return { contract, received, total, remaining: Math.max(0, total - received) };
   });
-  const completeContracts = progress.filter(item => item.total > 0 && item.remaining === 0);
-  const incompleteContracts = progress.filter(item => item.remaining > 0);
+  const visibleProgress = progress.filter(item => getContractReceivedDeposit(item.contract) <= 0);
+  const completeContracts = visibleProgress.filter(item => item.total > 0 && item.remaining === 0);
+  const incompleteContracts = visibleProgress.filter(item => item.remaining > 0);
 
   return (
     <div style={{ marginTop: '20px', padding: '18px', border: '1px solid #bae6fd', borderRadius: '10px', backgroundColor: '#f0f9ff' }}>
@@ -285,36 +287,28 @@ function FrameReceiptDashboard({
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', marginBottom: '14px' }}>
         <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: '#fef2f2', color: '#991b1b', fontWeight: 'bold' }}>
-          ⚠️ Chưa nhận đủ: {incompleteContracts.length} hợp đồng
+          ⚠️ Chưa nhận đủ khung: {incompleteContracts.length} hợp đồng chưa nhận cọc
         </div>
         <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: '#f0fdf4', color: '#166534', fontWeight: 'bold' }}>
-          ✅ Đã nhận đủ: {completeContracts.length} hợp đồng
+          ✅ Đã nhận đủ khung, chưa nhận cọc: {completeContracts.length} hợp đồng
         </div>
       </div>
       <div style={{ display: 'grid', gap: '8px' }}>
-        {completeContracts.map(({ contract }, index) => {
-          const hasDeposit = Number(contract.requiredDeposit) > 0;
-          return (
-          <div key={`${contract.id}-${contract.contractNo || contract.productCode || index}`} role="status" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', padding: '9px 12px', border: '1px solid #86efac', borderRadius: '6px', backgroundColor: '#f0fdf4', color: '#166534', fontWeight: 'bold' }}>
+        {completeContracts.map(({ contract }) => (
+          <div key={String(contract.id)} role="status" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', padding: '9px 12px', border: '1px solid #86efac', borderRadius: '6px', backgroundColor: '#f0fdf4', color: '#166534', fontWeight: 'bold' }}>
             <span>✅ ĐÃ NHẬN ĐỦ KHUNG · HĐ: {contract.contractNo} - Mã: {contract.productCode}</span>
-            {hasDeposit ? (
-              <span style={{ padding: '4px 8px', borderRadius: '999px', backgroundColor: '#dcfce7', border: '1px solid #4ade80', color: '#166534', fontSize: '12px', whiteSpace: 'nowrap' }}>
-                ✅ Đã nhận cọc
-              </span>
-            ) : (
-              <button
-                type="button"
-                onClick={() => onRequestDeposit(contract.id)}
-                style={{ padding: '5px 10px', borderRadius: '999px', backgroundColor: '#dcfce7', border: '1px solid #4ade80', color: '#166534', fontSize: '12px', fontWeight: 'bold', whiteSpace: 'nowrap', cursor: 'pointer' }}
-              >
-                💰 [ĐƯỢC NHẬN CỌC]
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => onRequestDeposit(contract.id)}
+              style={{ padding: '5px 10px', borderRadius: '999px', backgroundColor: '#dcfce7', border: '1px solid #4ade80', color: '#166534', fontSize: '12px', fontWeight: 'bold', whiteSpace: 'nowrap', cursor: 'pointer' }}
+            >
+              💰 [ĐƯỢC NHẬN CỌC]
+            </button>
           </div>
-        );})}
-        {incompleteContracts.map(({ contract, received, total, remaining }, index) => (
+        ))}
+        {incompleteContracts.map(({ contract, received, total, remaining }) => (
           <button
-            key={`${contract.id}-${contract.contractNo || contract.productCode || index}`}
+            key={String(contract.id)}
             type="button"
             onClick={() => onReceiveMissingFrames(contract.id)}
             style={{ width: '100%', padding: '9px 12px', border: '1px solid #fecaca', borderRadius: '6px', backgroundColor: '#fff', color: '#991b1b', textAlign: 'left', cursor: 'pointer' }}
@@ -323,7 +317,13 @@ function FrameReceiptDashboard({
             - HĐ {contract.contractNo} - Mã {contract.productCode}: đã nhận {received.toLocaleString()}/{total.toLocaleString()}, còn thiếu {remaining.toLocaleString()} khung
           </button>
         ))}
-        {progress.length === 0 && <div style={{ color: '#64748b' }}>Chưa có hợp đồng công ty để theo dõi nhận khung.</div>}
+        {completeContracts.length === 0 && incompleteContracts.length === 0 && (
+          <div style={{ color: '#64748b' }}>
+            {progress.length === 0
+              ? 'Chưa có hợp đồng công ty để theo dõi nhận khung.'
+              : 'Không còn hợp đồng chưa nhận cọc để hiển thị.'}
+          </div>
+        )}
       </div>
     </div>
   );

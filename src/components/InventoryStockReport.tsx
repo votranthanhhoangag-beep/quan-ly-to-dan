@@ -280,6 +280,7 @@ export default function InventoryStockReport() {
   const [reportMonth, setReportMonth] = useState(getToday().slice(0, 7));
   const [activeReportTab, setActiveReportTab] = useState<InventoryReportTab>('stock');
   const [date, setDate] = useState(getToday());
+  const [discountPercent, setDiscountPercent] = useState('20');
   const [advance, setAdvance] = useState('');
   const [reason, setReason] = useState('');
   const [repairWorkerName, setRepairWorkerName] = useState('');
@@ -300,6 +301,55 @@ export default function InventoryStockReport() {
   const [receiptLines, setReceiptLines] = useState<RepairFormLine[]>([]);
   const [receiptError, setReceiptError] = useState('');
   const [editingReceiptId, setEditingReceiptId] = useState<number | string | null>(null);
+
+  const parsedDiscountPercent = Number(discountPercent);
+  const isDiscountPercentValid = discountPercent.trim() !== '' &&
+    Number.isFinite(parsedDiscountPercent) &&
+    parsedDiscountPercent >= 0 &&
+    parsedDiscountPercent <= 100;
+  const getCompanyRepairPriceInfo = (productCode: string) => {
+    const normalizedCode = productCode.trim().toLowerCase();
+    if (!normalizedCode) return null;
+    const companyContract = contracts.find(contract =>
+      (contract.contractType === 'PARENT' || !contract.contractType) &&
+      String(contract.productCode || '').trim().toLowerCase() === normalizedCode
+    );
+    if (!companyContract) return null;
+    const companyUnitPrice = Number(companyContract.unitPrice);
+    if (!Number.isFinite(companyUnitPrice) || companyUnitPrice < 0) return null;
+    return {
+      companyUnitPrice,
+      maxRepairUnitPrice: isDiscountPercentValid
+        ? companyUnitPrice * (1 - parsedDiscountPercent / 100)
+        : null
+    };
+  };
+  const isPriceAboveMaximum = (price: number, maximum: number) =>
+    price > maximum + Math.max(1, Math.abs(maximum)) * Number.EPSILON * 10;
+  const isRepairPriceOverLimit = (productCode: string, value: string) => {
+    if (!value.trim()) return false;
+    const maxRepairUnitPrice = getCompanyRepairPriceInfo(productCode)?.maxRepairUnitPrice;
+    const repairUnitPrice = parseFormattedNumber(value);
+    return maxRepairUnitPrice !== null && maxRepairUnitPrice !== undefined &&
+      Number.isFinite(repairUnitPrice) &&
+      isPriceAboveMaximum(repairUnitPrice, maxRepairUnitPrice);
+  };
+  const getPricedRepairUnits = (line: RepairFormLine) => {
+    const piecesPerSet = getPiecesPerSet(line.productCode);
+    const units: Array<{ label: string; price: string }> = [];
+    if (piecesPerSet === 1 && Number(line.quantity) > 0) {
+      units.push({ label: 'Cái lẻ Size 1', price: line.sizeUnitPrices['Cái 1'] || '' });
+    }
+    if (piecesPerSet > 1 && line.itemTypeOption === 'CA_HAI' && Number(line.bundleQuantity) > 0) {
+      units.push({ label: 'Bộ nguyên', price: line.bundleUnitPrice });
+    }
+    Object.entries(line.sizeQuantities).forEach(([size, quantity]) => {
+      if (Number(quantity) > 0) {
+        units.push({ label: `Cái lẻ ${size}`, price: line.sizeUnitPrices[size] || '' });
+      }
+    });
+    return units;
+  };
 
   const repairSlips = slips.filter(slip => slip?.type === 'XUAT_SUA_KHOAN');
   const repairReceiptSlips = slips.filter(slip => slip?.type === 'NHAN_SUA_KHOAN');
@@ -1525,6 +1575,7 @@ export default function InventoryStockReport() {
   const resetForm = () => {
     repairDraft.clearDraft();
     setDate(getToday());
+    setDiscountPercent('20');
     setAdvance('');
     setReason('');
     setRepairWorkerName('');
@@ -1712,6 +1763,34 @@ export default function InventoryStockReport() {
       }
     }
     const parsedAdvance = parseFormattedNumber(advance) || 0;
+    if (!isDiscountPercentValid) {
+      setError('Tỷ lệ giảm so với giá Cty phải là số từ 0 đến 100%.');
+      return;
+    }
+    const overLimitPrice = activeLines.flatMap(line => {
+      const priceInfo = getCompanyRepairPriceInfo(line.productCode);
+      const maxRepairUnitPrice = priceInfo?.maxRepairUnitPrice;
+      if (!priceInfo || maxRepairUnitPrice === null || maxRepairUnitPrice === undefined) return [];
+      return getPricedRepairUnits(line)
+        .map(unit => ({
+          productCode: line.productCode.trim(),
+          unit,
+          priceInfo,
+          maxRepairUnitPrice,
+          enteredPrice: parseFormattedNumber(unit.price)
+        }))
+        .filter(item => Number.isFinite(item.enteredPrice) &&
+          isPriceAboveMaximum(item.enteredPrice, item.maxRepairUnitPrice));
+    })[0];
+    if (overLimitPrice) {
+      setError(
+        `Mã hàng ${overLimitPrice.productCode}: ${overLimitPrice.unit.label} ` +
+        `${formatCurrency(overLimitPrice.enteredPrice)} vượt mức tối đa ` +
+        `${formatCurrency(overLimitPrice.maxRepairUnitPrice)} ` +
+        `(${formatCurrency(overLimitPrice.priceInfo.companyUnitPrice)} giá Cty, giảm ${parsedDiscountPercent}%).`
+      );
+      return;
+    }
     if (!Number.isFinite(parsedAdvance) || parsedAdvance < 0) {
       setError('Tạm ứng phải là số hợp lệ, không được âm.');
       return;
@@ -1736,6 +1815,7 @@ export default function InventoryStockReport() {
       note: reason.trim(),
       repairLines: parsedLines,
       repairTotal: total,
+      repairDiscountPercent: parsedDiscountPercent,
       repairAdvance: parsedAdvance,
       accompanyingMaterials: savedAccompanyingMaterials
     };
@@ -1770,6 +1850,14 @@ export default function InventoryStockReport() {
         : String(line.sourceDefectiveGoodsImportSlipId)
     })));
     setDate(slip.date || getToday());
+    setDiscountPercent(
+      slip.repairDiscountPercent !== undefined &&
+        Number.isFinite(Number(slip.repairDiscountPercent)) &&
+        Number(slip.repairDiscountPercent) >= 0 &&
+        Number(slip.repairDiscountPercent) <= 100
+        ? String(slip.repairDiscountPercent)
+        : '20'
+    );
     setAdvance(formatNumberInput(String(slip.repairAdvance || 0)));
     setRepairWorkerName(slip.repairWorkerName || slip.partnerName || slip.partner || '');
     setRepairWorkerZalo(slip.repairWorkerZalo || '');
@@ -2179,6 +2267,37 @@ export default function InventoryStockReport() {
             </label>
           </div>
 
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px', alignItems: 'start', padding: '12px', border: '1px solid #bfdbfe', borderRadius: '7px', backgroundColor: '#eff6ff' }}>
+            <label style={{ display: 'grid', gap: '5px', fontSize: '12px', fontWeight: 700 }}>
+              % Giảm so với giá Cty
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="any"
+                value={discountPercent}
+                aria-invalid={!isDiscountPercentValid}
+                onChange={event => {
+                  setDiscountPercent(event.target.value);
+                  setError('');
+                }}
+                style={{
+                  ...inputStyle,
+                  border: `1px solid ${isDiscountPercentValid ? '#93c5fd' : '#dc2626'}`,
+                  backgroundColor: isDiscountPercentValid ? '#fff' : '#fef2f2'
+                }}
+              />
+              {!isDiscountPercentValid && (
+                <small role="alert" style={{ color: '#b91c1c', fontWeight: 600 }}>
+                  Nhập tỷ lệ từ 0 đến 100%.
+                </small>
+              )}
+            </label>
+            <small style={{ alignSelf: 'center', color: '#1e40af', fontSize: '12px' }}>
+              Mặc định giảm 20%. Đơn giá sửa khoán tối đa = đơn giá Cty × (1 − tỷ lệ giảm).
+            </small>
+          </div>
+
           <section style={{ padding: '14px', border: '2px solid #0f766e', borderRadius: '8px', backgroundColor: '#fff' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '10px' }}>
               <strong style={{ color: '#0f766e', fontSize: '14px' }}>Nguyên Phụ Liệu Kèm Theo</strong>
@@ -2308,6 +2427,20 @@ export default function InventoryStockReport() {
           {lines.map(line => {
             const piecesPerSet = getPiecesPerSet(line.productCode);
             const sizeKeys = Array.from({ length: piecesPerSet }, (_, sizeIndex) => `Cái ${sizeIndex + 1}`);
+            const companyRepairPriceInfo = getCompanyRepairPriceInfo(line.productCode);
+            const getPriceWarning = (value: string) => {
+              if (!isRepairPriceOverLimit(line.productCode, value)) return null;
+              const maxRepairUnitPrice = companyRepairPriceInfo?.maxRepairUnitPrice;
+              if (maxRepairUnitPrice === null || maxRepairUnitPrice === undefined) return null;
+              return (
+                <small role="alert" style={{ color: '#b91c1c', fontSize: '11px', fontWeight: 700 }}>
+                  Vượt mức tối đa {formatCurrency(maxRepairUnitPrice)}.
+                </small>
+              );
+            };
+            const priceInputStyle = (value: string) => isRepairPriceOverLimit(line.productCode, value)
+              ? { ...inputStyle, border: '2px solid #dc2626', backgroundColor: '#fef2f2', color: '#b91c1c' }
+              : inputStyle;
             const matchingDefectiveImports = defectiveGoodsImportSlips
               .filter(source => source.productCode.trim().toLowerCase() === line.productCode.trim().toLowerCase())
               .sort((first, second) => second.date.localeCompare(first.date));
@@ -2374,7 +2507,8 @@ export default function InventoryStockReport() {
                         <input required type="number" min="0" step="any" value={line.quantity} onChange={event => updateLine(line.id, { quantity: event.target.value })} style={inputStyle} />
                       </label>
                       <label style={{ display: 'grid', gap: '5px', fontSize: '12px', fontWeight: 700 }}>Đơn giá Cái lẻ Size 1
-                        <input required type="text" inputMode="decimal" value={line.sizeUnitPrices['Cái 1'] || ''} onChange={event => updateLine(line.id, { sizeUnitPrices: { ...line.sizeUnitPrices, 'Cái 1': formatNumberInput(event.target.value) } })} style={inputStyle} />
+                        <input required type="text" inputMode="decimal" value={line.sizeUnitPrices['Cái 1'] || ''} aria-invalid={isRepairPriceOverLimit(line.productCode, line.sizeUnitPrices['Cái 1'] || '')} onChange={event => updateLine(line.id, { sizeUnitPrices: { ...line.sizeUnitPrices, 'Cái 1': formatNumberInput(event.target.value) } })} style={priceInputStyle(line.sizeUnitPrices['Cái 1'] || '')} />
+                        {getPriceWarning(line.sizeUnitPrices['Cái 1'] || '')}
                       </label>
                     </>
                   )}
@@ -2382,6 +2516,32 @@ export default function InventoryStockReport() {
                     <button type="button" onClick={() => setLines(current => current.filter(item => item.id !== line.id))} style={{ padding: '8px', border: 0, borderRadius: '6px', backgroundColor: '#fee2e2', color: '#b91c1c', fontWeight: 700, cursor: 'pointer' }}>Xóa dòng</button>
                   )}
                 </div>
+                {line.productCode.trim() && (
+                  <div
+                    role={companyRepairPriceInfo ? undefined : 'status'}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      backgroundColor: companyRepairPriceInfo ? '#f8fafc' : '#fff7ed',
+                      color: companyRepairPriceInfo ? '#334155' : '#9a3412',
+                      fontSize: '12px',
+                      fontWeight: 600
+                    }}
+                  >
+                    {companyRepairPriceInfo
+                      ? <>
+                        Đơn giá Cty mã {line.productCode}: <strong>{formatCurrency(companyRepairPriceInfo.companyUnitPrice)}</strong>
+                        {' · '}Giảm <strong>{isDiscountPercentValid ? `${formatNumber(parsedDiscountPercent)}%` : 'chưa hợp lệ'}</strong>
+                        {' · '}Đơn giá sửa khoán tối đa:{' '}
+                        <strong>
+                          {companyRepairPriceInfo.maxRepairUnitPrice === null
+                            ? '—'
+                            : formatCurrency(companyRepairPriceInfo.maxRepairUnitPrice)}
+                        </strong>
+                      </>
+                      : `Không tìm thấy đơn giá HĐ Cty cho mã ${line.productCode}; chưa thể đối chiếu mức trần.`}
+                  </div>
+                )}
                 {piecesPerSet > 1 && (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px' }}>
                     <strong style={{ gridColumn: '1 / -1', fontSize: '12px', color: '#475569' }}>Chọn hình thức xuất sửa · Mã bộ gồm {piecesPerSet} size</strong>
@@ -2421,8 +2581,10 @@ export default function InventoryStockReport() {
                             inputMode="decimal"
                             value={line.bundleUnitPrice}
                             onChange={event => updateLine(line.id, { bundleUnitPrice: formatNumberInput(event.target.value) })}
-                            style={inputStyle}
+                            aria-invalid={isRepairPriceOverLimit(line.productCode, line.bundleUnitPrice)}
+                            style={priceInputStyle(line.bundleUnitPrice)}
                           />
+                          {getPriceWarning(line.bundleUnitPrice)}
                         </label>
                       </>
                     )}
@@ -2437,8 +2599,10 @@ export default function InventoryStockReport() {
                             inputMode="decimal"
                             value={line.sizeUnitPrices[size] || ''}
                             onChange={event => updateLine(line.id, { sizeUnitPrices: { ...line.sizeUnitPrices, [size]: formatNumberInput(event.target.value) } })}
-                            style={inputStyle}
+                            aria-invalid={isRepairPriceOverLimit(line.productCode, line.sizeUnitPrices[size] || '')}
+                            style={priceInputStyle(line.sizeUnitPrices[size] || '')}
                           />
+                          {getPriceWarning(line.sizeUnitPrices[size] || '')}
                         </label>
                       </div>
                     ))}

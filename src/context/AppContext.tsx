@@ -76,6 +76,7 @@ export interface SlipItem {
   }>;
   repairAdvance?: number;
   repairTotal?: number;
+  repairDiscountPercent?: number;
   repairWorkerName?: string;
   repairWorkerZalo?: string;
   sourceRepairSlipId?: number | string;

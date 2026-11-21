@@ -1,5 +1,10 @@
 import { useApp } from '../context/AppContext';
-import { getContractFinancialSummary, getDebtDueBadge, getDebtDueStatus } from '../utils/contractDebt';
+import {
+  getContractFinancialSummary,
+  getContractReceivedDeposit,
+  getDebtDueBadge,
+  getDebtDueStatus
+} from '../utils/contractDebt';
 import { getVehicleExpiryWarnings } from '../utils/vehicleExpiry';
 import { getVehicleMaintenanceWarnings, recordVehicleMaintenance } from '../utils/vehicleMaintenance';
 import { getMaterialStockRows } from '../utils/materialStock';
@@ -119,6 +124,8 @@ export default function DashboardView() {
   ) : null;
   const parentContracts = contracts.filter(contract => contract.contractType === 'PARENT' || !contract.contractType);
   const subContracts = contracts.filter(contract => contract.contractType === 'SUB');
+  const displayParentContracts = parentContracts.filter(contract => getContractReceivedDeposit(contract) <= 0);
+  const displaySubContracts = subContracts.filter(contract => getContractReceivedDeposit(contract) <= 0);
   const isCompanyFrameReceipt = (slip: typeof slips[number]) => {
     const slipNo = String(slip.slipNo || '').toUpperCase();
     const type = String(slip.type || '').toUpperCase();
@@ -188,7 +195,7 @@ export default function DashboardView() {
       contactPhone: getContractContactPhone(contract)
     }];
   };
-  const companyDeadlineRows = parentContracts.flatMap(contract => {
+  const companyDeadlineRows = displayParentContracts.flatMap(contract => {
     const targetQuantity = Number(contract.quantity) || 0;
     const receivedQuantity = getParentReceivedQuantity(contract);
     if (contract.isLiquidated || targetQuantity <= 0 || receivedQuantity >= targetQuantity) return [];
@@ -199,7 +206,7 @@ export default function DashboardView() {
       contract.companyName || contract.company || '—'
     );
   });
-  const weavingDeadlineRows = subContracts.flatMap(contract => {
+  const weavingDeadlineRows = displaySubContracts.flatMap(contract => {
     const linkedParent = parentContracts.find(parent =>
       String(parent.contractNo || '').trim().toLocaleLowerCase('vi') ===
       String(contract.parentContractNo || '').trim().toLocaleLowerCase('vi')
@@ -233,32 +240,32 @@ export default function DashboardView() {
     { label: '⚠️ CẢNH BÁO SẮP TỚI HẠN · HÔM NAY ĐẾN 3 NGÀY TỚI', rows: upcomingDeliveryDeadlines, color: '#a16207', backgroundColor: '#fef3c7', borderColor: '#fcd34d' }
   ];
   const parentContractsByNo = new Map<string, typeof parentContracts[number]>();
-  parentContracts.forEach(contract => {
+  displayParentContracts.forEach(contract => {
     const contractNo = String(contract.contractNo || '').trim().toLowerCase();
     const key = contractNo || `id:${contract.id}`;
     if (!parentContractsByNo.has(key)) parentContractsByNo.set(key, contract);
   });
 
-  const receivedFramesByParent = parentContracts.map(contract => {
+  const receivedFramesByParent = displayParentContracts.map(contract => {
     const received = getParentReceivedQuantity(contract);
     const quantity = Number(contract.quantity) || 0;
     return { received, quantity };
   });
 
   const parentContractCount = parentContractsByNo.size;
-  const totalParentQty = parentContracts.reduce((sum, contract) => sum + (Number(contract.quantity) || 0), 0);
+  const totalParentQty = displayParentContracts.reduce((sum, contract) => sum + (Number(contract.quantity) || 0), 0);
   const completeParentContracts = receivedFramesByParent.filter(item =>
     item.quantity > 0 && item.received >= item.quantity
   ).length;
   const totalReceivedFrames = frameReceipts.reduce((sum, slip) => sum + (Number(slip.quantity) || 0), 0);
   const matchedReceivedFrames = receivedFramesByParent.reduce((sum, item) => sum + item.received, 0);
-  const totalSubQty = subContracts.reduce((sum, contract) => sum + (Number(contract.quantity) || 0), 0);
-  const totalSubReceived = subContracts.reduce((sum, contract) => {
+  const totalSubQty = displaySubContracts.reduce((sum, contract) => sum + (Number(contract.quantity) || 0), 0);
+  const totalSubReceived = displaySubContracts.reduce((sum, contract) => {
     const logTotal = (Array.isArray(contract.exportLogs) ? contract.exportLogs : [])
       .reduce((logSum, log) => logSum + (Number(log.actualQty) || 0), 0);
     return sum + Math.max(Number(contract.totalActualExported) || 0, logTotal);
   }, 0);
-  const completeSubContracts = subContracts.filter(contract => {
+  const completeSubContracts = displaySubContracts.filter(contract => {
     const logTotal = (Array.isArray(contract.exportLogs) ? contract.exportLogs : [])
       .reduce((sum, log) => sum + (Number(log.actualQty) || 0), 0);
     const received = Math.max(Number(contract.totalActualExported) || 0, logTotal);
@@ -342,8 +349,8 @@ export default function DashboardView() {
     .filter(item => item.conLaiChuaPhat > 0)
     .sort((a, b) => b.conLaiChuaPhat - a.conLaiChuaPhat || a.productCode.localeCompare(b.productCode, 'vi'));
 
-  const companyContractValue = parentContracts.reduce((sum, contract) => sum + (Number(contract.totalAmount) || 0), 0);
-  const weavingContractValue = subContracts.reduce((sum, contract) => sum + (Number(contract.totalAmount) || 0), 0);
+  const companyContractValue = displayParentContracts.reduce((sum, contract) => sum + (Number(contract.totalAmount) || 0), 0);
+  const weavingContractValue = displaySubContracts.reduce((sum, contract) => sum + (Number(contract.totalAmount) || 0), 0);
   const remainingContractValue = companyContractValue - weavingContractValue;
 
   // TÍNH TOÁN DOANH THU THỰC TẾ (REALIZED REVENUE) TỪ CÁC ĐỢT XUẤT HÀNG ĐẠT
@@ -354,7 +361,7 @@ export default function DashboardView() {
     String(contract.productCode || '').trim().toLowerCase() === String(slip.productCode || '').trim().toLowerCase()
   );
 
-  const realizedRevenueContracts = parentContracts.map(contract => {
+  const realizedRevenueContracts = displayParentContracts.map(contract => {
     const matchedExports = knittingExportSlips.filter(slip => {
       const parent = findParentForExport(slip);
       return parent ? String(parent.id) === String(contract.id) : false;
@@ -386,7 +393,7 @@ export default function DashboardView() {
   const actualNetRevenue = totalRealizedRevenue - weavingContractValue;
 
   const materialTotals = new Map<string, { name: string; unit: string; quantity: number }>();
-  subContracts.forEach(contract => {
+  displaySubContracts.forEach(contract => {
     (Array.isArray(contract.accompanyingMaterials) ? contract.accompanyingMaterials : []).forEach(material => {
       const name = material.materialName || material.materialCode || 'Nguyên vật liệu';
       const key = `${material.materialId}-${material.unit}`;
@@ -401,7 +408,7 @@ export default function DashboardView() {
   const topMaterials = Array.from(materialTotals.values())
     .sort((first, second) => second.quantity - first.quantity)
     .slice(0, 5);
-  const contractDebts = subContracts
+  const contractDebts = displaySubContracts
     .map(contract => ({
       contract,
       summary: getContractFinancialSummary(contract)
@@ -506,9 +513,9 @@ export default function DashboardView() {
 
       <section aria-label="Tiến độ hợp đồng" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '12px' }}>
         <article style={{ ...cardStyle, backgroundColor: '#eff6ff', borderColor: '#bfdbfe' }}>
-          <div style={{ color: '#1d4ed8', fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em' }}>HỢP ĐỒNG CÔNG TY</div>
+          <div style={{ color: '#1d4ed8', fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em' }}>HĐ CTY CHƯA NHẬN CỌC</div>
           <div style={{ marginTop: '10px', color: '#1e3a8a', fontSize: '25px', fontWeight: 800 }}>{formatNumber(parentContractCount)}</div>
-          <div style={{ marginTop: '4px', color: '#475569', fontSize: '13px' }}>Tổng số hợp đồng · {formatNumber(totalParentQty)} sản phẩm</div>
+          <div style={{ marginTop: '4px', color: '#475569', fontSize: '13px' }}>Tổng số hợp đồng chưa nhận cọc · {formatNumber(totalParentQty)} sản phẩm</div>
           <div style={{ marginTop: '14px', color: '#334155', fontSize: '13px' }}>
             Đã nhận khung: <strong>{formatNumber(matchedReceivedFrames)}</strong> / {formatNumber(totalParentQty)}
           </div>
@@ -521,9 +528,9 @@ export default function DashboardView() {
         </article>
 
         <article style={{ ...cardStyle, backgroundColor: '#faf5ff', borderColor: '#e9d5ff' }}>
-          <div style={{ color: '#7e22ce', fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em' }}>HỢP ĐỒNG TỔ ĐAN</div>
-          <div style={{ marginTop: '10px', color: '#581c87', fontSize: '25px', fontWeight: 800 }}>{formatNumber(subContracts.length)}</div>
-          <div style={{ marginTop: '4px', color: '#475569', fontSize: '13px' }}>Tổng số hợp đồng · {formatNumber(totalSubQty)} sản phẩm</div>
+          <div style={{ color: '#7e22ce', fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em' }}>HĐ TỔ ĐAN CHƯA NHẬN CỌC</div>
+          <div style={{ marginTop: '10px', color: '#581c87', fontSize: '25px', fontWeight: 800 }}>{formatNumber(displaySubContracts.length)}</div>
+          <div style={{ marginTop: '4px', color: '#475569', fontSize: '13px' }}>Tổng số hợp đồng chưa nhận cọc · {formatNumber(totalSubQty)} sản phẩm</div>
           <div style={{ marginTop: '14px', color: '#334155', fontSize: '13px' }}>
             Đã xuất/nhận khung: <strong>{formatNumber(totalSubReceived)}</strong> / {formatNumber(totalSubQty)}
           </div>
@@ -553,7 +560,7 @@ export default function DashboardView() {
           <div style={{ marginTop: '10px', color: '#075985', fontSize: '26px', fontWeight: 800 }}>{formatNumber(totalReceivedFrames)}</div>
           <div style={{ marginTop: '2px', color: '#475569', fontSize: '13px' }}>Tổng số khung nhập kho theo phiếu KS</div>
           <small style={{ display: 'block', marginTop: '6px', color: '#64748b' }}>
-            Khung đối chiếu được với HĐ CTY: {formatNumber(matchedReceivedFrames)}
+            Khung đối chiếu được với HĐ CTY chưa nhận cọc: {formatNumber(matchedReceivedFrames)}
           </small>
 
           {/* DANH SÁCH TỪNG MÃ KHUNG CHƯA PHÁT CHO TỔ ĐAN */}
@@ -807,7 +814,7 @@ export default function DashboardView() {
       <section aria-label="Tổng hợp tài chính hợp đồng" style={{ ...cardStyle, backgroundColor: '#fff', borderColor: '#e2e8f0', display: 'grid', gap: '16px', minWidth: 0, maxWidth: '100%' }}>
         <div>
           <h3 style={{ margin: '0 0 4px', color: '#1e293b', fontSize: '17px', fontWeight: 800 }}>💰 Doanh Thu &amp; Giá Trị Hợp Đồng</h3>
-          <small style={{ color: '#64748b' }}>Phân tách minh bạch giữa Doanh thu thực tế (đã xuất hàng đạt thành công cho Cty B) và Doanh thu dự kiến theo giá trị hợp đồng.</small>
+          <small style={{ color: '#64748b' }}>Phân tách doanh thu từ hợp đồng chưa nhận cọc; các hợp đồng đã ghi nhận cọc được ẩn khỏi danh sách mặc định.</small>
         </div>
 
         {/* CÁC THẺ METRIC TỔNG HỢP */}
@@ -921,7 +928,7 @@ export default function DashboardView() {
                 {realizedRevenueContracts.length === 0 && (
                   <tr>
                     <td colSpan={8} className="whitespace-nowrap" style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>
-                      Chưa có hợp đồng công ty nào trong hệ thống.
+                      Không có hợp đồng công ty chưa nhận cọc để hiển thị.
                     </td>
                   </tr>
                 )}

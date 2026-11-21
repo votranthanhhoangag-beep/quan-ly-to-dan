@@ -33,6 +33,16 @@ export const getContractMaterialAmount = (contract: ContractItem) =>
     .reduce((sum, material) =>
       sum + (Number(material.amount) || (Number(material.quantity) || 0) * (Number(material.unitPrice) || 0)), 0);
 
+export const getContractReceivedDeposit = (contract: ContractItem) => {
+  const depositLogs = Array.isArray(contract.depositLogs) ? contract.depositLogs : [];
+  const loggedDeposits = depositLogs.reduce((sum, log) => sum + (Number(log.amount) || 0), 0);
+  const initialDeposit = contract.initialRequiredDeposit !== undefined
+    ? Number(contract.initialRequiredDeposit) || 0
+    : Math.max(0, (Number(contract.requiredDeposit) || 0) - loggedDeposits);
+
+  return Math.max(Number(contract.requiredDeposit) || 0, initialDeposit + loggedDeposits);
+};
+
 export const getContractFinancialSummary = (contract: ContractItem) => {
   const logs = Array.isArray(contract.receivedGoodsLogs) ? contract.receivedGoodsLogs : [];
   const receivedQuantity = logs.reduce((sum, log) => sum + (Number(log.quantity) || 0), 0);

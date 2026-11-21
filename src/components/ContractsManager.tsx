@@ -318,7 +318,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   const [note, setNote] = useState<string>('');
 
   // Số lượng HĐ Tổ Đan & Tiến độ nhận khung
-  const [contractQty, setContractQty] = useState<string>('1000');
+  const [contractQty, setContractQty] = useState<string>('0');
+  const [isContractQtyManuallyEdited, setIsContractQtyManuallyEdited] = useState(false);
   const [exportLogs, setExportLogs] = useState<ActualExportLog[]>([]);
   const [newDate, setNewDate] = useState<string>(minDateString);
   const [newQty, setNewQty] = useState<string>('');
@@ -446,7 +447,6 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
           setDueDate(subtractDaysFromDate(formatInputDate(matchedParent.dueDate), 4) || minDateString);
         } else setDueDate(minDateString);
         if (matchedParent?.unitPrice) setUnitPrice(String(matchedParent.unitPrice));
-        if (matchedParent?.quantity) setContractQty(String(matchedParent.quantity));
       }
     } catch (error) {
       console.error('Không thể đối chiếu mã hàng hợp đồng công ty:', error);
@@ -461,6 +461,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       const codeChanged = safeCode.trim().toLowerCase() !== productCode.trim().toLowerCase();
       setProductCode(safeCode);
       if (codeChanged) {
+        setIsContractQtyManuallyEdited(false);
         setItemTypeOption('BO');
         setSizeQuantities({});
         setSizePrices({});
@@ -480,7 +481,6 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
         setDueDate(minDateString);
         setUnitPrice('');
         setUnit(getUnitFromProductCode(safeCode) || 'Bộ');
-        setContractQty('1000');
         return;
       }
 
@@ -494,7 +494,6 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       }
       const companyUnitPrice = Number(matchedParent?.unitPrice);
       setUnitPrice(companyUnitPrice > 0 ? String(Math.round(companyUnitPrice * 0.8)) : '');
-      if (matchedParent?.quantity) setContractQty(String(matchedParent.quantity));
     } catch (error) {
       console.error('Không thể tính đơn giá hợp đồng tổ đan:', error);
       window.alert('Không thể tính đơn giá hoặc đối chiếu hợp đồng. Vui lòng kiểm tra dữ liệu mã hàng.');
@@ -508,7 +507,10 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   const selectProductCodeOption = (code: string) => {
     try {
     if (typeof code !== 'string' || !code.trim()) return;
-    if (activeTab === 'SUB') handleSubProductCodeSelect(code);
+    if (activeTab === 'SUB') {
+      setIsContractQtyManuallyEdited(false);
+      handleSubProductCodeSelect(code);
+    }
     else handleProductCodeSelect(code);
     setIsProductCodeDropdownOpen(false);
     } catch (error) {
@@ -858,7 +860,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     setUnit('Bộ');
     setQuantity('');
     setUnitPrice('');
-    setContractQty('1000');
+    setContractQty('0');
+    setIsContractQtyManuallyEdited(false);
     setExportLogs([]);
     setNewQty('');
     setNewNote('');
@@ -996,16 +999,19 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     productCode,
     editingId
   );
-  const existingSubContractForCapacity = editingId
-    ? subContractsList.find((contract: any) => String(contract.id) === String(editingId))
-    : undefined;
+  useEffect(() => {
+    if (activeTab !== 'SUB' || editingId || isContractQtyManuallyEdited) return;
+    setContractQty(String(subContractFrameCapacity.available));
+  }, [activeTab, editingId, isContractQtyManuallyEdited, subContractFrameCapacity.available]);
+
   const proposedSubContractQuantity = Math.max(
     targetContractQtyNum,
-    Number(existingSubContractForCapacity?.quantity) || 0,
     totalActualExported
   );
   const exceedsCompanyFrameCapacity =
     proposedSubContractQuantity > subContractFrameCapacity.available + Number.EPSILON;
+  const enteredQuantityExcess = Math.max(0, targetContractQtyNum - subContractFrameCapacity.available);
+  const receivedQuantityExcess = Math.max(0, totalActualExported - subContractFrameCapacity.available);
 
   const getReturnedFrameTotal = (contract: any) => {
     const receiptSlips = (Array.isArray(slips) ? slips : [])
@@ -1784,10 +1790,13 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
           if (!selectedParentNo) { alert('Mã hàng này chưa được gắn với HĐ Cty nào. Vui lòng tạo HĐ Cty trước!'); return; }
           if (exceedsCompanyFrameCapacity) {
             alert(
-              `⛔ Số lượng giao khoán vượt khung Công ty đã nhận còn khả dụng ` +
-              `(${formatCurrency(subContractFrameCapacity.available)}). ` +
-              `Công ty đã nhận ${formatCurrency(subContractFrameCapacity.received)}; ` +
-              `đã giao khoán cho hợp đồng khác ${formatCurrency(subContractFrameCapacity.assignedToOtherContracts)}.`
+              `⛔ Mã hàng ${productCode} chỉ còn khả năng giao tối đa ` +
+              `${subContractFrameCapacity.available.toLocaleString('vi-VN')}. ` +
+              (enteredQuantityExcess > 0
+                ? `Đang nhập ${targetContractQtyNum.toLocaleString('vi-VN')}, vượt ${enteredQuantityExcess.toLocaleString('vi-VN')}. `
+                : `Số lượng đã nhận/đợt đang nhập là ${totalActualExported.toLocaleString('vi-VN')}, vượt ${receivedQuantityExcess.toLocaleString('vi-VN')}. `) +
+              `Khung Công ty đã nhận ${subContractFrameCapacity.received.toLocaleString('vi-VN')}; ` +
+              `đã giao cho HĐ khác ${subContractFrameCapacity.assignedToOtherContracts.toLocaleString('vi-VN')}.`
             );
             return;
           }
@@ -1887,7 +1896,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             sizePrices: !isSetItem ? {} : sizePrices,
             boQuantity: !isSetItem ? '' : boQuantity,
             contractNo: generatedSubNo(),
-            quantity: Math.max(targetContractQtyNum, Number(existingSubContract?.quantity) || 0, preservedReceivedTotal),
+            quantity: Math.max(targetContractQtyNum, preservedReceivedTotal),
             totalActualExported: preservedReceivedTotal,
             exportLogs: updatedLogs,
             initialRequiredDeposit: initialDeposit,
@@ -2117,18 +2126,35 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
               inputMode="numeric"
               pattern="[0-9]*"
               required
-              placeholder="Nhập số lượng giao đan..."
+              placeholder="Số lượng khung còn có thể giao..."
               value={contractQty}
-              onChange={e => setContractQty(e.target.value)}
+              aria-invalid={exceedsCompanyFrameCapacity}
+              onChange={e => {
+                setContractQty(e.target.value);
+                setIsContractQtyManuallyEdited(true);
+              }}
               max={subContractFrameCapacity.available}
-              style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '2px solid #d97706', fontSize: '16px', fontWeight: 'bold', color: '#b45309', backgroundColor: '#fff', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '10px', borderRadius: '6px', border: `2px solid ${exceedsCompanyFrameCapacity ? '#dc2626' : '#d97706'}`, fontSize: '16px', fontWeight: 'bold', color: exceedsCompanyFrameCapacity ? '#b91c1c' : '#b45309', backgroundColor: exceedsCompanyFrameCapacity ? '#fef2f2' : '#fff', boxSizing: 'border-box' }}
             />
             <div style={{ marginTop: '7px', fontSize: '12px', color: exceedsCompanyFrameCapacity ? '#b91c1c' : '#475569', fontWeight: 700 }}>
               Khung Công ty đã nhận: {formatCurrency(subContractFrameCapacity.received)} · Đã giao khoán cho HĐ khác: {formatCurrency(subContractFrameCapacity.assignedToOtherContracts)} · Tối đa còn có thể giao khoán mã này: {formatCurrency(subContractFrameCapacity.available)}
             </div>
             {exceedsCompanyFrameCapacity && (
-              <div role="alert" style={{ marginTop: '6px', color: '#b91c1c', fontSize: '12px', fontWeight: 700 }}>
-                ⛔ Số lượng giao khoán vượt số khung Công ty đã nhận. Hãy giảm số lượng hoặc nhận thêm khung trước.
+              <div role="alert" style={{ marginTop: '8px', padding: '9px 10px', border: '1px solid #fca5a5', borderRadius: '6px', backgroundColor: '#fef2f2', color: '#b91c1c', fontSize: '12px', fontWeight: 700 }}>
+                ⛔ Mã hàng {productCode || '(chưa chọn)'} chỉ còn tối đa {subContractFrameCapacity.available.toLocaleString('vi-VN')}.
+                {enteredQuantityExcess > 0
+                  ? ` Đang nhập ${targetContractQtyNum.toLocaleString('vi-VN')}, vượt ${enteredQuantityExcess.toLocaleString('vi-VN')}.`
+                  : ` Số lượng đã nhận/đợt đang nhập ${totalActualExported.toLocaleString('vi-VN')} vượt ${receivedQuantityExcess.toLocaleString('vi-VN')}.`}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setContractQty(String(subContractFrameCapacity.available));
+                    setIsContractQtyManuallyEdited(true);
+                  }}
+                  style={{ display: 'block', marginTop: '7px', padding: '6px 9px', border: '1px solid #dc2626', borderRadius: '5px', backgroundColor: '#fff', color: '#b91c1c', fontWeight: 800, cursor: 'pointer' }}
+                >
+                  Điền tối đa ({subContractFrameCapacity.available.toLocaleString('vi-VN')})
+                </button>
               </div>
             )}
           </div>
