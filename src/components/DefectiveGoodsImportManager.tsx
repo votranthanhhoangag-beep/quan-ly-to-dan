@@ -7,6 +7,8 @@ import type {
 } from '../context/AppContext';
 import { useApp } from '../context/AppContext';
 import { usePersistentFormDraft } from '../hooks/usePersistentFormDraft';
+import VoiceFillControl from './VoiceFillControl';
+import { parseVietnameseFormSpeech } from '../utils/voiceFormParser';
 
 interface ReceiptSource {
   contract: ContractItem;
@@ -529,9 +531,76 @@ export default function DefectiveGoodsImportManager() {
       <form {...formDraftProps} onSubmit={handleSubmit} style={{ display: 'grid', gap: '14px', padding: '16px', border: '1px solid #fecaca', borderRadius: '10px', backgroundColor: '#fff7f7' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <h3 style={{ margin: 0, color: '#b91c1c', fontSize: '15px' }}>{editingId ? '✏️ Sửa Phiếu Nhập Hàng Loại' : '➕ Tạo Phiếu Nhập Hàng Loại'}</h3>
-          <button type="button" className="slip-action-button slip-action-print" onClick={resetForm}>
-            {editingId !== null ? 'Hủy sửa' : 'Làm mới'}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+            <VoiceFillControl onTranscript={transcript => {
+              const parsed = parseVietnameseFormSpeech(transcript);
+              const normalizedNames = [parsed.groupName, parsed.personName, parsed.productName]
+                .filter((name): name is string => Boolean(name))
+                .map(name => name.toLocaleLowerCase('vi').trim());
+              const matchesCode = (item: ReceiptSource) =>
+                item.contract.productCode.trim().toLocaleLowerCase('vi') === parsed.productCode?.toLocaleLowerCase('vi');
+              const matchesName = (item: ReceiptSource) =>
+                normalizedNames.some(name =>
+                  (item.contract.craftGroupLeader || '').toLocaleLowerCase('vi').includes(name) ||
+                  (item.contract.productName || '').toLocaleLowerCase('vi').includes(name)
+                );
+              const source = (parsed.productCode && normalizedNames.length > 0
+                ? receiptSources.find(item => matchesCode(item) && matchesName(item))
+                : undefined) ||
+                (parsed.productCode ? receiptSources.find(matchesCode) : undefined) ||
+                (normalizedNames.length > 0
+                  ? receiptSources.find(matchesName)
+                  : undefined);
+              const targetSource = source || (parsed.productCode ? undefined : selectedSource);
+              const filledFields: string[] = [];
+              const detailsToReview: string[] = [];
+              if (source) {
+                handleSourceChange(source.key);
+                filledFields.push(`Phiếu nguồn ${source.contract.contractNo} · ${source.contract.productCode}`);
+              }
+              if (parsed.quantity !== undefined && targetSource) {
+                const sourceSizeNames = getSizeNames(targetSource.contract);
+                const sourcePiecesPerSet = getPiecesPerSet(targetSource.contract.productCode);
+                const isBundle = sourcePiecesPerSet > 1 && parsed.unit === 'Bộ';
+                if (sourcePiecesPerSet > 1 && parsed.unit !== 'Bộ') {
+                  detailsToReview.push(parsed.unit === 'Cái'
+                    ? 'chưa tự phân bổ số cái theo size'
+                    : 'chưa xác định số lượng là bộ hay cái');
+                } else {
+                  const lineKind = isBundle ? 'bundle' : sourceSizeNames[0] || 'Cái';
+                  setDetailLines(current => {
+                    const suggested = current.length ? current : createSuggestedLines(targetSource);
+                    const foundLine = suggested.find(line => line.kind === lineKind);
+                    return foundLine
+                      ? suggested.map(line => ({
+                        ...line,
+                        quantity: line.id === foundLine.id ? String(parsed.quantity) : ''
+                      }))
+                      : [
+                        ...suggested.map(line => ({ ...line, quantity: '' })),
+                        makeDetailLine(lineKind, String(parsed.quantity))
+                      ];
+                  });
+                  filledFields.push(`${isBundle ? 'Số bộ' : 'Số lượng'} ${parsed.quantity}`);
+                }
+              }
+              if (detailsToReview.length && source) {
+                setDetailLines(current => current.map(line => ({ ...line, quantity: '' })));
+              }
+              if (parsed.note) {
+                setNote(parsed.note);
+                filledFields.push('Ghi chú');
+              }
+              return filledFields.length
+                ? `Đã điền: ${filledFields.join(', ')}.${detailsToReview.length ? ` Vui lòng ${detailsToReview.join(', ')}.` : ''} Vui lòng kiểm tra số lượng tồn nguồn trước khi lưu.`
+                : detailsToReview.length
+                  ? `Đã nhận diện giọng nói, nhưng ${detailsToReview.join(', ')}. Vui lòng chọn quy cách trong form.`
+                  : 'Chưa tìm thấy phiếu nguồn. Nói mã hàng hoặc tên tổ, số lượng hàng lỗi và ghi chú.';
+            }} />
+            <button type="button" className="slip-action-button slip-action-print" onClick={resetForm}>
+              {editingId !== null ? 'Hủy sửa' : 'Làm mới'}
+            </button>
+          </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>

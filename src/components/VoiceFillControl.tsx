@@ -29,13 +29,6 @@ interface SpeechRecognitionLike {
 
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 
-declare global {
-  interface Window {
-    SpeechRecognition?: SpeechRecognitionConstructor;
-    webkitSpeechRecognition?: SpeechRecognitionConstructor;
-  }
-}
-
 interface VoiceFillControlProps {
   onTranscript: (transcript: string) => string;
 }
@@ -58,7 +51,11 @@ export default function VoiceFillControl({ onTranscript }: VoiceFillControlProps
   }, []);
 
   const startListening = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const speechWindow = window as Window & {
+      SpeechRecognition?: SpeechRecognitionConstructor;
+      webkitSpeechRecognition?: SpeechRecognitionConstructor;
+    };
+    const SpeechRecognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       setMessage('Trình duyệt chưa hỗ trợ nhập giọng nói. Hãy dùng Chrome hoặc Edge mới nhất.');
       return;
@@ -95,7 +92,10 @@ export default function VoiceFillControl({ onTranscript }: VoiceFillControlProps
           setMessage('Không thể nhận diện giọng nói lúc này. Hãy thử lại hoặc nhập bằng bàn phím.');
         }
       };
-      recognition.onend = () => setIsListening(false);
+      recognition.onend = () => {
+        setIsListening(false);
+        if (recognitionRef.current === recognition) recognitionRef.current = null;
+      };
       recognitionRef.current = recognition;
       setIsListening(true);
       recognition.start();

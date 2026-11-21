@@ -1935,6 +1935,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
               <VoiceFillControl onTranscript={transcript => {
                 const parsed = parseVietnameseFormSpeech(transcript);
                 const filledFields: string[] = [];
+                const detailsToReview: string[] = [];
                 if (parsed.productCode) {
                   handleSubProductCodeSelect(parsed.productCode);
                   filledFields.push(`Mã hàng ${parsed.productCode}`);
@@ -1950,6 +1951,12 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                 if (parsed.quantity !== undefined) {
                   setContractQty(String(parsed.quantity));
                   setIsContractQtyManuallyEdited(true);
+                  const voiceProductCode = parsed.productCode || productCode;
+                  const voiceSizeCount = Number(/\/(\d+)\s*$/.exec(voiceProductCode.trim())?.[1]) || 1;
+                  if (parsed.unit === 'Bộ' && voiceSizeCount > 1) setItemTypeOption('BO');
+                  if (parsed.unit === 'Cái' && voiceSizeCount > 1) {
+                    detailsToReview.push('chưa tự phân bổ số cái theo size');
+                  }
                   filledFields.push(`Số lượng ${parsed.quantity}`);
                 }
                 const quantityForPrice = parsed.quantity ?? Number(contractQty);
@@ -1970,7 +1977,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                   filledFields.push('Ghi chú');
                 }
                 return filledFields.length
-                  ? `Đã điền: ${filledFields.join(', ')}. Vui lòng kiểm tra trước khi lưu.`
+                  ? `Đã điền: ${filledFields.join(', ')}.${detailsToReview.length ? ` Vui lòng ${detailsToReview.join(', ')} trong bảng size.` : ''} Vui lòng kiểm tra trước khi lưu.`
                   : 'Chưa nhận ra trường cần điền. Hãy nói rõ mã hàng, số lượng, đơn giá, tên tổ hoặc ghi chú.';
               }} />
               <button type="button" onClick={resetForm} style={{ padding: '6px 14px', backgroundColor: '#10b981', color: '#fff', fontWeight: 'bold', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '13px' }}>➕ Làm Mới</button>

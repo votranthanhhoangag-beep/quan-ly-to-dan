@@ -3,6 +3,8 @@ import type { CategoryItem, ContractItem, DefectiveGoodsImportSlip, KnittingExpo
 import { useApp } from '../context/AppContext';
 import { usePersistentFormDraft } from '../hooks/usePersistentFormDraft';
 import { getLatestMaterialUnitPrice, normalizeMaterialSearch } from '../utils/materialSearch';
+import VoiceFillControl from './VoiceFillControl';
+import { parseVietnameseFormSpeech } from '../utils/voiceFormParser';
 
 interface RepairFormLine {
   id: string;
@@ -2218,6 +2220,82 @@ export default function InventoryStockReport() {
         {activeReportTab === 'repair-export' && <>
         <h3 style={{ margin: '0 0 12px', color: '#1e293b', fontSize: '16px' }}>🧾 Phiếu Xuất Sửa Khoán Bên Ngoài</h3>
         <form {...repairDraft.formDraftProps} onSubmit={handleSave} style={{ display: 'grid', gap: '12px', padding: '14px', border: editingSlipId ? '2px solid #f59e0b' : '1px solid #e2e8f0', borderRadius: '8px', backgroundColor: '#f8fafc' }}>
+          <VoiceFillControl onTranscript={transcript => {
+            const parsed = parseVietnameseFormSpeech(transcript);
+            const filledFields: string[] = [];
+            const detailsToReview: string[] = [];
+            if (parsed.personName || parsed.groupName) {
+              setRepairWorkerName(parsed.personName || parsed.groupName || '');
+              filledFields.push('Người nhận sửa');
+            }
+            const targetLine = parsed.productCode
+              ? lines.find(line => line.productCode.trim().toLowerCase() === parsed.productCode?.toLowerCase()) ||
+                lines.find(line => !line.productCode.trim()) ||
+                lines[0]
+              : lines[0];
+            if (targetLine) {
+              let productCodeForLine = targetLine.productCode;
+              if (parsed.productCode) {
+                productCodeForLine = parsed.productCode;
+                updateRepairLineCode(targetLine, productCodeForLine);
+                filledFields.push(`Mã hàng ${productCodeForLine}`);
+              }
+              const piecesPerSet = getPiecesPerSet(productCodeForLine);
+              const updates: Partial<RepairFormLine> = {};
+              if (parsed.productName) {
+                updates.productName = parsed.productName;
+                filledFields.push('Tên hàng');
+              }
+              if (parsed.quantity !== undefined) {
+                if (piecesPerSet === 1) {
+                  updates.quantity = String(parsed.quantity);
+                  filledFields.push(`Số lượng ${parsed.quantity}`);
+                } else if (parsed.unit === 'Bộ') {
+                  updates.itemTypeOption = 'CA_HAI';
+                  updates.bundleQuantity = String(parsed.quantity);
+                  filledFields.push(`Số bộ ${parsed.quantity}`);
+                } else if (parsed.unit === 'Cái') {
+                  detailsToReview.push('chưa tự phân bổ số cái theo size');
+                } else {
+                  detailsToReview.push('chưa xác định số lượng là bộ hay cái');
+                }
+              }
+              const quantityForPrice = parsed.quantity ??
+                (piecesPerSet === 1 ? Number(targetLine.quantity) : Number(targetLine.bundleQuantity));
+              const spokenUnitPrice = parsed.unitPrice ??
+                (parsed.totalAmount !== undefined && quantityForPrice > 0
+                  ? Math.round(parsed.totalAmount / quantityForPrice)
+                  : undefined);
+              if (spokenUnitPrice !== undefined) {
+                if (piecesPerSet === 1) {
+                  updates.sizeUnitPrices = {
+                    ...targetLine.sizeUnitPrices,
+                    'Cái 1': String(spokenUnitPrice)
+                  };
+                } else if (parsed.unit === 'Bộ') {
+                  updates.itemTypeOption = 'CA_HAI';
+                  updates.bundleUnitPrice = String(spokenUnitPrice);
+                } else if (parsed.unit === 'Cái') {
+                  detailsToReview.push('chưa xác định đơn giá cho size nào');
+                } else {
+                  detailsToReview.push('chưa xác định đơn giá theo bộ hay cái');
+                }
+                if (piecesPerSet === 1 || parsed.unit === 'Bộ') {
+                  filledFields.push(parsed.unitPrice !== undefined ? 'Đơn giá' : 'Đơn giá suy ra từ thành tiền');
+                }
+              }
+              if (Object.keys(updates).length) updateLine(targetLine.id, updates);
+            }
+            if (parsed.note) {
+              setReason(parsed.note);
+              filledFields.push('Ghi chú');
+            }
+            return filledFields.length
+              ? `Đã điền: ${filledFields.join(', ')}.${detailsToReview.length ? ` Vui lòng ${detailsToReview.join(', ')}.` : ''} Vui lòng kiểm tra trước khi lưu.`
+              : detailsToReview.length
+                ? `Đã nhận diện giọng nói, nhưng ${detailsToReview.join(', ')}. Vui lòng chọn quy cách trong form.`
+                : 'Chưa nhận ra trường cần điền. Nói tên thợ, mã hàng, số lượng, đơn giá hoặc ghi chú.';
+          }} />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
             <label style={{ display: 'grid', gap: '5px', fontSize: '12px', fontWeight: 700 }}>Tên thợ / Người sửa khoán
               <input

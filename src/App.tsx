@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import CategoryManager from './components/CategoryManager';
@@ -11,6 +11,11 @@ import KnittingExportManager from './components/KnittingExportManager';
 import DefectiveGoodsImportManager from './components/DefectiveGoodsImportManager';
 import { ExpenseForm } from './components/ExpenseForm';
 import DashboardView from './components/DashboardView';
+import {
+  AIAssistantPanel,
+  AssistantDashboardCard,
+  AssistantHeaderButton
+} from './components/AIAssistant';
 import SystemSettingsView from './components/SystemSettingsView';
 import VehicleFleetManager from './components/VehicleFleetManager';
 import TaxExpenseManager from './components/TaxExpenseManager';
@@ -24,6 +29,7 @@ import UserManagementView from './components/UserManagementView';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import Unauthorized from './pages/Unauthorized';
 import Register from './pages/Register';
+import { analyzeAiAssistant } from './utils/aiAssistantAnalyzer';
 
 type MenuItem = { id: string; label: string; permission: Permission };
 
@@ -416,7 +422,16 @@ function SyncStatusIndicator() {
 }
 
 function AppContent({ initialTab }: { initialTab: string }) {
-  const { isDataLoaded, isRefreshing, dataLoadError, reloadData } = useApp();
+  const {
+    isDataLoaded,
+    isRefreshing,
+    dataLoadError,
+    reloadData,
+    contracts = [],
+    slips = [],
+    depositSlips = [],
+    knittingExportSlips = []
+  } = useApp();
   const { user, hasPermission, signOut } = useAuth();
   const navigate = useNavigate();
   const [syncNotice, setSyncNotice] = useState<{ status: string; message: string } | null>(
@@ -429,6 +444,12 @@ function AppContent({ initialTab }: { initialTab: string }) {
   const [inventoryInitialTab, setInventoryInitialTab] = useState<'NK_KHUNG' | 'KS_INCOMPLETE' | 'FRAME_STOCK'>('FRAME_STOCK');
   const [frameReceiptContractId, setFrameReceiptContractId] = useState<string | number | null>(null);
   const [depositEditContractId, setDepositEditContractId] = useState<string | number | null>(null);
+  const [assistantEditContractId, setAssistantEditContractId] = useState<string | number | null>(null);
+  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+  const assistantReminders = useMemo(
+    () => analyzeAiAssistant({ contracts, slips, depositSlips, knittingExportSlips }),
+    [contracts, depositSlips, knittingExportSlips, slips]
+  );
 
   const menuItems: MenuItem[] = [
     { id: 'dashboard', label: '📊 Dashboard', permission: 'view_dashboard' },
@@ -458,6 +479,26 @@ function AppContent({ initialTab }: { initialTab: string }) {
     const route = routeByTab[tabId];
     if (route) navigate(route);
   };
+
+  const openAssistantReminder = (reminder: ReturnType<typeof analyzeAiAssistant>[number]) => {
+    setIsAssistantOpen(false);
+    setDepositEditContractId(null);
+    setAssistantEditContractId(null);
+
+    if (reminder.destination === 'contracts') {
+      setAssistantEditContractId(reminder.contractId ?? null);
+      setSelectedTab('contracts');
+    } else if (reminder.destination === 'inventory') {
+      setInventoryInitialTab(reminder.inventoryTab || 'FRAME_STOCK');
+      setFrameReceiptContractId(reminder.inventoryTab === 'NK_KHUNG' ? reminder.contractId ?? null : null);
+      setSelectedTab('inventory');
+    } else {
+      setSelectedTab('knittingExport');
+    }
+  };
+
+  const canNavigateToAssistantDestination = (destination: 'contracts' | 'inventory' | 'knittingExport') =>
+    visibleMenuItems.some(item => item.id === destination);
 
   useEffect(() => {
     const handleSyncStatus = (event: Event) => {
@@ -598,6 +639,10 @@ function AppContent({ initialTab }: { initialTab: string }) {
               </strong>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                 <SyncStatusIndicator />
+                <AssistantHeaderButton
+                  count={assistantReminders.length}
+                  onClick={() => setIsAssistantOpen(true)}
+                />
                 <span style={{ color: '#475569', fontSize: '12px', fontWeight: 700 }}>
                   {user?.username} · {roleLabels[user?.role || 'kho_to_dan']}
                 </span>
@@ -616,6 +661,10 @@ function AppContent({ initialTab }: { initialTab: string }) {
             </div>
             {activeTab === 'dashboard' && (
               <div style={{ display: 'grid', gap: '18px' }}>
+                <AssistantDashboardCard
+                  reminders={assistantReminders}
+                  onOpen={() => setIsAssistantOpen(true)}
+                />
                 <div style={{ backgroundColor: '#ffffff', padding: '24px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0' }}>
                   <DashboardView />
                 </div>
@@ -638,8 +687,11 @@ function AppContent({ initialTab }: { initialTab: string }) {
             {activeTab === 'contracts' && (
               <ErrorBoundary fallbackTitle="Không thể tải module Quản Lý Hợp Đồng">
                 <ContractsManager
-                  requestedEditContractId={depositEditContractId}
-                  onEditRequestHandled={() => setDepositEditContractId(null)}
+                  requestedEditContractId={depositEditContractId ?? assistantEditContractId}
+                  onEditRequestHandled={() => {
+                    setDepositEditContractId(null);
+                    setAssistantEditContractId(null);
+                  }}
                 />
               </ErrorBoundary>
             )}
@@ -668,7 +720,13 @@ function AppContent({ initialTab }: { initialTab: string }) {
 
           </div>
         </main>
-
+        <AIAssistantPanel
+          open={isAssistantOpen}
+          reminders={assistantReminders}
+          onClose={() => setIsAssistantOpen(false)}
+          onNavigate={openAssistantReminder}
+          canNavigate={canNavigateToAssistantDestination}
+        />
       </div>
   );
 }

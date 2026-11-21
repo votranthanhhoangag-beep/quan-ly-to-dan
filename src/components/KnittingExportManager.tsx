@@ -8,6 +8,8 @@ import { useApp } from '../context/AppContext';
 import { usePersistentFormDraft } from '../hooks/usePersistentFormDraft';
 import { useAuth } from '../context/AuthContext';
 import { logDailyAction } from '../utils/logger';
+import VoiceFillControl from './VoiceFillControl';
+import { parseVietnameseFormSpeech } from '../utils/voiceFormParser';
 
 interface ReceiptSource {
   contract: ContractItem;
@@ -1065,9 +1067,64 @@ export default function KnittingExportManager() {
       <form {...formDraftProps} onSubmit={handleSubmit} style={{ display: 'grid', gap: '14px', padding: '16px', border: '1px solid #bfdbfe', borderRadius: '10px', backgroundColor: '#eff6ff' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <h3 style={{ margin: 0, color: '#1e40af', fontSize: '15px' }}>{editingId ? '✏️ Sửa Phiếu Xuất Hàng Đan' : '➕ Tạo Phiếu Mới'}</h3>
-          <button type="button" onClick={resetForm} style={{ padding: '7px 10px', border: 0, borderRadius: '6px', cursor: 'pointer' }}>
-            {editingId !== null ? 'Hủy sửa' : 'Tạo Phiếu Mới'}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+            <VoiceFillControl onTranscript={transcript => {
+              const parsed = parseVietnameseFormSpeech(transcript);
+              const normalizedNames = [parsed.groupName, parsed.personName, parsed.productName]
+                .filter((name): name is string => Boolean(name))
+                .map(name => name.toLocaleLowerCase('vi').trim());
+              const matchesCode = (item: ReceiptSource) =>
+                item.contract.productCode.trim().toLocaleLowerCase('vi') === parsed.productCode?.toLocaleLowerCase('vi');
+              const matchesName = (item: ReceiptSource) =>
+                normalizedNames.some(name =>
+                  (item.contract.craftGroupLeader || '').toLocaleLowerCase('vi').includes(name) ||
+                  (item.contract.productName || '').toLocaleLowerCase('vi').includes(name)
+                );
+              const source = (parsed.productCode && normalizedNames.length > 0
+                ? visibleReceiptSources.find(item => matchesCode(item) && matchesName(item))
+                : undefined) ||
+                (parsed.productCode
+                  ? visibleReceiptSources.find(matchesCode)
+                  : undefined) ||
+                (normalizedNames.length > 0
+                  ? visibleReceiptSources.find(matchesName)
+                  : undefined);
+              const compatibleSource = source && selectedSources.every(item =>
+                item.contract.productCode.trim().toLocaleLowerCase('vi') === source.contract.productCode.trim().toLocaleLowerCase('vi') &&
+                String(item.contract.parentContractNo || '').toLocaleLowerCase('vi') === String(source.contract.parentContractNo || '').toLocaleLowerCase('vi')
+              );
+              const filledFields: string[] = [];
+              if (compatibleSource && source) {
+                handleSourceToggle(source.key, true);
+                filledFields.push(`Phiếu nguồn ${source.contract.contractNo} · ${source.contract.productCode}`);
+              }
+              const targetContract = source
+                ? compatibleSource ? source.contract : undefined
+                : parsed.productCode ? undefined : selectedContract;
+              if (parsed.quantity !== undefined && targetContract) {
+                const piecesPerSet = getPiecesPerSet(targetContract.productCode);
+                const physicalQuantity = parsed.unit === 'Bộ'
+                  ? parsed.quantity * piecesPerSet
+                  : parsed.quantity;
+                setIsGraded(false);
+                setShowQuantities(false);
+                setTotalExportedPieces(String(physicalQuantity));
+                filledFields.push(`Tổng số cái đã giao ${physicalQuantity}`);
+              }
+              if (parsed.note) {
+                setNote(parsed.note);
+                filledFields.push('Ghi chú');
+              }
+              return filledFields.length
+                ? `Đã điền: ${filledFields.join(', ')}. Vui lòng kiểm tra nguồn và số lượng trước khi lưu.`
+                : compatibleSource === false
+                  ? 'Nguồn vừa nhận diện không cùng mã hàng / hợp đồng với dòng đang chọn. Hãy bỏ chọn nguồn cũ trước khi dùng giọng nói.'
+                  : 'Chưa tìm thấy phiếu nguồn. Nói mã hàng hoặc tên tổ, số lượng đã giao và ghi chú.';
+            }} />
+            <button type="button" onClick={resetForm} style={{ padding: '7px 10px', border: 0, borderRadius: '6px', cursor: 'pointer' }}>
+              {editingId !== null ? 'Hủy sửa' : 'Tạo Phiếu Mới'}
+            </button>
+          </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
           <label style={{ display: 'grid', gap: '5px', fontSize: '12px', fontWeight: 700 }}>

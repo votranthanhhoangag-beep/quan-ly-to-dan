@@ -5,6 +5,7 @@ export interface VoiceFormFields {
   unit?: 'Bộ' | 'Cái';
   unitPrice?: number;
   totalAmount?: number;
+  paidAmount?: number;
   deposit?: number;
   groupName?: string;
   personName?: string;
@@ -32,10 +33,11 @@ const fieldLabels: Array<{ field: keyof VoiceFormFields; labels: string[] }> = [
   { field: 'productName', labels: ['tên sản phẩm', 'tên hàng'] },
   { field: 'quantity', labels: ['số lượng', 'số bộ', 'số cái', 'sl'] },
   { field: 'unitPrice', labels: ['đơn giá', 'giá'] },
+  { field: 'paidAmount', labels: ['số tiền trả', 'tiền trả', 'đã trả'] },
   { field: 'totalAmount', labels: ['thành tiền', 'tổng tiền', 'tổng cộng'] },
   { field: 'deposit', labels: ['tiền cọc', 'đặt cọc', 'cọc'] },
   { field: 'groupName', labels: ['tên tổ đan', 'tổ đan', 'tổ'] },
-  { field: 'personName', labels: ['người chi', 'người nhận', 'người giao', 'hộ đan', 'thợ'] },
+  { field: 'personName', labels: ['nhà cung cấp', 'tên cơ sở', 'người chi', 'người nhận', 'người giao', 'đối tác', 'hộ đan', 'thợ'] },
   { field: 'category', labels: ['khoản chi', 'danh mục'] },
   { field: 'note', labels: ['ghi chú', 'lưu ý', 'nội dung'] }
 ];
@@ -151,25 +153,31 @@ const extractVoiceFields = (transcript: string): Partial<Record<keyof VoiceFormF
   return result;
 };
 
-const parseNumberField = (value?: string) => value ? parseVietnameseNumber(value) : undefined;
+const parseNumberField = (value?: string) => value
+  ? parseVietnameseNumber(value.replace(/(?:\s+|\/)(?:(?:mỗi|một)\s+)?(?:cái|bộ)(?:\s|$).*$/i, ''))
+  : undefined;
 
 export const parseVietnameseFormSpeech = (transcript: string): VoiceFormFields => {
   const raw = extractVoiceFields(transcript);
   const result: VoiceFormFields = {};
-  const productCode = raw.productCode?.match(/[a-z0-9][a-z0-9-]*(?:\/\d+)?/i)?.[0];
+  const productCode = raw.productCode?.replace(/\s+/g, '').match(/[a-z0-9][a-z0-9-]*(?:\/\d+)?/i)?.[0];
   if (productCode) result.productCode = productCode.toUpperCase();
   if (raw.productName) result.productName = raw.productName;
 
   const quantity = parseNumberField(raw.quantity);
   if (quantity !== undefined) {
     result.quantity = quantity;
-    if ((raw.quantity || '').toLocaleLowerCase('vi').includes('bộ')) result.unit = 'Bộ';
-    else if ((raw.quantity || '').toLocaleLowerCase('vi').includes('cái')) result.unit = 'Cái';
   }
+  const unitHint = [raw.quantity, raw.unitPrice, raw.totalAmount]
+    .find(value => value && /(?:bộ|cái)/i.test(value));
+  if (unitHint?.toLocaleLowerCase('vi').includes('bộ')) result.unit = 'Bộ';
+  else if (unitHint?.toLocaleLowerCase('vi').includes('cái')) result.unit = 'Cái';
   const unitPrice = parseNumberField(raw.unitPrice);
   if (unitPrice !== undefined) result.unitPrice = unitPrice;
   const totalAmount = parseNumberField(raw.totalAmount);
   if (totalAmount !== undefined) result.totalAmount = totalAmount;
+  const paidAmount = parseNumberField(raw.paidAmount);
+  if (paidAmount !== undefined) result.paidAmount = paidAmount;
   const deposit = parseNumberField(raw.deposit);
   if (deposit !== undefined) result.deposit = deposit;
   if (raw.groupName) result.groupName = raw.groupName;
