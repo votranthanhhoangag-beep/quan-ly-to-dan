@@ -176,6 +176,9 @@ const getExpenseLines = (
           const sourceImport = defectiveImports.find(item =>
             String(item.id) === String(line.sourceDefectiveGoodsImportSlipId)
           );
+          const sourceExport = knittingExports.find(item =>
+            String(item.id) === String(line.sourceKnittingExportSlipId)
+          );
           const companyContract = sourceImport
             ? findCompanyContractByReference(
               contracts,
@@ -183,7 +186,9 @@ const getExpenseLines = (
               sourceImport.productCode,
               sourceImport.companyBContractId
             )
-            : undefined;
+            : sourceExport
+              ? findCompanyContract(contracts, sourceExport)
+              : undefined;
           return ({
           category: 'Sửa khoán' as const,
           categoryLabel: 'Sửa khoán',

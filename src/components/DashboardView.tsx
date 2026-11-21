@@ -349,9 +349,13 @@ export default function DashboardView() {
     .filter(item => item.conLaiChuaPhat > 0)
     .sort((a, b) => b.conLaiChuaPhat - a.conLaiChuaPhat || a.productCode.localeCompare(b.productCode, 'vi'));
 
-  const companyContractValue = displayParentContracts.reduce((sum, contract) => sum + (Number(contract.totalAmount) || 0), 0);
-  const weavingContractValue = displaySubContracts.reduce((sum, contract) => sum + (Number(contract.totalAmount) || 0), 0);
+  const getContractAmount = (contract: typeof contracts[number]) =>
+    Number(contract.totalAmount) || (Number(contract.quantity) || 0) * (Number(contract.unitPrice) || 0);
+  const companyContractValue = parentContracts.reduce((sum, contract) => sum + getContractAmount(contract), 0);
+  const weavingContractValue = subContracts.reduce((sum, contract) => sum + getContractAmount(contract), 0);
   const remainingContractValue = companyContractValue - weavingContractValue;
+  const totalFinancialParentQty = parentContracts.reduce((sum, contract) => sum + (Number(contract.quantity) || 0), 0);
+  const totalFinancialSubQty = subContracts.reduce((sum, contract) => sum + (Number(contract.quantity) || 0), 0);
 
   // TÍNH TOÁN DOANH THU THỰC TẾ (REALIZED REVENUE) TỪ CÁC ĐỢT XUẤT HÀNG ĐẠT
   const findParentForExport = (slip: typeof knittingExportSlips[number]) => parentContracts.find(contract =>
@@ -361,7 +365,7 @@ export default function DashboardView() {
     String(contract.productCode || '').trim().toLowerCase() === String(slip.productCode || '').trim().toLowerCase()
   );
 
-  const realizedRevenueContracts = displayParentContracts.map(contract => {
+  const realizedRevenueContracts = parentContracts.map(contract => {
     const matchedExports = knittingExportSlips.filter(slip => {
       const parent = findParentForExport(slip);
       return parent ? String(parent.id) === String(contract.id) : false;
@@ -391,6 +395,21 @@ export default function DashboardView() {
   const totalRealizedRevenue = realizedRevenueContracts.reduce((sum, item) => sum + item.realizedRevenue, 0);
   const totalGoodExportQuantity = realizedRevenueContracts.reduce((sum, item) => sum + item.goodQuantity, 0);
   const actualNetRevenue = totalRealizedRevenue - weavingContractValue;
+  const displayRealizedRevenueContracts = realizedRevenueContracts.filter(
+    item => getContractReceivedDeposit(item.contract) <= 0
+  );
+  const displayedContractValue = displayRealizedRevenueContracts.reduce(
+    (sum, item) => sum + item.contractTotalAmount,
+    0
+  );
+  const displayedGoodExportQuantity = displayRealizedRevenueContracts.reduce(
+    (sum, item) => sum + item.goodQuantity,
+    0
+  );
+  const displayedRealizedRevenue = displayRealizedRevenueContracts.reduce(
+    (sum, item) => sum + item.realizedRevenue,
+    0
+  );
 
   const materialTotals = new Map<string, { name: string; unit: string; quantity: number }>();
   displaySubContracts.forEach(contract => {
@@ -814,7 +833,7 @@ export default function DashboardView() {
       <section aria-label="Tổng hợp tài chính hợp đồng" style={{ ...cardStyle, backgroundColor: '#fff', borderColor: '#e2e8f0', display: 'grid', gap: '16px', minWidth: 0, maxWidth: '100%' }}>
         <div>
           <h3 style={{ margin: '0 0 4px', color: '#1e293b', fontSize: '17px', fontWeight: 800 }}>💰 Doanh Thu &amp; Giá Trị Hợp Đồng</h3>
-          <small style={{ color: '#64748b' }}>Phân tách doanh thu từ hợp đồng chưa nhận cọc; các hợp đồng đã ghi nhận cọc được ẩn khỏi danh sách mặc định.</small>
+          <small style={{ color: '#64748b' }}>Các thẻ tổng hợp tính trên toàn bộ hợp đồng, kể cả hợp đồng đã nhận cọc. Bảng chi tiết bên dưới chỉ hiển thị hợp đồng chưa ghi nhận cọc.</small>
         </div>
 
         {/* CÁC THẺ METRIC TỔNG HỢP */}
@@ -837,7 +856,7 @@ export default function DashboardView() {
             </div>
             <div style={{ marginTop: '7px', color: '#1d4ed8', fontSize: '22px', fontWeight: 800, wordBreak: 'break-word' }}>{formatCurrency(companyContractValue)}</div>
             <small style={{ display: 'block', marginTop: '4px', color: '#1e40af', wordBreak: 'break-word' }}>
-              Tổng HĐ Cty: <strong>{formatNumber(totalParentQty)}</strong> sản phẩm
+              Tổng HĐ Cty: <strong>{formatNumber(totalFinancialParentQty)}</strong> sản phẩm
             </small>
           </div>
 
@@ -848,7 +867,7 @@ export default function DashboardView() {
             </div>
             <div style={{ marginTop: '7px', color: '#be123c', fontSize: '22px', fontWeight: 800, wordBreak: 'break-word' }}>{formatCurrency(weavingContractValue)}</div>
             <small style={{ display: 'block', marginTop: '4px', color: '#9f1239', wordBreak: 'break-word' }}>
-              Tổng khoán: <strong>{formatNumber(totalSubQty)}</strong> sản phẩm
+              Tổng khoán: <strong>{formatNumber(totalFinancialSubQty)}</strong> sản phẩm
             </small>
           </div>
 
@@ -885,7 +904,7 @@ export default function DashboardView() {
                 </tr>
               </thead>
               <tbody>
-                {realizedRevenueContracts.map(({ contract, contractQuantity, unitPrice, contractTotalAmount, goodQuantity, realizedRevenue, receivedFrames, fulfillmentPercent, exportCount }) => {
+                {displayRealizedRevenueContracts.map(({ contract, contractQuantity, unitPrice, contractTotalAmount, goodQuantity, realizedRevenue, receivedFrames, fulfillmentPercent, exportCount }) => {
                   const unit = contract.unit || 'sản phẩm';
                   return (
                     <tr key={String(contract.id)} style={{ borderTop: '1px solid #e2e8f0' }}>
@@ -925,7 +944,7 @@ export default function DashboardView() {
                     </tr>
                   );
                 })}
-                {realizedRevenueContracts.length === 0 && (
+                {displayRealizedRevenueContracts.length === 0 && (
                   <tr>
                     <td colSpan={8} className="whitespace-nowrap" style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>
                       Không có hợp đồng công ty chưa nhận cọc để hiển thị.
@@ -933,14 +952,14 @@ export default function DashboardView() {
                   </tr>
                 )}
               </tbody>
-              {realizedRevenueContracts.length > 0 && (
+              {displayRealizedRevenueContracts.length > 0 && (
                 <tfoot>
                   <tr style={{ backgroundColor: '#f1f5f9', fontWeight: 800, borderTop: '2px solid #cbd5e1' }}>
-                    <td colSpan={3} className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', color: '#1e293b' }}>Tổng cộng:</td>
-                    <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', color: '#1e40af' }}>{formatCurrency(companyContractValue)}</td>
+                    <td colSpan={3} className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', color: '#1e293b' }}>Tổng đang hiển thị:</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', color: '#1e40af' }}>{formatCurrency(displayedContractValue)}</td>
                     <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>—</td>
-                    <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', color: '#166534' }}>{formatNumber(totalGoodExportQuantity)}</td>
-                    <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', color: '#166534', fontSize: '15px' }}>{formatCurrency(totalRealizedRevenue)}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', color: '#166534' }}>{formatNumber(displayedGoodExportQuantity)}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', color: '#166534', fontSize: '15px' }}>{formatCurrency(displayedRealizedRevenue)}</td>
                     <td className="whitespace-nowrap" style={{ padding: '10px' }}>—</td>
                   </tr>
                 </tfoot>

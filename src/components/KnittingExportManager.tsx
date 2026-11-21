@@ -18,7 +18,9 @@ interface ReceiptSource {
   selectable?: boolean;
   physicalQuantity?: number;
   sourceSlipNo?: string;
+  sourceKind?: 'repair';
   companyBContractId?: number | string;
+  companyBContractNo?: string;
   remainingPieces?: number;
 }
 
@@ -383,15 +385,46 @@ export default function KnittingExportManager() {
 
     const repairReceipts: ReceiptSource[] = slips
       .filter(slip => String(slip.type || '').toUpperCase() === 'NHAN_SUA_KHOAN')
-      .flatMap(repairReceiptSlip => (Array.isArray(repairReceiptSlip.repairLines) ? repairReceiptSlip.repairLines : [])
-        .flatMap(line => {
+      .flatMap(repairReceiptSlip => {
+        const counterpartSlip = slips.find(slip =>
+          slip.type === 'XUAT_SUA_KHOAN' &&
+          (String(slip.id) === String(repairReceiptSlip.sourceRepairSlipId || '') ||
+            (Boolean(repairReceiptSlip.contractNo) && slip.slipNo === repairReceiptSlip.contractNo))
+        );
+        const receiptLines = Array.isArray(repairReceiptSlip.repairLines)
+          ? repairReceiptSlip.repairLines
+          : [];
+        return receiptLines.flatMap(line => {
+          const counterpartLines = counterpartSlip?.repairLines || [];
+          const counterpartLine = counterpartLines.find(sourceLine =>
+            String(sourceLine.id) === String(line.id)
+          ) || counterpartLines.find(sourceLine =>
+            sourceLine.productCode.trim().toLowerCase() === line.productCode.trim().toLowerCase()
+          );
+          const sourceImportId = line.sourceDefectiveGoodsImportSlipId ??
+            counterpartLine?.sourceDefectiveGoodsImportSlipId;
+          const sourceExportId = line.sourceKnittingExportSlipId ??
+            counterpartLine?.sourceKnittingExportSlipId;
           const defectiveSource = defectiveGoodsImportSlips.find(
-            item => String(item.id) === String(line.sourceDefectiveGoodsImportSlipId || '')
+            item => String(item.id) === String(sourceImportId || '')
           );
-          const contract = contracts.find(item =>
+          const sourceExport = knittingExportSlips.find(
+            item => String(item.id) === String(sourceExportId || '')
+          );
+          const sourceContractId = defectiveSource?.sourceContractId ?? sourceExport?.sourceContractId;
+          const sourceContractNo = defectiveSource?.sourceContractNo ?? sourceExport?.sourceContractNo;
+          const matchingContracts = contracts.filter(item =>
             item.contractType === 'SUB' &&
-            String(item.id) === String(defectiveSource?.sourceContractId || '')
+            String(item.productCode || '').trim().toLowerCase() === line.productCode.trim().toLowerCase()
           );
+          const contract = matchingContracts.find(item =>
+            sourceContractId !== undefined && String(item.id) === String(sourceContractId)
+          ) || matchingContracts.find(item =>
+            Boolean(sourceContractNo) &&
+            String(item.contractNo || '').trim().toLowerCase() === String(sourceContractNo || '').trim().toLowerCase()
+          ) || (matchingContracts.length === 1 && sourceContractId === undefined && !sourceContractNo
+            ? matchingContracts[0]
+            : undefined);
           if (!contract) return [];
 
           const sizeNames = getSizeNames(contract);
@@ -435,12 +468,15 @@ export default function KnittingExportManager() {
             contract,
             receipt,
             key: `${contract.id}::${sourceReceiptId}`,
-            selectable: selectableContractIds.has(String(contract.id)),
+            selectable: true,
             physicalQuantity,
             sourceSlipNo: repairReceiptSlip.slipNo,
-            companyBContractId: defectiveSource?.companyBContractId
+            sourceKind: 'repair' as const,
+            companyBContractId: defectiveSource?.companyBContractId ?? sourceExport?.companyBContractId,
+            companyBContractNo: defectiveSource?.companyBContractNo ?? sourceExport?.companyBContractNo
           }];
-        }));
+        });
+      });
 
     return [...contractReceipts, ...repairReceipts]
       .map(source => {
@@ -620,7 +656,13 @@ export default function KnittingExportManager() {
       const sourceCompanyContracts = getCompanyContractGroups(source.contract.productCode);
       const suggested = (source.companyBContractId !== undefined
         ? sourceCompanyContracts.find(item => String(item.contract.id) === String(source.companyBContractId))?.contract
-        : undefined) || sourceCompanyContracts[0]?.contract;
+        : undefined) ||
+        (source.companyBContractNo
+          ? sourceCompanyContracts.find(item =>
+            item.contract.contractNo.trim().toLowerCase() === source.companyBContractNo?.trim().toLowerCase()
+          )?.contract
+          : undefined) ||
+        sourceCompanyContracts[0]?.contract;
       setCompanyBContractId(suggested ? String(suggested.id) : '');
       setCompanyBContractNo(suggested?.contractNo || source.contract.parentContractNo || '');
       setGoodBundles('');
@@ -1142,20 +1184,30 @@ export default function KnittingExportManager() {
                     onChange={event => handleSourceToggle(source.key, event.target.checked)}
                   />
                   <span>
-                    <strong>{source.contract.productCode}</strong> · {source.contract.craftGroupLeader || 'Tổ Đan'} · {source.contract.contractNo}
-                    <br />
-                    <small>
-                      {source.sourceSlipNo ? `Phiếu sửa khoán ${source.sourceSlipNo}` : 'Phiếu nhận'}
-                      {' '}{formatDate(source.receipt.receivedDate)} · {
-                        formatNumber(source.sourceSlipNo
-                          ? source.remainingPieces ?? 0
-                          : getReceiptQuantityInContractUnits(source.contract, source.receipt))
-                      } {source.sourceSlipNo
-                        ? 'cái'
-                        : getPiecesPerSet(source.contract.productCode) > 1 ? 'Bộ' : 'Cái'}
-                      {(source.remainingPieces ?? 0) < getSourcePhysicalQuantity(source) &&
-                        ` · còn ${formatNumber(Math.max(0, source.remainingPieces ?? 0))} cái`}
-                    </small>
+                    {source.sourceKind === 'repair' ? (
+                      <>
+                        <strong>[Nhận sửa khoán] {source.sourceSlipNo} · Mã {source.contract.productCode}</strong>
+                        {' · '}{source.contract.productName}
+                        <br />
+                        <small>
+                          Còn tồn Đạt: {formatNumber(Math.max(0, source.remainingPieces ?? 0))} cái
+                          {' · '}HĐ Tổ Đan {source.contract.contractNo}
+                          {' · '}{formatDate(source.receipt.receivedDate)}
+                        </small>
+                      </>
+                    ) : (
+                      <>
+                        <strong>{source.contract.productCode}</strong> · {source.contract.craftGroupLeader || 'Tổ Đan'} · {source.contract.contractNo}
+                        <br />
+                        <small>
+                          Phiếu nhận {formatDate(source.receipt.receivedDate)} ·
+                          {' '}{formatNumber(getReceiptQuantityInContractUnits(source.contract, source.receipt))}
+                          {' '}{getPiecesPerSet(source.contract.productCode) > 1 ? 'Bộ' : 'Cái'}
+                          {(source.remainingPieces ?? 0) < getSourcePhysicalQuantity(source) &&
+                            ` · còn ${formatNumber(Math.max(0, source.remainingPieces ?? 0))} cái`}
+                        </small>
+                      </>
+                    )}
                   </span>
                 </label>
               ))}

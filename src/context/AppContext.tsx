@@ -60,6 +60,8 @@ export interface SlipItem {
     productCode: string;
     productName: string;
     sourceDefectiveGoodsImportSlipId?: number | string;
+    sourceDefectiveStockSourceId?: string;
+    sourceKnittingExportSlipId?: number | string;
     quantity: number;
     bundleQuantity: number;
     sizeQuantities: Record<string, number>;

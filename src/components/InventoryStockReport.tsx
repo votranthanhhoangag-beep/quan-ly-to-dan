@@ -1,5 +1,5 @@
-import { useRef, useState, type FormEvent } from 'react';
-import type { CategoryItem, ContractItem, DefectiveGoodsImportSlip, KnittingExportSlip, SlipItem } from '../context/AppContext';
+import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react';
+import type { CategoryItem, ContractItem, KnittingExportSlip, SlipItem } from '../context/AppContext';
 import { useApp } from '../context/AppContext';
 import { usePersistentFormDraft } from '../hooks/usePersistentFormDraft';
 import { getLatestMaterialUnitPrice, normalizeMaterialSearch } from '../utils/materialSearch';
@@ -23,6 +23,8 @@ interface RepairFormLine {
   sizeUnitPrices: Record<string, string>;
   itemTypeOption: 'CAI' | 'CA_HAI';
   sourceDefectiveGoodsImportSlipId?: string;
+  sourceDefectiveStockSourceId?: string;
+  sourceKnittingExportSlipId?: string;
 }
 
 interface RepairStockLine {
@@ -43,6 +45,22 @@ interface RepairStockLine {
   sizeUnitPrices?: Record<string, number>;
   amount: number;
   sourceDefectiveGoodsImportSlipId?: number | string;
+  sourceDefectiveStockSourceId?: string;
+  sourceKnittingExportSlipId?: number | string;
+}
+
+interface DefectiveRepairSource {
+  id: string;
+  productCode: string;
+  productName: string;
+  label: string;
+  date: string;
+  bundles: number;
+  sizes: Record<string, number>;
+  sourceContractId?: number | string;
+  sourceReceiptId?: string;
+  defectiveGoodsImportSlipId?: number | string;
+  knittingExportSlipId?: number | string;
 }
 
 type MaterialUnit = string;
@@ -173,6 +191,112 @@ const normalizeSizeCounts = (
   return normalized;
 };
 
+const getRepairLines = (slip: SlipItem): RepairStockLine[] => {
+  if (!slip || typeof slip !== 'object') return [];
+  if (Array.isArray(slip.repairLines)) {
+    return slip.repairLines.filter(line => line && typeof line === 'object').map((line, index) => {
+      const sizeQuantities = line.sizeQuantities && typeof line.sizeQuantities === 'object'
+        ? line.sizeQuantities
+        : {};
+      const sizeUnitPrices = line.sizeUnitPrices && typeof line.sizeUnitPrices === 'object'
+        ? line.sizeUnitPrices
+        : undefined;
+      return {
+        id: String(line.id || `repair-line-${slip.id}-${index}`),
+        productCode: String(line.productCode || ''),
+        productName: String(line.productName || ''),
+        sourceDefectiveGoodsImportSlipId: line.sourceDefectiveGoodsImportSlipId,
+        sourceDefectiveStockSourceId: line.sourceDefectiveStockSourceId,
+        sourceKnittingExportSlipId: line.sourceKnittingExportSlipId,
+        quantity: Number(line.quantity) || 0,
+        bundleQuantity: Number(line.bundleQuantity) || 0,
+        sizeQuantities: normalizeSizeCounts(
+          sizeQuantities,
+          Array.from({ length: getPiecesPerSet(String(line.productCode || '')) }, (_, sizeIndex) => `Cái ${sizeIndex + 1}`)
+        ),
+        goodQuantity: line.goodQuantity === undefined ? undefined : Number(line.goodQuantity) || 0,
+        goodBundleQuantity: line.goodBundleQuantity === undefined ? undefined : Number(line.goodBundleQuantity) || 0,
+        goodSizeQuantities: line.goodSizeQuantities
+          ? normalizeSizeCounts(
+            line.goodSizeQuantities,
+            Array.from({ length: getPiecesPerSet(String(line.productCode || '')) }, (_, sizeIndex) => `Cái ${sizeIndex + 1}`)
+          )
+          : undefined,
+        defectiveQuantity: line.defectiveQuantity === undefined ? undefined : Number(line.defectiveQuantity) || 0,
+        defectiveBundleQuantity: line.defectiveBundleQuantity === undefined ? undefined : Number(line.defectiveBundleQuantity) || 0,
+        defectiveSizeQuantities: line.defectiveSizeQuantities
+          ? normalizeSizeCounts(
+            line.defectiveSizeQuantities,
+            Array.from({ length: getPiecesPerSet(String(line.productCode || '')) }, (_, sizeIndex) => `Cái ${sizeIndex + 1}`)
+          )
+          : undefined,
+        unitPrice: Number(line.unitPrice) || 0,
+        bundleUnitPrice: line.bundleUnitPrice === undefined ? undefined : Number(line.bundleUnitPrice) || 0,
+        sizeUnitPrices: sizeUnitPrices
+          ? Object.fromEntries(Object.entries(sizeUnitPrices).map(([size, price]) => [size, Number(price) || 0]))
+          : undefined,
+        amount: Number(line.amount) || 0
+      };
+    });
+  }
+  return [{
+    id: String(slip.id),
+    productCode: slip.productCode,
+    productName: slip.productName,
+    sourceDefectiveGoodsImportSlipId: undefined,
+    quantity: Number(slip.quantity) || 0,
+    bundleQuantity: 0,
+    sizeQuantities: normalizeSizeCounts(slip.sizeQuantities, Array.from(
+      { length: getPiecesPerSet(slip.productCode) },
+      (_, index) => `Cái ${index + 1}`
+    )),
+    unitPrice: 0,
+    amount: Number(slip.repairTotal) || 0
+  }];
+};
+
+const getKnittingDefectiveQuantities = (slip: KnittingExportSlip, sizeCount: number) => {
+  const sizeKeys = Array.from({ length: sizeCount }, (_, index) => `Cái ${index + 1}`);
+  const sizes = normalizeSizeCounts(slip.defectiveSizeQuantities, sizeKeys);
+  const defectivePieces = Number(slip.defectivePieces) || 0;
+  const legacyQuantity = !slip.defectiveSizeQuantities && defectivePieces <= 0 &&
+    (Number(slip.defectiveBundles) || 0) <= 0
+    ? Number(slip.defectiveContractQuantity) || 0
+    : 0;
+  const bundles = (Number(slip.defectiveBundles) || 0) || (sizeCount > 1 ? legacyQuantity : 0);
+  if (sizeCount > 1 && !Object.values(sizes).some(quantity => quantity > 0) && defectivePieces > 0) {
+    Object.keys(sizes).forEach(size => { sizes[size] += defectivePieces / sizeCount; });
+  }
+  const ordinaryQuantity = sizeCount === 1
+    ? Object.values(sizes).reduce((sum, quantity) => sum + quantity, 0) || defectivePieces || legacyQuantity
+    : 0;
+  if (sizeCount === 1) sizes['Cái 1'] = ordinaryQuantity;
+  return { bundles, sizes, ordinaryQuantity };
+};
+
+const getDefectiveReceiptSourceKey = (contractId: number | string, receiptId: string) =>
+  `${String(contractId)}::${String(receiptId)}`;
+
+const hasKnittingDefectiveQuantity = (slip: KnittingExportSlip) =>
+  slip.is_graded !== false &&
+  ((Number(slip.defectiveBundles) || 0) > 0 ||
+    (Number(slip.defectivePieces) || 0) > 0 ||
+    (Number(slip.defectiveContractQuantity) || 0) > 0 ||
+    Object.values(slip.defectiveSizeQuantities || {}).some(quantity => Number(quantity) > 0));
+
+const getGradedDefectiveSourceKeys = (slips: KnittingExportSlip[]) => new Set(
+  slips
+    .filter(hasKnittingDefectiveQuantity)
+    .flatMap(slip => {
+      const allocations = Array.isArray(slip.sourceAllocations) && slip.sourceAllocations.length > 0
+        ? slip.sourceAllocations
+        : [{ sourceContractId: slip.sourceContractId, sourceReceiptId: slip.sourceReceiptId }];
+      return allocations.map(allocation =>
+        getDefectiveReceiptSourceKey(allocation.sourceContractId, allocation.sourceReceiptId)
+      );
+    })
+);
+
 const createRepairLine = (): RepairFormLine => ({
   id: `repair-line-${crypto.randomUUID()}`,
   productCode: '',
@@ -270,15 +394,19 @@ export default function InventoryStockReport() {
     updateSlip,
     deleteSlip
   } = useApp();
-  const products = Array.isArray(productsData) ? productsData.filter(Boolean) : [];
-  const materials = Array.isArray(materialsData) ? materialsData.filter(Boolean) : [];
-  const contracts = Array.isArray(contractsData) ? contractsData.filter(Boolean) : [];
-  const slips = Array.isArray(slipsData) ? slipsData.filter(Boolean) : [];
-  const knittingExportSlips = Array.isArray(knittingExportSlipsData) ? knittingExportSlipsData.filter(Boolean) : [];
-  const defectiveGoodsImportSlips = Array.isArray(defectiveGoodsImportSlipsData)
-    ? defectiveGoodsImportSlipsData.filter(Boolean)
-    : [];
-  const expenses = Array.isArray(expensesData) ? expensesData.filter(Boolean) : [];
+  const products = useMemo(() => Array.isArray(productsData) ? productsData.filter(Boolean) : [], [productsData]);
+  const materials = useMemo(() => Array.isArray(materialsData) ? materialsData.filter(Boolean) : [], [materialsData]);
+  const contracts = useMemo(() => Array.isArray(contractsData) ? contractsData.filter(Boolean) : [], [contractsData]);
+  const slips = useMemo(() => Array.isArray(slipsData) ? slipsData.filter(Boolean) : [], [slipsData]);
+  const knittingExportSlips = useMemo(
+    () => Array.isArray(knittingExportSlipsData) ? knittingExportSlipsData.filter(Boolean) : [],
+    [knittingExportSlipsData]
+  );
+  const defectiveGoodsImportSlips = useMemo(
+    () => Array.isArray(defectiveGoodsImportSlipsData) ? defectiveGoodsImportSlipsData.filter(Boolean) : [],
+    [defectiveGoodsImportSlipsData]
+  );
+  const expenses = useMemo(() => Array.isArray(expensesData) ? expensesData.filter(Boolean) : [], [expensesData]);
   const [reportMonth, setReportMonth] = useState(getToday().slice(0, 7));
   const [activeReportTab, setActiveReportTab] = useState<InventoryReportTab>('stock');
   const [date, setDate] = useState(getToday());
@@ -353,8 +481,8 @@ export default function InventoryStockReport() {
     return units;
   };
 
-  const repairSlips = slips.filter(slip => slip?.type === 'XUAT_SUA_KHOAN');
-  const repairReceiptSlips = slips.filter(slip => slip?.type === 'NHAN_SUA_KHOAN');
+  const repairSlips = useMemo(() => slips.filter(slip => slip?.type === 'XUAT_SUA_KHOAN'), [slips]);
+  const repairReceiptSlips = useMemo(() => slips.filter(slip => slip?.type === 'NHAN_SUA_KHOAN'), [slips]);
   const hasRepairReceipt = (repairSlip: SlipItem) => repairReceiptSlips.some(receipt =>
     String(receipt.sourceRepairSlipId || '') === String(repairSlip.id) ||
     (Boolean(receipt.contractNo) && receipt.contractNo === repairSlip.slipNo)
@@ -371,9 +499,9 @@ export default function InventoryStockReport() {
   const availableRepairSlips = repairSlips.filter(slip =>
     !hasRepairReceipt(slip) || String(slip.id) === String(editingRepairSource?.id || '')
   );
-  const companyFrameReturnSlips = slips.filter(slip =>
+  const companyFrameReturnSlips = useMemo(() => slips.filter(slip =>
     slip?.type === 'XUAT_KS_TRA_CTY' && Array.isArray(slip.companyReturnLines)
-  );
+  ), [slips]);
   const repairWorkerOptions = Array.from(new Map(
     contracts
       .filter(contract => contract.contractType === 'SUB' && contract.craftGroupLeader?.trim())
@@ -385,20 +513,85 @@ export default function InventoryStockReport() {
         }] as const;
       })
   ).values());
-  const productNames = new Map<string, string>();
-  products.forEach(product => {
-    if (product.code) productNames.set(product.code.trim().toLowerCase(), product.name);
-  });
-  contracts.forEach(contract => {
-    if (contract.productCode) {
-      productNames.set(contract.productCode.trim().toLowerCase(), contract.productName || '');
-    }
-  });
-  slips.forEach(slip => {
-    if (slip.productCode) {
-      productNames.set(slip.productCode.trim().toLowerCase(), slip.productName || '');
-    }
-  });
+  const productNames = useMemo(() => {
+    const names = new Map<string, string>();
+    products.forEach(product => {
+      if (product.code) names.set(product.code.trim().toLowerCase(), product.name);
+    });
+    contracts.forEach(contract => {
+      if (contract.productCode) names.set(contract.productCode.trim().toLowerCase(), contract.productName || '');
+    });
+    slips.forEach(slip => {
+      if (slip.productCode) names.set(slip.productCode.trim().toLowerCase(), slip.productName || '');
+    });
+    return names;
+  }, [products, contracts, slips]);
+  const defectiveRepairSources = useMemo(() => {
+    const gradedSourceKeys = getGradedDefectiveSourceKeys(knittingExportSlips);
+    const receiptSources = new Map<string, DefectiveRepairSource>();
+    knittingExportSlips
+      .filter(slip => slip.is_graded !== false)
+      .forEach(slip => {
+        const sourceContractId = slip.sourceContractId;
+        const sourceReceiptId = String(slip.sourceReceiptId || '');
+        if (!sourceReceiptId) return;
+        const sourceKey = getDefectiveReceiptSourceKey(sourceContractId, sourceReceiptId);
+        const sourceId = `receipt:${JSON.stringify([String(sourceContractId), sourceReceiptId])}`;
+        const contract = contracts.find(item => String(item.id) === String(sourceContractId));
+        const sizeCount = getPiecesPerSet(slip.productCode);
+        const defective = getKnittingDefectiveQuantities(slip, sizeCount);
+        const current = receiptSources.get(sourceId) || {
+          id: sourceId,
+          productCode: slip.productCode,
+          productName: slip.productName || productNames.get(slip.productCode.trim().toLowerCase()) || '',
+          label: '',
+          date: '',
+          bundles: 0,
+          sizes: Object.fromEntries(Array.from({ length: sizeCount }, (_, index) => [`Cái ${index + 1}`, 0])),
+          sourceContractId,
+          sourceReceiptId,
+          knittingExportSlipId: slip.id,
+          defectiveGoodsImportSlipId: defectiveGoodsImportSlips.find(importSlip =>
+            getDefectiveReceiptSourceKey(importSlip.sourceContractId, importSlip.sourceReceiptId) === sourceKey
+          )?.id
+        };
+        current.bundles += defective.bundles;
+        Object.keys(current.sizes).forEach(size => {
+          current.sizes[size] = (current.sizes[size] || 0) + (defective.sizes[size] || 0);
+        });
+        const receipt = contract?.receivedGoodsLogs?.find(log => String(log.id) === sourceReceiptId);
+        current.date = String(receipt?.receivedDate || slip.date || '');
+        current.label = `Phiếu nhận ${sourceReceiptId} · ${contract?.craftGroupLeader || 'Tổ Đan'} · HĐ ${contract?.contractNo || slip.sourceContractNo} · ${current.date || '—'}`;
+        receiptSources.set(sourceId, current);
+      });
+
+    const importedSources: DefectiveRepairSource[] = defectiveGoodsImportSlips.flatMap(source => {
+      const sourceKey = getDefectiveReceiptSourceKey(source.sourceContractId, source.sourceReceiptId);
+      if (gradedSourceKeys.has(sourceKey)) return [];
+      const sizeCount = getPiecesPerSet(source.productCode);
+      const sizes = normalizeSizeCounts(
+        source.sizeQuantities,
+        Array.from({ length: sizeCount }, (_, index) => `Cái ${index + 1}`)
+      );
+      if (sizeCount === 1 && sizes['Cái 1'] === 0) sizes['Cái 1'] = Number(source.quantity) || 0;
+      return [{
+        id: `import:${String(source.id)}`,
+        productCode: source.productCode,
+        productName: source.productName,
+        label: `${source.slipNo} · ${source.date} · Nhập hàng loại`,
+        date: source.date,
+        bundles: Number(source.bundleQuantity) || 0,
+        sizes,
+        sourceContractId: source.sourceContractId,
+        sourceReceiptId: source.sourceReceiptId,
+        defectiveGoodsImportSlipId: source.id
+      }];
+    });
+
+    return [...receiptSources.values(), ...importedSources]
+      .filter(source => source.bundles > 0 || Object.values(source.sizes).some(quantity => quantity > 0))
+      .sort((first, second) => second.date.localeCompare(first.date) || first.label.localeCompare(second.label, 'vi'));
+  }, [knittingExportSlips, contracts, defectiveGoodsImportSlips, productNames]);
 
   const newSlipNo = (() => {
     const year = date.slice(0, 4);
@@ -413,151 +606,140 @@ export default function InventoryStockReport() {
     setLines(current => current.map(line => line.id === id ? { ...line, ...updates } : line));
   };
 
-  const getDefectiveImportRepairAvailability = (
-    source: DefectiveGoodsImportSlip,
+  const isRepairLineFromSource = (line: RepairStockLine | RepairFormLine, source: DefectiveRepairSource) =>
+    String(line.sourceDefectiveStockSourceId || '') === source.id ||
+    (source.defectiveGoodsImportSlipId !== undefined &&
+      String(line.sourceDefectiveGoodsImportSlipId || '') === String(source.defectiveGoodsImportSlipId)) ||
+    (source.knittingExportSlipId !== undefined &&
+      String(line.sourceKnittingExportSlipId || '') === String(source.knittingExportSlipId));
+
+  const getRepairLineSourceBreakdown = (line: RepairStockLine) => {
+    const sizeCount = getPiecesPerSet(line.productCode);
+    const sizeKeys = Array.from({ length: sizeCount }, (_, index) => `Cái ${index + 1}`);
+    const sizes = normalizeSizeCounts(line.sizeQuantities, sizeKeys);
+    if (sizeCount === 1) sizes['Cái 1'] = Number(line.quantity) || 0;
+    return { bundles: sizeCount > 1 ? Number(line.bundleQuantity) || 0 : 0, sizes };
+  };
+
+  const getDraftLineSourceBreakdown = (line: RepairFormLine) => {
+    const sizeCount = getPiecesPerSet(line.productCode);
+    const sizeKeys = Array.from({ length: sizeCount }, (_, index) => `Cái ${index + 1}`);
+    const sizes = normalizeSizeCounts(
+      Object.fromEntries(Object.entries(line.sizeQuantities).map(([size, quantity]) => [size, Number(quantity) || 0])),
+      sizeKeys
+    );
+    if (sizeCount === 1) sizes['Cái 1'] = Number(line.quantity) || 0;
+    return {
+      bundles: sizeCount > 1 && line.itemTypeOption === 'CA_HAI' ? Number(line.bundleQuantity) || 0 : 0,
+      sizes
+    };
+  };
+
+  const getDraftLineRequiredSizes = (line: RepairFormLine) => {
+    const sizeCount = getPiecesPerSet(line.productCode);
+    const sizeKeys = Array.from({ length: sizeCount }, (_, index) => `Cái ${index + 1}`);
+    const sizes = normalizeSizeCounts(
+      Object.fromEntries(Object.entries(line.sizeQuantities).map(([size, quantity]) => [size, Number(quantity) || 0])),
+      sizeKeys
+    );
+    const bundles = sizeCount > 1 && line.itemTypeOption === 'CA_HAI'
+      ? Number(line.bundleQuantity) || 0
+      : 0;
+    if (sizeCount > 1) {
+      sizeKeys.forEach(size => { sizes[size] += bundles; });
+    } else {
+      sizes['Cái 1'] = Number(line.quantity) || 0;
+    }
+    return { bundles, sizes };
+  };
+
+  const getDefectiveSourceAvailability = (
+    source: DefectiveRepairSource,
     excludingRepairId?: number | string
   ) => {
-    const sizeCount = getPiecesPerSet(source.productCode);
-    const sizeKeys = Array.from({ length: sizeCount }, (_, index) => `Cái ${index + 1}`);
-    const importedSizes = normalizeSizeCounts(source.sizeQuantities, sizeKeys);
-    if (sizeCount === 1 && importedSizes['Cái 1'] === 0) {
-      importedSizes['Cái 1'] = Number(source.quantity) || 0;
-    }
-    const used = { bundles: 0, sizes: Object.fromEntries(sizeKeys.map(size => [size, 0])) };
+    const used = { bundles: 0, sizes: Object.fromEntries(Object.keys(source.sizes).map(size => [size, 0])) };
     repairSlips
       .filter(slip => String(slip.id) !== String(excludingRepairId ?? ''))
       .flatMap(getRepairLines)
       .filter(line =>
-        String(line.sourceDefectiveGoodsImportSlipId || '') === String(source.id) &&
-        line.productCode.trim().toLowerCase() === source.productCode.trim().toLowerCase()
+        line.productCode.trim().toLowerCase() === source.productCode.trim().toLowerCase() &&
+        isRepairLineFromSource(line, source)
       )
       .forEach(line => {
-        used.bundles += Number(line.bundleQuantity) || 0;
-        const lineSizes = normalizeSizeCounts(line.sizeQuantities, sizeKeys);
-        sizeKeys.forEach(size => { used.sizes[size] += lineSizes[size]; });
-        if (sizeCount === 1 && Object.values(line.sizeQuantities || {}).every(quantity => Number(quantity) === 0)) {
-          used.sizes['Cái 1'] += Number(line.quantity) || 0;
-        }
+        const required = getRepairLineSourceBreakdown(line);
+        used.bundles += required.bundles;
+        Object.keys(used.sizes).forEach(size => {
+          used.sizes[size] += required.sizes[size] || 0;
+        });
       });
     return {
-      bundles: Math.max(0, (Number(source.bundleQuantity) || 0) - used.bundles),
-      sizes: Object.fromEntries(sizeKeys.map(size => [
+      bundles: Math.max(0, source.bundles - used.bundles),
+      sizes: Object.fromEntries(Object.keys(source.sizes).map(size => [
         size,
-        Math.max(0, importedSizes[size] - used.sizes[size])
+        Math.max(0, (source.sizes[size] || 0) - (used.sizes[size] || 0))
       ]))
     };
   };
 
-  const getDraftAwareDefectiveImportAvailability = (
-    source: DefectiveGoodsImportSlip,
+  const getDraftAwareDefectiveSourceAvailability = (
+    source: DefectiveRepairSource,
     excludingLineId: string
   ) => {
-    const availability = getDefectiveImportRepairAvailability(source, editingSlipId ?? undefined);
-    const sizeKeys = Object.keys(availability.sizes);
+    const availability = getDefectiveSourceAvailability(source, editingSlipId ?? undefined);
     lines
       .filter(line =>
         line.id !== excludingLineId &&
-        String(line.sourceDefectiveGoodsImportSlipId || '') === String(source.id)
+        line.productCode.trim().toLowerCase() === source.productCode.trim().toLowerCase() &&
+        isRepairLineFromSource(line, source)
       )
       .forEach(line => {
-        availability.bundles = Math.max(0, availability.bundles - (Number(line.bundleQuantity) || 0));
-        const lineSizes = normalizeSizeCounts(line.sizeQuantities, sizeKeys);
-        sizeKeys.forEach(size => {
-          availability.sizes[size] = Math.max(0, availability.sizes[size] - lineSizes[size]);
+        const required = getDraftLineSourceBreakdown(line);
+        availability.bundles = Math.max(0, availability.bundles - required.bundles);
+        Object.keys(availability.sizes).forEach(size => {
+          availability.sizes[size] = Math.max(0, availability.sizes[size] - (required.sizes[size] || 0));
         });
-        if (sizeKeys.length === 1 && Object.values(line.sizeQuantities).every(quantity => Number(quantity) === 0)) {
-          availability.sizes['Cái 1'] = Math.max(
-            0,
-            availability.sizes['Cái 1'] - (Number(line.quantity) || 0)
-          );
-        }
       });
     return availability;
   };
 
-  const selectDefectiveImportSource = (line: RepairFormLine, sourceId: string) => {
-    const source = defectiveGoodsImportSlips.find(item => String(item.id) === sourceId);
+  const getRepairSourceForLine = (line: RepairFormLine | RepairStockLine) =>
+    defectiveRepairSources.find(source =>
+      source.id === line.sourceDefectiveStockSourceId ||
+      (source.defectiveGoodsImportSlipId !== undefined &&
+        String(source.defectiveGoodsImportSlipId) === String(line.sourceDefectiveGoodsImportSlipId || '')) ||
+      (source.knittingExportSlipId !== undefined &&
+        String(source.knittingExportSlipId) === String(line.sourceKnittingExportSlipId || ''))
+    );
+
+  const selectDefectiveSource = (line: RepairFormLine, sourceId: string) => {
+    const source = defectiveRepairSources.find(item => item.id === sourceId);
     if (!source) {
-      updateLine(line.id, { sourceDefectiveGoodsImportSlipId: undefined });
+      updateLine(line.id, {
+        sourceDefectiveStockSourceId: undefined,
+        sourceDefectiveGoodsImportSlipId: undefined,
+        sourceKnittingExportSlipId: undefined
+      });
       return;
     }
-    const availability = getDraftAwareDefectiveImportAvailability(source, line.id);
+    const availability = getDraftAwareDefectiveSourceAvailability(source, line.id);
     const sizeCount = getPiecesPerSet(source.productCode);
     updateLine(line.id, {
-      sourceDefectiveGoodsImportSlipId: String(source.id),
+      sourceDefectiveStockSourceId: source.id,
+      sourceDefectiveGoodsImportSlipId: source.defectiveGoodsImportSlipId === undefined
+        ? undefined
+        : String(source.defectiveGoodsImportSlipId),
+      sourceKnittingExportSlipId: source.knittingExportSlipId === undefined
+        ? undefined
+        : String(source.knittingExportSlipId),
       productCode: source.productCode,
       productName: source.productName,
       quantity: sizeCount === 1 ? String(availability.sizes['Cái 1'] || 0) : '0',
       bundleQuantity: String(availability.bundles || 0),
       sizeQuantities: sizeCount === 1
         ? {}
-        : Object.fromEntries(
-          Object.entries(availability.sizes).map(([size, quantity]) => [size, String(quantity)])
-        ),
+        : Object.fromEntries(Object.entries(availability.sizes).map(([size, quantity]) => [size, String(quantity)])),
       itemTypeOption: sizeCount > 1 ? 'CA_HAI' : 'CAI'
     });
-  };
-
-  const getRepairLines = (slip: SlipItem): RepairStockLine[] => {
-    if (!slip || typeof slip !== 'object') return [];
-    if (Array.isArray(slip.repairLines)) {
-      return slip.repairLines.filter(line => line && typeof line === 'object').map((line, index) => {
-        const sizeQuantities = line.sizeQuantities && typeof line.sizeQuantities === 'object'
-          ? line.sizeQuantities
-          : {};
-        const sizeUnitPrices = line.sizeUnitPrices && typeof line.sizeUnitPrices === 'object'
-          ? line.sizeUnitPrices
-          : undefined;
-        return {
-          id: String(line.id || `repair-line-${slip.id}-${index}`),
-          productCode: String(line.productCode || ''),
-          productName: String(line.productName || ''),
-          sourceDefectiveGoodsImportSlipId: line.sourceDefectiveGoodsImportSlipId,
-          quantity: Number(line.quantity) || 0,
-          bundleQuantity: Number(line.bundleQuantity) || 0,
-          sizeQuantities: normalizeSizeCounts(
-            sizeQuantities,
-            Array.from({ length: getPiecesPerSet(String(line.productCode || '')) }, (_, sizeIndex) => `Cái ${sizeIndex + 1}`)
-          ),
-          goodQuantity: line.goodQuantity === undefined ? undefined : Number(line.goodQuantity) || 0,
-          goodBundleQuantity: line.goodBundleQuantity === undefined ? undefined : Number(line.goodBundleQuantity) || 0,
-          goodSizeQuantities: line.goodSizeQuantities
-            ? normalizeSizeCounts(
-              line.goodSizeQuantities,
-              Array.from({ length: getPiecesPerSet(String(line.productCode || '')) }, (_, sizeIndex) => `Cái ${sizeIndex + 1}`)
-            )
-            : undefined,
-          defectiveQuantity: line.defectiveQuantity === undefined ? undefined : Number(line.defectiveQuantity) || 0,
-          defectiveBundleQuantity: line.defectiveBundleQuantity === undefined ? undefined : Number(line.defectiveBundleQuantity) || 0,
-          defectiveSizeQuantities: line.defectiveSizeQuantities
-            ? normalizeSizeCounts(
-              line.defectiveSizeQuantities,
-              Array.from({ length: getPiecesPerSet(String(line.productCode || '')) }, (_, sizeIndex) => `Cái ${sizeIndex + 1}`)
-            )
-            : undefined,
-          unitPrice: Number(line.unitPrice) || 0,
-          bundleUnitPrice: line.bundleUnitPrice === undefined ? undefined : Number(line.bundleUnitPrice) || 0,
-          sizeUnitPrices: sizeUnitPrices
-            ? Object.fromEntries(Object.entries(sizeUnitPrices).map(([size, price]) => [size, Number(price) || 0]))
-            : undefined,
-          amount: Number(line.amount) || 0
-        };
-      });
-    }
-    return [{
-      id: String(slip.id),
-      productCode: slip.productCode,
-      productName: slip.productName,
-      sourceDefectiveGoodsImportSlipId: undefined,
-      quantity: Number(slip.quantity) || 0,
-      bundleQuantity: 0,
-      sizeQuantities: normalizeSizeCounts(slip.sizeQuantities, Array.from(
-        { length: getPiecesPerSet(slip.productCode) },
-        (_, index) => `Cái ${index + 1}`
-      )),
-      unitPrice: 0,
-      amount: Number(slip.repairTotal) || 0
-    }];
   };
 
   const getRepairReceiptProgress = (sourceSlipId: number | string, excludingReceiptId?: number | string | null) => {
@@ -737,7 +919,7 @@ export default function InventoryStockReport() {
     return bundleAmount + sizeAmount;
   };
 
-  const buildStock = (excludeRepairId?: number | string, monthFilter = reportMonth) => {
+  const buildStock = useCallback((excludeRepairId?: number | string, monthFilter = reportMonth) => {
     const stock = new Map<string, StockCounts>();
     const getEntry = (productCode: string, productName = '', contract?: ContractItem) => {
       const code = String(productCode || '').trim();
@@ -852,27 +1034,7 @@ export default function InventoryStockReport() {
     });
 
     const sourceContracts = new Map(contracts.map(contract => [String(contract.id), contract]));
-    const gradedSourceKeys = new Set(
-      knittingExportSlips
-        .filter(slip =>
-          slip.is_graded !== false &&
-          ((Number(slip.defectiveBundles) || 0) > 0 ||
-            (Number(slip.defectivePieces) || 0) > 0 ||
-            (Number(slip.defectiveContractQuantity) || 0) > 0 ||
-            Object.values(slip.defectiveSizeQuantities || {}).some(quantity => Number(quantity) > 0))
-        )
-        .flatMap(slip => {
-          const allocations = Array.isArray(slip.sourceAllocations) && slip.sourceAllocations.length > 0
-            ? slip.sourceAllocations
-            : [{
-              sourceContractId: slip.sourceContractId,
-              sourceReceiptId: slip.sourceReceiptId
-            }];
-          return allocations.map(allocation =>
-            `${String(allocation.sourceContractId)}::${String(allocation.sourceReceiptId)}`
-          );
-        })
-    );
+    const gradedSourceKeys = getGradedDefectiveSourceKeys(knittingExportSlips);
     const gradedDefectiveMovements: Array<{
       slip: KnittingExportSlip;
       contract: ContractItem | undefined;
@@ -1024,7 +1186,7 @@ export default function InventoryStockReport() {
           line.bundleQuantity,
           line.quantity,
           1,
-          getStockQuality(slip, 'defective')
+          'defective'
         );
       });
     });
@@ -1190,10 +1352,29 @@ export default function InventoryStockReport() {
       row.productCode.toLowerCase(),
       { ...row, sizes: row.endingSizes }
     ]));
-    return { rows: result, current };
-  };
+    const currentDefective = new Map(result.map(row => [
+      row.productCode.toLowerCase(),
+      { ...row, sizes: row.endingDefectiveSizes }
+    ]));
+    return { rows: result, current, currentDefective };
+  }, [
+    products,
+    contracts,
+    slips,
+    knittingExportSlips,
+    defectiveGoodsImportSlips,
+    reportMonth,
+    productNames,
+    repairSlips,
+    repairReceiptSlips,
+    companyFrameReturnSlips
+  ]);
 
-  const report = buildStock();
+  const report = useMemo(() => buildStock(), [buildStock]);
+  const allTimeStock = useMemo(
+    () => buildStock(editingSlipId ?? undefined, ''),
+    [buildStock, editingSlipId]
+  );
   const displayedReportRows = report.rows.filter(row => {
     const endingQualified = Object.values(row.endingQualifiedSizes)
       .reduce((sum, quantity) => sum + quantity, 0);
@@ -1544,24 +1725,44 @@ export default function InventoryStockReport() {
     setReceiptDate(getToday());
   };
 
-  const currentStockForCode = (code: string, excludingId?: number | string) => {
+  const currentStockForCode = (code: string) => {
     const key = code.trim().toLowerCase();
-    const availableStock = buildStock(excludingId, '').current.get(key);
-    return availableStock?.sizes || {};
+    const availableStock = allTimeStock.currentDefective.get(key);
+    return Object.fromEntries(Object.entries(availableStock?.sizes || {}).map(([size, quantity]) => [
+      size,
+      Math.max(0, quantity)
+    ]));
+  };
+
+  const getDraftAwareCurrentStockForCode = (code: string, excludingLineId: string) => {
+    const available = { ...currentStockForCode(code) };
+    lines
+      .filter(line =>
+        line.id !== excludingLineId &&
+        line.productCode.trim().toLowerCase() === code.trim().toLowerCase()
+      )
+      .forEach(line => {
+        const required = getDraftLineRequiredSizes(line);
+        Object.keys(available).forEach(size => {
+          available[size] = Math.max(0, available[size] - (required.sizes[size] || 0));
+        });
+      });
+    return available;
   };
 
   const updateRepairLineCode = (line: RepairFormLine, productCode: string) => {
     const productName = productNames.get(productCode.trim().toLowerCase()) || '';
     const sizeCount = getPiecesPerSet(productCode);
-    const linkedSource = defectiveGoodsImportSlips.find(source =>
-      String(source.id) === String(line.sourceDefectiveGoodsImportSlipId || '')
-    );
+    const linkedSource = getRepairSourceForLine(line);
+    const sourceMatchesCode = linkedSource &&
+      linkedSource.productCode.trim().toLowerCase() === productCode.trim().toLowerCase();
     updateLine(line.id, {
       productCode,
       productName,
-      sourceDefectiveGoodsImportSlipId: linkedSource &&
-        linkedSource.productCode.trim().toLowerCase() === productCode.trim().toLowerCase()
-        ? line.sourceDefectiveGoodsImportSlipId
+      sourceDefectiveGoodsImportSlipId: sourceMatchesCode ? line.sourceDefectiveGoodsImportSlipId : undefined,
+      sourceDefectiveStockSourceId: sourceMatchesCode && linkedSource ? linkedSource.id : undefined,
+      sourceKnittingExportSlipId: sourceMatchesCode && linkedSource && linkedSource.knittingExportSlipId !== undefined
+        ? String(linkedSource.knittingExportSlipId)
         : undefined,
       sizeQuantities: Object.fromEntries(Array.from({ length: sizeCount }, (_, index) => [
         `Cái ${index + 1}`,
@@ -1676,6 +1877,10 @@ export default function InventoryStockReport() {
         productCode: line.productCode.trim(),
         productName: productNames.get(line.productCode.trim().toLowerCase()) || line.productName,
         sourceDefectiveGoodsImportSlipId: line.sourceDefectiveGoodsImportSlipId || undefined,
+        sourceDefectiveStockSourceId: line.sourceDefectiveStockSourceId ||
+          getRepairSourceForLine(line)?.id,
+        sourceKnittingExportSlipId: line.sourceKnittingExportSlipId ||
+          getRepairSourceForLine(line)?.knittingExportSlipId,
         quantity: piecesPerSet === 1 ? quantity : physicalQuantity,
         bundleQuantity,
         sizeQuantities,
@@ -1698,13 +1903,13 @@ export default function InventoryStockReport() {
       return;
     }
     if (parsedLines.some(line =>
-      line.sourceDefectiveGoodsImportSlipId &&
-      !defectiveGoodsImportSlips.some(source =>
-        String(source.id) === String(line.sourceDefectiveGoodsImportSlipId) &&
+      line.sourceDefectiveStockSourceId &&
+      !defectiveRepairSources.some(source =>
+        source.id === line.sourceDefectiveStockSourceId &&
         source.productCode.trim().toLowerCase() === line.productCode.trim().toLowerCase()
       )
     )) {
-      setError('Một nguồn phiếu nhập hàng loại không còn tồn tại hoặc không khớp mã hàng. Vui lòng chọn lại nguồn.');
+      setError('Nguồn hàng loại không còn tồn tại hoặc không khớp mã hàng. Vui lòng chọn lại nguồn.');
       return;
     }
 
@@ -1726,41 +1931,48 @@ export default function InventoryStockReport() {
       requiredByCode.set(code, required);
     });
     for (const [code, required] of requiredByCode) {
-      const available = currentStockForCode(code, editingSlipId ?? undefined);
+      const available = currentStockForCode(code);
       if (Object.entries(required).some(([size, quantity]) => quantity > (available[size] || 0) + Number.EPSILON)) {
-        setError(`Mã hàng ${code.toUpperCase()} không đủ tồn theo size để xuất sửa khoán.`);
+        const totalAvailable = Object.values(available).reduce((sum, quantity) => sum + quantity, 0);
+        const totalRequired = Object.values(required).reduce((sum, quantity) => sum + quantity, 0);
+        const excess = Math.max(0, totalRequired - totalAvailable);
+        const stockDetail = excess > 0
+          ? `: còn ${formatNumber(totalAvailable)} cái, đang xuất ${formatNumber(totalRequired)} cái (vượt ${formatNumber(excess)} cái)`
+          : ' theo size';
+        setError(`Mã hàng ${code.toUpperCase()} không đủ tồn hàng loại${stockDetail}.`);
         return;
       }
     }
-    const requiredByImport = new Map<string, { bundles: number; sizes: Record<string, number>; source: DefectiveGoodsImportSlip }>();
+    const requiredBySource = new Map<string, {
+      bundles: number;
+      sizes: Record<string, number>;
+      source: DefectiveRepairSource;
+    }>();
     parsedLines.forEach(line => {
-      if (!line.sourceDefectiveGoodsImportSlipId) return;
-      const source = defectiveGoodsImportSlips.find(item =>
-        String(item.id) === String(line.sourceDefectiveGoodsImportSlipId)
-      );
+      const source = defectiveRepairSources.find(item => item.id === line.sourceDefectiveStockSourceId);
       if (!source || source.productCode.trim().toLowerCase() !== line.productCode.trim().toLowerCase()) return;
       const sizeCount = getPiecesPerSet(line.productCode);
-      const key = String(source.id);
-      const required = requiredByImport.get(key) || {
+      const required = requiredBySource.get(source.id) || {
         bundles: 0,
         sizes: Object.fromEntries(Array.from({ length: sizeCount }, (_, index) => [`Cái ${index + 1}`, 0])),
         source
       };
       required.bundles += Number(line.bundleQuantity) || 0;
-      const lineSizes = normalizeSizeCounts(line.sizeQuantities, Object.keys(required.sizes));
-      Object.keys(required.sizes).forEach(size => {
-        required.sizes[size] += lineSizes[size] || 0;
-      });
-      if (sizeCount === 1 && Object.values(line.sizeQuantities).every(quantity => Number(quantity) === 0)) {
+      if (sizeCount === 1) {
         required.sizes['Cái 1'] += Number(line.quantity) || 0;
+      } else {
+        const lineSizes = normalizeSizeCounts(line.sizeQuantities, Object.keys(required.sizes));
+        Object.keys(required.sizes).forEach(size => {
+          required.sizes[size] += lineSizes[size] || 0;
+        });
       }
-      requiredByImport.set(key, required);
+      requiredBySource.set(source.id, required);
     });
-    for (const { source, bundles, sizes } of requiredByImport.values()) {
-      const available = getDefectiveImportRepairAvailability(source, editingSlipId ?? undefined);
+    for (const { source, bundles, sizes } of requiredBySource.values()) {
+      const available = getDefectiveSourceAvailability(source, editingSlipId ?? undefined);
       if (bundles > available.bundles + Number.EPSILON ||
         Object.entries(sizes).some(([size, quantity]) => quantity > (available.sizes[size] || 0) + Number.EPSILON)) {
-        setError(`Phiếu nhập hàng loại ${source.slipNo} không đủ số lượng theo bộ/size đã chọn.`);
+        setError(`Nguồn ${source.label} không đủ tồn hàng loại theo bộ/size đã chọn.`);
         return;
       }
     }
@@ -1849,7 +2061,11 @@ export default function InventoryStockReport() {
       itemTypeOption: line.bundleQuantity > 0 ? 'CA_HAI' : 'CAI',
       sourceDefectiveGoodsImportSlipId: line.sourceDefectiveGoodsImportSlipId === undefined
         ? undefined
-        : String(line.sourceDefectiveGoodsImportSlipId)
+        : String(line.sourceDefectiveGoodsImportSlipId),
+      sourceDefectiveStockSourceId: line.sourceDefectiveStockSourceId,
+      sourceKnittingExportSlipId: line.sourceKnittingExportSlipId === undefined
+        ? undefined
+        : String(line.sourceKnittingExportSlipId)
     })));
     setDate(slip.date || getToday());
     setDiscountPercent(
@@ -2521,15 +2737,26 @@ export default function InventoryStockReport() {
             const priceInputStyle = (value: string) => isRepairPriceOverLimit(line.productCode, value)
               ? { ...inputStyle, border: '2px solid #dc2626', backgroundColor: '#fef2f2', color: '#b91c1c' }
               : inputStyle;
-            const matchingDefectiveImports = defectiveGoodsImportSlips
-              .filter(source => source.productCode.trim().toLowerCase() === line.productCode.trim().toLowerCase())
-              .sort((first, second) => second.date.localeCompare(first.date));
-            const selectedDefectiveImport = matchingDefectiveImports.find(source =>
-              String(source.id) === String(line.sourceDefectiveGoodsImportSlipId || '')
+            const matchingDefectiveSources = defectiveRepairSources.filter(source =>
+              source.productCode.trim().toLowerCase() === line.productCode.trim().toLowerCase()
             );
-            const selectedImportAvailability = selectedDefectiveImport
-              ? getDraftAwareDefectiveImportAvailability(selectedDefectiveImport, line.id)
+            const selectedDefectiveSource = getRepairSourceForLine(line);
+            const selectedSourceAvailability = selectedDefectiveSource
+              ? getDraftAwareDefectiveSourceAvailability(selectedDefectiveSource, line.id)
               : undefined;
+            const currentDefectiveAvailability = getDraftAwareCurrentStockForCode(line.productCode, line.id);
+            const requiredSizesForLine = getDraftLineRequiredSizes(line);
+            const requiredSourceBreakdown = getDraftLineSourceBreakdown(line);
+            const stockExceeded = Object.entries(requiredSizesForLine.sizes)
+              .some(([size, quantity]) => quantity > (currentDefectiveAvailability[size] || 0) + Number.EPSILON);
+            const availableDefectivePieces = Object.values(currentDefectiveAvailability)
+              .reduce((sum, quantity) => sum + quantity, 0);
+            const sourceExceeded = selectedSourceAvailability && (
+              requiredSourceBreakdown.bundles > selectedSourceAvailability.bundles + Number.EPSILON ||
+              Object.entries(requiredSourceBreakdown.sizes).some(([size, quantity]) =>
+                quantity > (selectedSourceAvailability.sizes[size] || 0) + Number.EPSILON
+              )
+            );
             const physicalQuantity = piecesPerSet > 1
               ? (line.itemTypeOption === 'CA_HAI' ? (Number(line.bundleQuantity) || 0) * piecesPerSet : 0) +
                 Object.values(line.sizeQuantities).reduce((sum, value) => sum + (Number(value) || 0), 0)
@@ -2553,31 +2780,49 @@ export default function InventoryStockReport() {
                   </label>
                   <label style={{ display: 'grid', gap: '5px', fontSize: '12px', fontWeight: 700 }}>Nguồn hàng loại nhập kho
                     <select
-                      value={line.sourceDefectiveGoodsImportSlipId || ''}
-                      onChange={event => selectDefectiveImportSource(line, event.target.value)}
-                      disabled={!line.productCode.trim() || matchingDefectiveImports.length === 0}
+                      value={selectedDefectiveSource?.id || line.sourceDefectiveStockSourceId || ''}
+                      onChange={event => selectDefectiveSource(line, event.target.value)}
+                      disabled={!line.productCode.trim() || matchingDefectiveSources.length === 0}
                       style={inputStyle}
                     >
                       <option value="">
-                        {matchingDefectiveImports.length ? '-- Chọn phiếu nhập hàng loại --' : 'Chưa có phiếu nhập hàng loại cho mã này'}
+                        {matchingDefectiveSources.length
+                          ? '-- Chọn nguồn hàng loại --'
+                          : availableDefectivePieces > 0
+                            ? `Tồn hàng loại ${formatNumber(availableDefectivePieces)} cái; chưa có phiếu nguồn tương ứng`
+                            : 'Chưa có nguồn hàng loại còn tồn từ phiếu nhận/nhập kho cho mã này'}
                       </option>
-                      {matchingDefectiveImports.map(source => {
-                        const available = getDraftAwareDefectiveImportAvailability(source, line.id);
+                      {matchingDefectiveSources.map(source => {
+                        const available = getDraftAwareDefectiveSourceAvailability(source, line.id);
                         const remainingPieces = available.bundles * getPiecesPerSet(source.productCode) +
                           Object.values(available.sizes).reduce((sum, quantity) => sum + quantity, 0);
                         return (
-                          <option key={source.id} value={String(source.id)} disabled={remainingPieces <= 0}>
-                            {source.slipNo} · {source.date} · còn {formatNumber(remainingPieces)} cái
+                          <option key={source.id} value={source.id} disabled={remainingPieces <= 0}>
+                            {source.label} · còn {formatNumber(remainingPieces)} cái
                           </option>
                         );
                       })}
                     </select>
-                    {selectedDefectiveImport && selectedImportAvailability && (
+                    {selectedDefectiveSource && selectedSourceAvailability && (
                       <small style={{ color: '#0f766e', fontWeight: 600 }}>
-                        Nguồn {selectedDefectiveImport.slipNo}: còn {formatNumber(selectedImportAvailability.bundles)} bộ
-                        {Object.entries(selectedImportAvailability.sizes)
+                        Nguồn {selectedDefectiveSource.label}: còn {formatNumber(selectedSourceAvailability.bundles)} bộ
+                        {Object.entries(selectedSourceAvailability.sizes)
                           .filter(([, quantity]) => quantity > 0)
                           .map(([size, quantity]) => ` · ${size.replace('Cái ', 'Size ')}: ${formatNumber(quantity)} cái`)}
+                      </small>
+                    )}
+                    {stockExceeded && (
+                      <small role="alert" style={{ color: '#b91c1c', fontSize: '11px', fontWeight: 700 }}>
+                        Mã {line.productCode}: tồn hàng loại còn {formatNumber(availableDefectivePieces)} cái thực,
+                        dòng này xuất {formatNumber(physicalQuantity)} cái
+                        {physicalQuantity > availableDefectivePieces
+                          ? ` (vượt ${formatNumber(physicalQuantity - availableDefectivePieces)} cái)`
+                          : ' nhưng không đủ theo size/bộ'}.
+                      </small>
+                    )}
+                    {sourceExceeded && selectedDefectiveSource && (
+                      <small role="alert" style={{ color: '#b45309', fontSize: '11px', fontWeight: 700 }}>
+                        Số lượng nhập vượt số hàng loại còn lại của nguồn đã chọn.
                       </small>
                     )}
                   </label>
@@ -2980,9 +3225,7 @@ export default function InventoryStockReport() {
                   <td className="whitespace-nowrap" style={{ padding: '9px' }}>{getRepairLines(slip).map(line => <div key={line.id}><strong>{line.productCode}</strong> · {line.productName}</div>)}</td>
                   <td className="whitespace-nowrap" style={{ padding: '9px' }}>{getRepairLines(slip).map(line => {
                     const piecesPerSet = getPiecesPerSet(line.productCode);
-                    const sourceSlip = defectiveGoodsImportSlips.find(source =>
-                      String(source.id) === String(line.sourceDefectiveGoodsImportSlipId || '')
-                    );
+                    const source = getRepairSourceForLine(line);
                     const sizeSummary = Object.entries(line.sizeQuantities || {})
                       .filter(([, count]) => Number(count) > 0)
                       .map(([size, count]) => `${formatNumber(Number(count))} cái (Size ${size.replace(/\D/g, '')})`)
@@ -2993,7 +3236,7 @@ export default function InventoryStockReport() {
                     return (
                       <div key={line.id}>
                         {[bundleSummary, sizeSummary || (piecesPerSet === 1 ? `${formatNumber(line.quantity)} cái` : '')].filter(Boolean).join(' · ') || '—'}
-                        {sourceSlip && <small style={{ display: 'block', color: '#0f766e' }}>Nguồn: {sourceSlip.slipNo}</small>}
+                        {source && <small style={{ display: 'block', color: '#0f766e' }}>Nguồn: {source.label}</small>}
                       </div>
                     );
                   })}</td>
@@ -3088,13 +3331,11 @@ export default function InventoryStockReport() {
                     Number(line.bundleQuantity) > 0 ? `${formatNumber(line.bundleQuantity)} Bộ` : '',
                     sizeDetails || (piecesPerSet === 1 ? `${formatNumber(line.quantity)} cái` : '')
                   ].filter(Boolean).join(' · ') || '—'}
-                  {shareSlip.type === 'XUAT_SUA_KHOAN' && line.sourceDefectiveGoodsImportSlipId && (
+                  {shareSlip.type === 'XUAT_SUA_KHOAN' && getRepairSourceForLine(line) && (
                     <>
                       <br />
                       <small style={{ color: '#0f766e' }}>
-                        Nguồn nhập loại: {defectiveGoodsImportSlips.find(source =>
-                          String(source.id) === String(line.sourceDefectiveGoodsImportSlipId)
-                        )?.slipNo || 'Không còn tồn tại'}
+                        Nguồn hàng loại: {getRepairSourceForLine(line)?.label}
                       </small>
                     </>
                   )}
