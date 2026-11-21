@@ -458,7 +458,14 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   const handleSubProductCodeSelect = (codeStr: string) => {
     try {
       const safeCode = typeof codeStr === 'string' ? codeStr : String(codeStr || '');
+      const codeChanged = safeCode.trim().toLowerCase() !== productCode.trim().toLowerCase();
       setProductCode(safeCode);
+      if (codeChanged) {
+        setItemTypeOption('BO');
+        setSizeQuantities({});
+        setSizePrices({});
+        setBoQuantity('');
+      }
       const cleanCode = safeCode.trim().toLowerCase();
       const matchedParent = contractItems.find(
         (contract: any) =>
@@ -1157,8 +1164,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
           Boolean(material) && typeof material === 'object')
         : [];
       setSubContractMaterials(savedMaterials.length > 0
-        ? savedMaterials.map((material: AccompanyingMaterial, index: number) => ({
-          id: `${item.id}-material-${index}`,
+        ? savedMaterials.map((material: AccompanyingMaterial) => ({
+          id: createUniqueId('contract-material-'),
           materialId: material.materialId,
           materialCode: material.materialCode,
           materialName: material.materialName,
@@ -1428,7 +1435,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       )}
 
       {!isWarehouseUser && <datalist id="companyList">
-        {existingCompanyNames.map((comp: any, idx: number) => <option key={idx} value={comp} />)}
+        {existingCompanyNames.map((comp: any) => <option key={comp} value={comp} />)}
       </datalist>}
 
       {/* Menu Tabs */}
@@ -1767,7 +1774,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       {/* FORM 2: HĐ TỔ ĐAN */}
       {activeTab === 'SUB' && hasPermission('manage_contracts') && (
         <ErrorBoundary fallbackTitle="Lỗi hiển thị Form HĐ Tổ Đan" onReset={resetForm}>
-        <form {...formDraftProps} onSubmit={(e) => {
+        <form {...formDraftProps} translate="no" onSubmit={(e) => {
           e.preventDefault();
           if (submissionLock.current) return;
           submissionLock.current = true;
@@ -2000,7 +2007,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                   {Array.from({ length: maxAllowedSizes }).map((_, idx) => {
                     const sName = `Cái ${idx + 1}`;
                     return (
-                      <div key={idx} style={{ backgroundColor: '#fff', padding: '8px', borderRadius: '6px', border: '1px solid #e9d5ff' }}>
+                      <div key={sName} style={{ backgroundColor: '#fff', padding: '8px', borderRadius: '6px', border: '1px solid #e9d5ff' }}>
                         <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#7c3aed', display: 'block', marginBottom: '4px' }}>{sName}:</span>
                         <div style={{ display: 'flex', gap: '4px' }}>
                           <input
