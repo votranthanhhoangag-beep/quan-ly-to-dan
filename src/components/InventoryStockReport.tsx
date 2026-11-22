@@ -1068,32 +1068,45 @@ export default function InventoryStockReport() {
       })
       .forEach(slip => {
         getRepairLines(slip).forEach(line => {
-          let sourceKnittingExportSlipId = line.sourceKnittingExportSlipId;
-          let sourceDefectiveGoodsImportSlipId = line.sourceDefectiveGoodsImportSlipId;
+          const sourceKnittingExportSlipId = line.sourceKnittingExportSlipId;
+          const sourceDefectiveGoodsImportSlipId = line.sourceDefectiveGoodsImportSlipId;
           const sourceDefectiveStockSourceId = String(line.sourceDefectiveStockSourceId || '');
-          if (sourceKnittingExportSlipId === undefined && sourceDefectiveGoodsImportSlipId === undefined) {
-            if (sourceDefectiveStockSourceId.startsWith('import:')) {
-              sourceDefectiveGoodsImportSlipId = sourceDefectiveStockSourceId.slice('import:'.length);
-            } else if (sourceDefectiveStockSourceId.startsWith('receipt:')) {
-              try {
-                const parsedSource = JSON.parse(sourceDefectiveStockSourceId.slice('receipt:'.length)) as unknown[];
-                const sourceContractId = String(parsedSource[0] || '');
-                const sourceReceiptId = String(parsedSource[1] || '');
-                const matchingSlip = knittingExportSlips.find(item =>
-                  String(item.sourceContractId || '') === sourceContractId &&
-                  (String(item.sourceReceiptId || '') === sourceReceiptId ||
-                    (Array.isArray(item.sourceAllocations) &&
-                      item.sourceAllocations.some(allocation =>
-                        String(allocation.sourceContractId || '') === sourceContractId &&
-                        String(allocation.sourceReceiptId || '') === sourceReceiptId)))
-                );
-                if (matchingSlip) sourceKnittingExportSlipId = matchingSlip.id;
-              } catch {
-                // Legacy slips may not contain a parseable source marker.
-              }
+          const productKey = line.productCode.trim().toLowerCase();
+          const sourceMatchesProduct = (code: string) => code.trim().toLowerCase() === productKey;
+          let matchingKnittingExport = knittingExportSlips.find(item =>
+            String(item.id) === String(sourceKnittingExportSlipId || '') &&
+            sourceMatchesProduct(item.productCode)
+          );
+          let matchingDefectiveImport = defectiveGoodsImportSlips.find(item =>
+            String(item.id) === String(sourceDefectiveGoodsImportSlipId || '') &&
+            sourceMatchesProduct(item.productCode)
+          );
+          if (!matchingDefectiveImport && sourceDefectiveStockSourceId.startsWith('import:')) {
+            const fallbackImportId = sourceDefectiveStockSourceId.slice('import:'.length);
+            matchingDefectiveImport = defectiveGoodsImportSlips.find(item =>
+              String(item.id) === fallbackImportId &&
+              sourceMatchesProduct(item.productCode)
+            );
+          }
+          if (!matchingKnittingExport && sourceDefectiveStockSourceId.startsWith('receipt:')) {
+            try {
+              const parsedSource = JSON.parse(sourceDefectiveStockSourceId.slice('receipt:'.length)) as unknown[];
+              const sourceContractId = String(parsedSource[0] || '');
+              const sourceReceiptId = String(parsedSource[1] || '');
+              matchingKnittingExport = knittingExportSlips.find(item =>
+                sourceMatchesProduct(item.productCode) &&
+                String(item.sourceContractId || '') === sourceContractId &&
+                (String(item.sourceReceiptId || '') === sourceReceiptId ||
+                  (Array.isArray(item.sourceAllocations) &&
+                    item.sourceAllocations.some(allocation =>
+                      String(allocation.sourceContractId || '') === sourceContractId &&
+                      String(allocation.sourceReceiptId || '') === sourceReceiptId)))
+              );
+            } catch {
+              // Legacy slips may not contain a parseable source marker.
             }
           }
-          if (sourceKnittingExportSlipId === undefined && sourceDefectiveGoodsImportSlipId === undefined) return;
+          if (!matchingKnittingExport && !matchingDefectiveImport) return;
           repairExportLineKeys.add(repairLineKey(slip.id, line.id));
           const sizeCount = getPiecesPerSet(line.productCode);
           const sizes = normalizeSizeCounts(
@@ -1105,17 +1118,17 @@ export default function InventoryStockReport() {
             bundles: Number(line.bundleQuantity) || 0,
             sizes
           };
-          if (sourceKnittingExportSlipId !== undefined) {
+          if (matchingKnittingExport) {
             addBreakdown(
               repairedQuantitiesByKnittingExport,
-              String(sourceKnittingExportSlipId),
+              String(matchingKnittingExport.id),
               exportedForRepair
             );
           }
-          if (sourceDefectiveGoodsImportSlipId !== undefined) {
+          if (matchingDefectiveImport) {
             addBreakdown(
               repairedQuantitiesByDefectiveImport,
-              String(sourceDefectiveGoodsImportSlipId),
+              String(matchingDefectiveImport.id),
               exportedForRepair
             );
           }
