@@ -53,7 +53,7 @@ const normalizeMaterialIdentity = (value: unknown) =>
 
 const findCatalogMaterial = (line: MaterialLine, materials: CategoryItem[]) => {
   const safeMaterials = Array.isArray(materials) ? materials : [];
-  if (line.materialId !== undefined && line.materialId !== null) {
+  if (line.materialId !== undefined && line.materialId !== null && String(line.materialId) !== '0') {
     const byId = safeMaterials.find(material => String(material.id) === String(line.materialId));
     if (byId) return byId;
   }
@@ -73,13 +73,98 @@ const findCatalogMaterial = (line: MaterialLine, materials: CategoryItem[]) => {
   return nameMatches.length === 1 ? nameMatches[0] : undefined;
 };
 
-const getMaterialKey = (line: MaterialLine, materials: CategoryItem[]) => {
+export const getMaterialKey = (line: MaterialLine, materials: CategoryItem[]) => {
   const catalogMaterial = findCatalogMaterial(line, materials);
   if (catalogMaterial) return `id:${catalogMaterial.id}`;
-  if (line.materialId !== undefined && line.materialId !== null) return `id:${line.materialId}`;
+  if (line.materialId !== undefined && line.materialId !== null && String(line.materialId) !== '0') {
+    return `id:${line.materialId}`;
+  }
   const code = String(line.materialCode || '').trim().toLocaleLowerCase('vi');
   if (code) return `code:${code}`;
   return `name:${String(line.materialName || '').trim().toLocaleLowerCase('vi')}`;
+};
+
+export const getMaterialUnit = (line: MaterialLine, materials: CategoryItem[]) =>
+  String(line.unit || findCatalogMaterial(line, materials)?.unit || '').trim();
+
+export interface MaterialIncomingSourceRow {
+  key: string;
+  name: string;
+  code: string;
+  unit: string;
+  companyIncoming: number;
+  outsideIncoming: number;
+}
+
+export const getMaterialIncomingBySource = (
+  materials: CategoryItem[],
+  slips: SlipItem[],
+  expenses: ExpenseItem[]
+): MaterialIncomingSourceRow[] => {
+  const rows = new Map<string, MaterialIncomingSourceRow>();
+  const addIncoming = (
+    line: MaterialLine,
+    source: 'companyIncoming' | 'outsideIncoming'
+  ) => {
+    const quantity = Number(line.quantity) || 0;
+    const catalogMaterial = findCatalogMaterial(line, materials);
+    const name = String(line.materialName || catalogMaterial?.name || '').trim();
+    if (quantity <= 0 || !name) return;
+    const code = String(catalogMaterial?.code || line.materialCode || '').trim();
+    const unit = getMaterialUnit(line, materials);
+    const key = `${getMaterialKey(line, materials)}|unit:${unit.toLocaleLowerCase('vi')}`;
+    const current = rows.get(key) || {
+      key,
+      name: catalogMaterial?.name || name,
+      code,
+      unit,
+      companyIncoming: 0,
+      outsideIncoming: 0
+    };
+    current[source] += quantity;
+    rows.set(key, current);
+  };
+
+  (Array.isArray(slips) ? slips : []).forEach(slip => {
+    const type = String(slip.type || '').toUpperCase();
+    const isCompanyReceipt = type === 'NK' || type === 'NHAP' ||
+      (type === 'NK_KHUNG' &&
+        !slip.sourceContractId &&
+        !slip.sourceReturnSlipId &&
+        !slip.craftGroupLeader);
+    if (!isCompanyReceipt || !Array.isArray(slip.accompanyingMaterials)) return;
+    slip.accompanyingMaterials.forEach(line => addIncoming(line, 'companyIncoming'));
+  });
+
+  (Array.isArray(expenses) ? expenses : []).forEach(expense => {
+    if (!Array.isArray(expense.items)) return;
+    expense.items.forEach(item => {
+      const name = String(item.name || '').trim();
+      const catalogMaterial = findCatalogMaterial({
+        materialCode: item.sourceCode,
+        materialName: name
+      }, materials);
+      const isMaterialCode = Boolean(item.sourceCode && materials.some(material =>
+        normalizeMaterialIdentity(material.code) === normalizeMaterialIdentity(item.sourceCode)
+      ));
+      const sourceType = String(item.sourceType || '');
+      const isRawMaterial = sourceType === 'Nguyên liệu' ||
+        isMaterialCode ||
+        (sourceType !== 'Sản phẩm' && Boolean(catalogMaterial));
+      if (!isRawMaterial) return;
+      addIncoming({
+        materialId: catalogMaterial?.id,
+        materialCode: item.sourceCode || catalogMaterial?.code || '',
+        materialName: name || catalogMaterial?.name || '',
+        quantity: item.quantity,
+        unit: item.unit || catalogMaterial?.unit || '',
+        unitPrice: item.unitPrice,
+        amount: item.amount
+      }, 'outsideIncoming');
+    });
+  });
+
+  return Array.from(rows.values());
 };
 
 const formatNumber = (value: number) => value.toLocaleString('vi-VN', { maximumFractionDigits: 2 });

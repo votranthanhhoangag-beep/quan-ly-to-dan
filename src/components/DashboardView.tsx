@@ -8,7 +8,7 @@ import {
 } from '../utils/contractDebt';
 import { getVehicleExpiryWarnings } from '../utils/vehicleExpiry';
 import { getVehicleMaintenanceWarnings, recordVehicleMaintenance } from '../utils/vehicleMaintenance';
-import { getMaterialStockRows } from '../utils/materialStock';
+import { getMaterialIncomingBySource, getMaterialKey, getMaterialStockRows, getMaterialUnit } from '../utils/materialStock';
 
 const formatNumber = (value: number) => value.toLocaleString('vi-VN');
 const formatCurrency = (value: number) => `${value.toLocaleString('vi-VN')} đ`;
@@ -469,15 +469,35 @@ export default function DashboardView() {
   const actualNetRevenue = totalRealizedRevenue - weavingContractValue;
 
   const parentMaterialSummary = useMemo(() => {
-    const totals = new Map<string, { name: string; unit: string; quantity: number }>();
+    const incomingByKey = new Map(getMaterialIncomingBySource(materials, slips, expenses)
+      .map(row => [row.key, row]));
+    const totals = new Map<string, {
+      name: string;
+      unit: string;
+      quantity: number;
+      companyIncoming: number;
+      outsideIncoming: number;
+    }>();
     const contractsWithMaterials = parentContracts.map(contract => {
       const materialsByContract = new Map<string, { name: string; unit: string; quantity: number }>();
       (Array.isArray(contract.accompanyingMaterials) ? contract.accompanyingMaterials : []).forEach(material => {
         const quantity = Number(material.quantity) || 0;
         if (quantity <= 0) return;
         const name = material.materialName || material.materialCode || 'Nguyên vật liệu';
-        const unit = material.unit || 'cái';
-        const key = `${material.materialId || name}-${unit}`.toLowerCase();
+        const unit = getMaterialUnit({
+          materialId: material.materialId,
+          materialCode: material.materialCode,
+          materialName: material.materialName,
+          unit: material.unit
+        }, materials) || 'cái';
+        const materialKey = getMaterialKey({
+          materialId: material.materialId,
+          materialCode: material.materialCode,
+          materialName: material.materialName,
+          unit
+        }, materials);
+        const key = `${materialKey}|unit:${unit.toLocaleLowerCase('vi')}`;
+        const incoming = incomingByKey.get(key);
         const existing = materialsByContract.get(key);
         materialsByContract.set(key, {
           name,
@@ -488,7 +508,9 @@ export default function DashboardView() {
         totals.set(key, {
           name,
           unit,
-          quantity: (totalExisting?.quantity || 0) + quantity
+          quantity: (totalExisting?.quantity || 0) + quantity,
+          companyIncoming: incoming?.companyIncoming || 0,
+          outsideIncoming: incoming?.outsideIncoming || 0
         });
       });
       return {
@@ -502,10 +524,15 @@ export default function DashboardView() {
       contractsWithMaterials,
       totals: Array.from(totals.values())
         .filter(material => material.quantity > 0)
+        .map(material => ({
+          ...material,
+          imported: material.companyIncoming + material.outsideIncoming,
+          difference: material.companyIncoming + material.outsideIncoming - material.quantity
+        }))
         .sort((first, second) => second.quantity - first.quantity || first.name.localeCompare(second.name, 'vi'))
     };
-  }, [parentContracts]);
-  const topMaterials = parentMaterialSummary.totals.slice(0, 5);
+  }, [parentContracts, materials, slips, expenses]);
+  const topMaterials = parentMaterialSummary.totals;
   const contractDebts = displaySubContracts
     .map(contract => ({
       contract,
@@ -717,9 +744,26 @@ export default function DashboardView() {
           {topMaterials.length > 0 ? (
             <div style={{ display: 'grid', gap: '8px', marginTop: '12px' }}>
               {topMaterials.map(material => (
-                <div key={`${material.name}-${material.unit}`} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', color: '#334155', fontSize: '13px' }}>
-                  <span>{material.name}</span>
-                  <strong style={{ whiteSpace: 'nowrap', color: '#166534' }}>{formatNumber(material.quantity)} {material.unit}</strong>
+                <div key={`${material.name}-${material.unit}`} style={{ display: 'grid', gap: '4px', color: '#334155', fontSize: '13px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                    <span>{material.name}</span>
+                    <strong style={{ whiteSpace: 'nowrap', color: '#166534' }}>Cần {formatNumber(material.quantity)} {material.unit}</strong>
+                  </div>
+                  <small style={{ color: '#64748b' }}>
+                    Đã nhập {formatNumber(material.imported)} {material.unit}
+                    {' · '}Từ Công ty: {formatNumber(material.companyIncoming)}
+                    {' · '}Mua ngoài: {formatNumber(material.outsideIncoming)}
+                  </small>
+                  <strong style={{
+                    color: material.difference < -0.000001 ? '#b91c1c' : material.difference > 0.000001 ? '#b45309' : '#15803d',
+                    fontSize: '12px'
+                  }}>
+                    {material.difference < -0.000001
+                      ? `Còn thiếu ${formatNumber(Math.abs(material.difference))} ${material.unit} mới đủ`
+                      : material.difference > 0.000001
+                        ? `Nhập dư ${formatNumber(material.difference)} ${material.unit}`
+                        : 'Đã nhập đủ'}
+                  </strong>
                 </div>
               ))}
             </div>
@@ -974,8 +1018,21 @@ export default function DashboardView() {
             <>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
                 {parentMaterialSummary.totals.map(material => (
-                  <span key={`${material.name}-${material.unit}`} style={{ padding: '6px 9px', borderRadius: '999px', backgroundColor: '#dbeafe', color: '#1e40af', fontSize: '12px', fontWeight: 800 }}>
-                    Tổng {material.name}: {formatNumber(material.quantity)} {material.unit}
+                  <span key={`${material.name}-${material.unit}`} style={{ display: 'grid', gap: '3px', padding: '8px 10px', borderRadius: '8px', backgroundColor: '#dbeafe', color: '#1e40af', fontSize: '12px' }}>
+                    <strong>Tổng {material.name} cần nhập: {formatNumber(material.quantity)} {material.unit}</strong>
+                    <span>Đã nhập {formatNumber(material.imported)} {material.unit}
+                      {' · '}Từ Công ty {formatNumber(material.companyIncoming)}
+                      {' · '}Mua ngoài {formatNumber(material.outsideIncoming)}
+                    </span>
+                    <strong style={{
+                      color: material.difference < -0.000001 ? '#b91c1c' : material.difference > 0.000001 ? '#b45309' : '#15803d'
+                    }}>
+                      {material.difference < -0.000001
+                        ? `Còn thiếu ${formatNumber(Math.abs(material.difference))} ${material.unit} mới đủ`
+                        : material.difference > 0.000001
+                          ? `Nhập dư ${formatNumber(material.difference)} ${material.unit}`
+                          : 'Đã nhập đủ'}
+                    </strong>
                   </span>
                 ))}
               </div>
@@ -988,7 +1045,7 @@ export default function DashboardView() {
                     {materials.map(material => (
                       <div key={`${material.name}-${material.unit}`} style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', color: '#475569', fontSize: '12px', marginTop: '3px' }}>
                         <span>{material.name}</span>
-                        <strong style={{ whiteSpace: 'nowrap', color: '#1d4ed8' }}>{formatNumber(material.quantity)} {material.unit}</strong>
+                        <strong style={{ whiteSpace: 'nowrap', color: '#1d4ed8' }}>Cần {formatNumber(material.quantity)} {material.unit}</strong>
                       </div>
                     ))}
                   </div>
