@@ -22,9 +22,9 @@ interface RepairFormLine {
   bundleUnitPrice: string;
   sizeUnitPrices: Record<string, string>;
   itemTypeOption: 'CAI' | 'CA_HAI';
-  sourceDefectiveGoodsImportSlipId?: string;
+  sourceDefectiveGoodsImportSlipId?: number | string;
   sourceDefectiveStockSourceId?: string;
-  sourceKnittingExportSlipId?: string;
+  sourceKnittingExportSlipId?: number | string;
 }
 
 interface RepairStockLine {

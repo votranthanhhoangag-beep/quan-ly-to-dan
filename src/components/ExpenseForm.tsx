@@ -274,7 +274,7 @@ export const ExpenseForm = () => {
     setError('');
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (enteredItems.length === 0) {
       setError('Vui lòng thêm ít nhất một dòng hàng hóa hoặc khoản chi.');
@@ -344,9 +344,10 @@ export const ExpenseForm = () => {
         items: savedItems
       };
 
-      if (editingExpenseId !== null) updateExpense(newExpense);
-      else {
-        addExpense(newExpense);
+      if (editingExpenseId !== null) {
+        await updateExpense(newExpense);
+      } else {
+        await addExpense(newExpense);
         void logDailyAction({
           actionType: 'CREATE_PAYMENT',
           title: `Tạo phiếu chi ${category}`,

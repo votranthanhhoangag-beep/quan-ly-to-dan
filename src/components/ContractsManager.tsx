@@ -1066,7 +1066,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   const getNetFrameAtGroupTotal = (contract: any) =>
     Math.max(0, getFrameReceiptTotal(contract) - getReturnedFrameTotal(contract));
 
-  const saveFrameExportBatch = () => {
+  const saveFrameExportBatch = async () => {
     if (!frameExportContract) return;
 
     const priorLogs: ActualExportLog[] = Array.isArray(frameExportContract.exportLogs)
@@ -1133,7 +1133,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     const nextReceivedTotal = priorGrossIssued + batchQty;
     const nextDepositTotal = initialDeposit + nextDepositLogs.reduce((sum, log) => sum + (Number(log.amount) || 0), 0);
 
-    updateContract({
+    await updateContract({
       ...frameExportContract,
       quantity: newContractQty,
       totalActualExported: nextReceivedTotal,
@@ -1467,7 +1467,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
 
       {/* FORM 1: HĐ CTY */}
       {activeTab === 'PARENT' && hasPermission('manage_contracts') && (
-        <form {...formDraftProps} onSubmit={(e) => {
+        <form {...formDraftProps} onSubmit={async (e) => {
           e.preventDefault();
           if (submissionLock.current) return;
           submissionLock.current = true;
@@ -1506,9 +1506,10 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             contractImage,
             note
           };
-          if (editingId) updateContract(payload);
-          else {
-            addContract(payload);
+          if (editingId) {
+            await updateContract(payload);
+          } else {
+            await addContract(payload);
             if (depositNum > 0) {
               void logDailyAction({
                 actionType: 'CREATE_RECEIPT',
@@ -1782,7 +1783,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       {/* FORM 2: HĐ TỔ ĐAN */}
       {activeTab === 'SUB' && hasPermission('manage_contracts') && (
         <ErrorBoundary fallbackTitle="Lỗi hiển thị Form HĐ Tổ Đan" onReset={resetForm}>
-        <form {...formDraftProps} translate="no" onSubmit={(e) => {
+        <form {...formDraftProps} translate="no" onSubmit={async (e) => {
           e.preventDefault();
           if (submissionLock.current) return;
           submissionLock.current = true;
@@ -1913,8 +1914,11 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             accompanyingMaterialsIssuedDate: existingSubContract?.accompanyingMaterialsIssuedDate ||
               (editingId ? undefined : minDateString)
           };
-          if (editingId) updateContract(payload);
-          else addContract(payload);
+          if (editingId) {
+            await updateContract(payload);
+          } else {
+            await addContract(payload);
+          }
           alert(`🧺 Lưu Hợp Đồng Tổ Đan thành công!`);
           resetForm();
           } catch (saveError) {

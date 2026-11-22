@@ -642,6 +642,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!wasLoaded) setIsDataLoaded(false);
         setDataLoadError('');
         setIsSystemConfigurationLoaded(false);
+        suppressedSaveSnapshots.current.clear();
+        lastFetchedSnapshots.current.clear();
       }
       if (!userId) {
         isLoaded.current = false;
@@ -706,12 +708,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const reloadData = useCallback(() => {
     setIsBackgroundLoad(false);
+    suppressedSaveSnapshots.current.clear();
+    lastFetchedSnapshots.current.clear();
     setLoadAttempt(attempt => attempt + 1);
   }, []);
   const reloadDataInBackground = useCallback(() => {
     setIsBackgroundLoad(true);
     setLoadAttempt(attempt => attempt + 1);
   }, []);
+
+  const persistDirectly = useCallback(async (sheetName: string, value: unknown[]) => {
+    if (!user?.id) return value;
+    suppressedSaveSnapshots.current.set(sheetName, value);
+    window.dispatchEvent(new CustomEvent('erp:sync-status', {
+      detail: { status: 'syncing', message: `Đang lưu ${sheetName} lên Supabase...` }
+    }));
+    try {
+      const remoteValue = await saveDataStore(sheetName, user.id, value);
+      applySheetSnapshot(sheetName, remoteValue);
+      lastFetchedSnapshots.current.set(sheetName, JSON.stringify(remoteValue));
+      setDataLoadError('');
+      window.dispatchEvent(new CustomEvent('erp:sync-status', {
+        detail: { status: 'synced', message: `Đã lưu thành công lên Supabase lúc ${new Date().toLocaleTimeString('vi-VN')}` }
+      }));
+      return remoteValue;
+    } catch (error) {
+      console.error(`Không thể lưu dữ liệu Supabase (${sheetName}):`, error);
+      const message = error instanceof Error ? error.message : 'Không thể lưu dữ liệu lên Supabase.';
+      setDataLoadError(message);
+      window.dispatchEvent(new CustomEvent('erp:sync-status', {
+        detail: { status: 'error', message: `Không thể lưu dữ liệu ${sheetName} lên Supabase: ${message}` }
+      }));
+      throw error;
+    }
+  }, [applySheetSnapshot, user?.id]);
 
   const shouldPersistSnapshot = useCallback((sheetName: string, value: unknown) => {
     if (!user?.id || !isLoaded.current || !persistenceEffectsMounted.current) return false;
@@ -780,25 +810,100 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return false;
   };
 
-  const addProduct = (item: CategoryItem) => { if (canWrite('manage_settings')) setProducts(prev => sortCategoryItemsAZ([...prev, item])); };
-  const updateProduct = (item: CategoryItem) => { if (canWrite('manage_settings')) setProducts(prev => sortCategoryItemsAZ(prev.map(p => String(p.id) === String(item.id) ? item : p))); };
-  const deleteProduct = (id: number | string) => { if (canWrite('manage_settings')) setProducts(prev => prev.filter(p => String(p.id) !== String(id))); };
+  const addProduct = async (item: CategoryItem) => {
+    if (!canWrite('manage_settings')) return;
+    const next = sortCategoryItemsAZ([...products, item]);
+    setProducts(next);
+    return await persistDirectly('products', next);
+  };
+  const updateProduct = async (item: CategoryItem) => {
+    if (!canWrite('manage_settings')) return;
+    const next = sortCategoryItemsAZ(products.map(p => String(p.id) === String(item.id) ? item : p));
+    setProducts(next);
+    return await persistDirectly('products', next);
+  };
+  const deleteProduct = async (id: number | string) => {
+    if (!canWrite('manage_settings')) return;
+    const next = products.filter(p => String(p.id) !== String(id));
+    setProducts(next);
+    return await persistDirectly('products', next);
+  };
 
-  const addMaterial = (item: CategoryItem) => { if (canWrite('manage_settings')) setMaterials(prev => sortCategoryItemsAZ([...prev, item])); };
-  const updateMaterial = (item: CategoryItem) => { if (canWrite('manage_settings')) setMaterials(prev => sortCategoryItemsAZ(prev.map(m => String(m.id) === String(item.id) ? item : m))); };
-  const deleteMaterial = (id: number | string) => { if (canWrite('manage_settings')) setMaterials(prev => prev.filter(m => String(m.id) !== String(id))); };
+  const addMaterial = async (item: CategoryItem) => {
+    if (!canWrite('manage_settings')) return;
+    const next = sortCategoryItemsAZ([...materials, item]);
+    setMaterials(next);
+    return await persistDirectly('materials', next);
+  };
+  const updateMaterial = async (item: CategoryItem) => {
+    if (!canWrite('manage_settings')) return;
+    const next = sortCategoryItemsAZ(materials.map(m => String(m.id) === String(item.id) ? item : m));
+    setMaterials(next);
+    return await persistDirectly('materials', next);
+  };
+  const deleteMaterial = async (id: number | string) => {
+    if (!canWrite('manage_settings')) return;
+    const next = materials.filter(m => String(m.id) !== String(id));
+    setMaterials(next);
+    return await persistDirectly('materials', next);
+  };
 
-  const addExpenseCat = (item: CategoryItem) => { if (canWrite('manage_settings')) setExpensesCat(prev => sortCategoryItemsAZ([...prev, item])); };
-  const updateExpenseCat = (item: CategoryItem) => { if (canWrite('manage_settings')) setExpensesCat(prev => sortCategoryItemsAZ(prev.map(e => String(e.id) === String(item.id) ? item : e))); };
-  const deleteExpenseCat = (id: number | string) => { if (canWrite('manage_settings')) setExpensesCat(prev => prev.filter(e => String(e.id) !== String(id))); };
+  const addExpenseCat = async (item: CategoryItem) => {
+    if (!canWrite('manage_settings')) return;
+    const next = sortCategoryItemsAZ([...expensesCat, item]);
+    setExpensesCat(next);
+    return await persistDirectly('expensesCat', next);
+  };
+  const updateExpenseCat = async (item: CategoryItem) => {
+    if (!canWrite('manage_settings')) return;
+    const next = sortCategoryItemsAZ(expensesCat.map(e => String(e.id) === String(item.id) ? item : e));
+    setExpensesCat(next);
+    return await persistDirectly('expensesCat', next);
+  };
+  const deleteExpenseCat = async (id: number | string) => {
+    if (!canWrite('manage_settings')) return;
+    const next = expensesCat.filter(e => String(e.id) !== String(id));
+    setExpensesCat(next);
+    return await persistDirectly('expensesCat', next);
+  };
 
-  const addOtherExpenseCat = (item: CategoryItem) => { if (canWrite('manage_settings')) setOtherExpensesCat(prev => sortCategoryItemsAZ([...prev, item])); };
-  const updateOtherExpenseCat = (item: CategoryItem) => { if (canWrite('manage_settings')) setOtherExpensesCat(prev => sortCategoryItemsAZ(prev.map(e => String(e.id) === String(item.id) ? item : e))); };
-  const deleteOtherExpenseCat = (id: number | string) => { if (canWrite('manage_settings')) setOtherExpensesCat(prev => prev.filter(e => String(e.id) !== String(id))); };
+  const addOtherExpenseCat = async (item: CategoryItem) => {
+    if (!canWrite('manage_settings')) return;
+    const next = sortCategoryItemsAZ([...otherExpensesCat, item]);
+    setOtherExpensesCat(next);
+    return await persistDirectly('otherExpensesCat', next);
+  };
+  const updateOtherExpenseCat = async (item: CategoryItem) => {
+    if (!canWrite('manage_settings')) return;
+    const next = sortCategoryItemsAZ(otherExpensesCat.map(e => String(e.id) === String(item.id) ? item : e));
+    setOtherExpensesCat(next);
+    return await persistDirectly('otherExpensesCat', next);
+  };
+  const deleteOtherExpenseCat = async (id: number | string) => {
+    if (!canWrite('manage_settings')) return;
+    const next = otherExpensesCat.filter(e => String(e.id) !== String(id));
+    setOtherExpensesCat(next);
+    return await persistDirectly('otherExpensesCat', next);
+  };
 
-  const addVehicle = (item: VehicleCategoryItem) => { if (canWrite('manage_settings')) setVehicles(prev => sortAZ([...prev, item], 'vehicleName')); };
-  const updateVehicle = (item: VehicleCategoryItem) => { if (canWrite('manage_settings')) setVehicles(prev => sortAZ(prev.map(v => String(v.id) === String(item.id) ? item : v), 'vehicleName')); };
-  const deleteVehicle = (id: number | string) => { if (canWrite('manage_settings')) setVehicles(prev => prev.filter(v => String(v.id) !== String(id))); };
+  const addVehicle = async (item: VehicleCategoryItem) => {
+    if (!canWrite('manage_settings')) return;
+    const next = sortAZ([...vehicles, item], 'vehicleName');
+    setVehicles(next);
+    return await persistDirectly('vehicles', next);
+  };
+  const updateVehicle = async (item: VehicleCategoryItem) => {
+    if (!canWrite('manage_settings')) return;
+    const next = sortAZ(vehicles.map(v => String(v.id) === String(item.id) ? item : v), 'vehicleName');
+    setVehicles(next);
+    return await persistDirectly('vehicles', next);
+  };
+  const deleteVehicle = async (id: number | string) => {
+    if (!canWrite('manage_settings')) return;
+    const next = vehicles.filter(v => String(v.id) !== String(id));
+    setVehicles(next);
+    return await persistDirectly('vehicles', next);
+  };
 
   // XỬ LÝ PHIẾU KHO (ĐỒNG BỘ TRỰC TIẾP LÊN HỆ THỐNG & TỰ ĐỘNG LƯU SHEET)
   const getSlipWritePermission = (slip: SlipItem): Permission =>
@@ -822,28 +927,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .map(key => fieldNames[key])
       .filter((name): name is string => Boolean(name));
 
-  const addSlip = (slip: SlipItem) => {
+  const addSlip = async (slip: SlipItem) => {
     if (!canWrite(getSlipWritePermission(slip))) return;
-    setSlips(prev => [slip, ...prev]);
+    const next = [slip, ...slips.filter(s => String(s.id) !== String(slip.id))];
+    setSlips(next);
     if (user) logAction(user, 'CREATE', getSlipModuleName(slip), `Tạo phiếu ${slip.slipNo || slip.type}: ${slip.productCode}, SL ${slip.quantity}`, slip.id);
+    return await persistDirectly('slips', next);
   };
-  const updateSlip = (slip: SlipItem) => {
+  const updateSlip = async (slip: SlipItem) => {
     if (!canWrite(getSlipWritePermission(slip))) return;
     const existing = slips.find(item => String(item.id) === String(slip.id));
-    setSlips(prev => prev.map(s => String(s.id) === String(slip.id) ? slip : s));
+    const next = slips.map(s => String(s.id) === String(slip.id) ? slip : s);
+    setSlips(next);
     if (existing && user) logAction(user, 'UPDATE', getSlipModuleName(slip), `Cập nhật phiếu ${slip.slipNo || slip.type}: ${slip.productCode}, SL ${slip.quantity}`, slip.id);
+    return await persistDirectly('slips', next);
   };
-// HÀM XÓA PHIẾU CHUẨN XÁC (HỖ TRỢ XÓA THEO ID HOẶC SỐ PHIẾU)
-  const deleteSlip = (targetKey: number | string) => {
+  // HÀM XÓA PHIẾU CHUẨN XÁC (HỖ TRỢ XÓA THEO ID HOẶC SỐ PHIẾU)
+  const deleteSlip = async (targetKey: number | string) => {
     const existing = slips.find(s => String(s.id) === String(targetKey) || String(s.slipNo) === String(targetKey));
     if (existing && !canWrite('manage_settings')) return;
-    setSlips(prev => prev.filter(s => 
+    const next = slips.filter(s => 
       String(s.id) !== String(targetKey) && String(s.slipNo) !== String(targetKey)
-    ));
+    );
+    setSlips(next);
     if (existing && user) logAction(user, 'DELETE', getSlipModuleName(existing), `Xóa phiếu ${existing.slipNo || existing.type}: ${existing.productCode}`, existing.id);
+    return await persistDirectly('slips', next);
   };
 
-  const addExpense = (expense: ExpenseItem) => {
+  const addExpense = async (expense: ExpenseItem) => {
     if (!canWrite('manage_expenses')) return;
     if (!user?.id) return;
     const nextExpenses = [expense, ...expenses.filter(item => String(item.id) !== String(expense.id))];
@@ -857,8 +968,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         expense.id
       );
     }
+    return await persistDirectly('expenses', nextExpenses);
   };
-  const updateExpense = (expense: ExpenseItem) => {
+  const updateExpense = async (expense: ExpenseItem) => {
     if (!canWrite('manage_expenses')) return;
     if (!user?.id) return;
     const existing = expenses.find(item => String(item.id) === String(expense.id));
@@ -874,71 +986,96 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       logAction(user, 'UPDATE', getExpenseModuleName(expense), `Cập nhật phiếu chi ${expense.expenseCode || expense.expenseName || expense.id}; thay đổi: ${changed.join(', ') || 'không đổi trường theo dõi'}`, expense.id);
     }
+    return await persistDirectly('expenses', nextExpenses);
   };
-  const deleteExpense = (id: number | string) => {
+  const deleteExpense = async (id: number | string) => {
     if (!canWrite('delete_expenses')) return;
     if (!user?.id) return;
     const existing = expenses.find(item => String(item.id) === String(id));
     const nextExpenses = expenses.filter(item => String(item.id) !== String(id));
     setExpenses(nextExpenses);
     if (existing && user) logAction(user, 'DELETE', getExpenseModuleName(existing), `Xóa phiếu chi ${existing.expenseCode || existing.expenseName || id}, số tiền ${Number(existing.amount) || 0}`, id);
+    return await persistDirectly('expenses', nextExpenses);
   };
-  const saveExpenseAllocation = (allocation: ExpenseAllocation) => {
+  const saveExpenseAllocation = async (allocation: ExpenseAllocation) => {
     if (!canWrite('manage_expenses')) return;
-    setExpenseAllocations(prev => {
-    const exists = prev.some(item => item.sourceId === allocation.sourceId);
-    return exists
-      ? prev.map(item => item.sourceId === allocation.sourceId ? allocation : item)
-      : [...prev, allocation];
-    });
+    const exists = expenseAllocations.some(item => item.sourceId === allocation.sourceId);
+    const next = exists
+      ? expenseAllocations.map(item => item.sourceId === allocation.sourceId ? allocation : item)
+      : [...expenseAllocations, allocation];
+    setExpenseAllocations(next);
+    return await persistDirectly('expenseAllocations', next);
   };
 
-  const addMileageLog = (log: MileageLog) => {
-    setMileageLogs(prev => [log, ...prev]);
-    setVehicles(prev => prev.map(v => v.plateNo === log.plateNo ? { ...v, currentKm: log.endKm } : v));
+  const addMileageLog = async (log: MileageLog) => {
+    const nextLogs = [log, ...mileageLogs];
+    setMileageLogs(nextLogs);
+    const nextVehicles = vehicles.map(v => v.plateNo === log.plateNo ? { ...v, currentKm: log.endKm } : v);
+    setVehicles(nextVehicles);
+    await Promise.all([
+      persistDirectly('mileageLogs', nextLogs),
+      persistDirectly('vehicles', nextVehicles)
+    ]);
   };
-  const updateMileageLog = (log: MileageLog) => {
+  const updateMileageLog = async (log: MileageLog) => {
     const previousLog = mileageLogs.find(item => item.id === log.id);
-    setMileageLogs(prev => prev.map(item => item.id === log.id ? log : item));
-    const affectedPlates = new Set([previousLog?.plateNo, log.plateNo].filter(Boolean));
     const nextLogs = mileageLogs.map(item => item.id === log.id ? log : item);
-    setVehicles(prev => prev.map(vehicle => {
+    setMileageLogs(nextLogs);
+    const affectedPlates = new Set([previousLog?.plateNo, log.plateNo].filter(Boolean));
+    const nextVehicles = vehicles.map(vehicle => {
       if (!affectedPlates.has(vehicle.plateNo)) return vehicle;
       const relatedLogs = nextLogs
         .filter(item => item.plateNo === vehicle.plateNo)
         .sort((first, second) => String(second.date || '').localeCompare(String(first.date || '')));
       return relatedLogs[0] ? { ...vehicle, currentKm: Number(relatedLogs[0].endKm) || 0 } : vehicle;
-    }));
+    });
+    setVehicles(nextVehicles);
+    await Promise.all([
+      persistDirectly('mileageLogs', nextLogs),
+      persistDirectly('vehicles', nextVehicles)
+    ]);
   };
-  const deleteMileageLog = (id: number) => {
+  const deleteMileageLog = async (id: number) => {
     const deletedLog = mileageLogs.find(item => item.id === id);
-    setMileageLogs(prev => prev.filter(item => item.id !== id));
-    if (!deletedLog) return;
-    setVehicles(prev => prev.map(vehicle => {
+    const nextLogs = mileageLogs.filter(item => item.id !== id);
+    setMileageLogs(nextLogs);
+    if (!deletedLog) {
+      return await persistDirectly('mileageLogs', nextLogs);
+    }
+    const nextVehicles = vehicles.map(vehicle => {
       if (vehicle.plateNo !== deletedLog.plateNo) return vehicle;
-      const remainingLogs = mileageLogs
-        .filter(item => item.id !== id && item.plateNo === vehicle.plateNo)
+      const remainingLogs = nextLogs
+        .filter(item => item.plateNo === vehicle.plateNo)
         .sort((first, second) => String(second.date || '').localeCompare(String(first.date || '')));
       return remainingLogs[0]
         ? { ...vehicle, currentKm: Number(remainingLogs[0].endKm) || 0 }
         : vehicle;
-    }));
+    });
+    setVehicles(nextVehicles);
+    await Promise.all([
+      persistDirectly('mileageLogs', nextLogs),
+      persistDirectly('vehicles', nextVehicles)
+    ]);
   };
 
-  const addDepositSlip = (slip: DepositSlip) => {
+  const addDepositSlip = async (slip: DepositSlip) => {
     if (!canWrite('manage_contracts')) return;
-    setDepositSlips(prev => [slip, ...prev]);
+    const next = [slip, ...depositSlips];
+    setDepositSlips(next);
     if (user) logAction(user, 'CREATE', 'HĐ Cty', `Ghi nhận tiền cọc ${slip.amount} cho ${slip.contractNo}`, slip.id);
+    return await persistDirectly('depositSlips', next);
   };
 
   const getContractModule = (item: ContractItem) =>
     item.contractType === 'SUB' ? 'HĐ Tổ Đan' : 'HĐ Cty';
-  const addContract = (item: ContractItem) => {
+  const addContract = async (item: ContractItem) => {
     if (!canWrite('manage_contracts')) return;
-    setContracts(prev => [item, ...prev]);
+    const next = [item, ...contracts.filter(c => String(c.id) !== String(item.id))];
+    setContracts(next);
     if (user) logAction(user, 'CREATE', getContractModule(item), `Tạo hợp đồng ${item.contractNo}: ${item.productCode}, SL ${item.quantity}`, item.id);
+    return await persistDirectly('contracts', next);
   };
-  const updateContract = (item: ContractItem) => {
+  const updateContract = async (item: ContractItem) => {
     const existing = contracts.find(contract => String(contract.id) === String(item.id));
     const { receivedGoodsLogs: previousReceipts, ...previousContract } = existing || {} as ContractItem;
     const { receivedGoodsLogs: nextReceipts, ...nextContract } = item;
@@ -946,7 +1083,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       JSON.stringify(previousContract) === JSON.stringify(nextContract) &&
       JSON.stringify(previousReceipts) !== JSON.stringify(nextReceipts);
     if (!canWrite(onlyReceivedGoodsChanged ? 'manage_knitting_receipts' : 'manage_contracts')) return;
-    setContracts(prev => prev.map(c => String(c.id) === String(item.id) ? item : c));
+    const next = contracts.map(c => String(c.id) === String(item.id) ? item : c);
+    setContracts(next);
     if (existing && user) {
       logAction(
         user,
@@ -962,8 +1100,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         item.id
       );
     }
+    return await persistDirectly('contracts', next);
   };
-  const deleteContract = (
+  const deleteContract = async (
     id: number | string,
     contractCode?: string,
     nextContracts?: ContractItem[]
@@ -976,48 +1115,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         Boolean(normalizedContractCode && itemCode === normalizedContractCode);
     };
     const existing = contracts.find(matchesContract);
-    setContracts(prev => nextContracts ?? prev.filter(item => !matchesContract(item)));
+    const next = nextContracts ?? contracts.filter(item => !matchesContract(item));
+    setContracts(next);
     if (existing && user) logAction(user, 'DELETE', getContractModule(existing), `Xóa hợp đồng ${existing.contractNo}`, id);
+    return await persistDirectly('contracts', next);
   };
-  const addKnittingExportSlip = (slip: KnittingExportSlip) => {
+  const addKnittingExportSlip = async (slip: KnittingExportSlip) => {
     if (!canWrite('manage_knitting_exports')) return;
-    setKnittingExportSlips(prev => [slip, ...prev]);
+    const next = [slip, ...knittingExportSlips.filter(s => String(s.id) !== String(slip.id))];
+    setKnittingExportSlips(next);
     if (user) logAction(user, 'CREATE', 'Xuất Hàng Đan', `Tạo phiếu ${slip.slipNo}`, slip.id);
+    return await persistDirectly('knittingExportSlips', next);
   };
-  const updateKnittingExportSlip = (slip: KnittingExportSlip) => {
+  const updateKnittingExportSlip = async (slip: KnittingExportSlip) => {
     if (!canWrite('manage_knitting_exports')) return;
     const existing = knittingExportSlips.find(item => String(item.id) === String(slip.id));
-    setKnittingExportSlips(prev => prev.map(item => String(item.id) === String(slip.id) ? slip : item));
+    const next = knittingExportSlips.map(item => String(item.id) === String(slip.id) ? slip : item);
+    setKnittingExportSlips(next);
     if (existing && user) logAction(user, 'UPDATE', 'Xuất Hàng Đan', `Cập nhật phiếu ${slip.slipNo}`, slip.id);
+    return await persistDirectly('knittingExportSlips', next);
   };
-  const deleteKnittingExportSlip = (id: number | string) => {
+  const deleteKnittingExportSlip = async (id: number | string) => {
     if (!canWrite('delete_knitting_exports')) return;
     const existing = knittingExportSlips.find(item => String(item.id) === String(id));
-    setKnittingExportSlips(prev => prev.filter(item => String(item.id) !== String(id)));
+    const next = knittingExportSlips.filter(item => String(item.id) !== String(id));
+    setKnittingExportSlips(next);
     if (existing && user) logAction(user, 'DELETE', 'Xuất Hàng Đan', `Xóa phiếu ${existing.slipNo}`, id);
+    return await persistDirectly('knittingExportSlips', next);
   };
-  const addDefectiveGoodsImportSlip = (slip: DefectiveGoodsImportSlip) => {
+  const addDefectiveGoodsImportSlip = async (slip: DefectiveGoodsImportSlip) => {
     if (!canWrite('manage_contracts')) return;
-    setDefectiveGoodsImportSlips(prev => [slip, ...prev]);
+    const next = [slip, ...defectiveGoodsImportSlips.filter(s => String(s.id) !== String(slip.id))];
+    setDefectiveGoodsImportSlips(next);
     if (user) logAction(user, 'CREATE', 'Nhập Hàng Loại', `Tạo phiếu ${slip.slipNo}`, slip.id);
+    return await persistDirectly('defectiveGoodsImportSlips', next);
   };
-  const updateDefectiveGoodsImportSlip = (slip: DefectiveGoodsImportSlip) => {
+  const updateDefectiveGoodsImportSlip = async (slip: DefectiveGoodsImportSlip) => {
     if (!canWrite('manage_contracts')) return;
     const existing = defectiveGoodsImportSlips.find(item => String(item.id) === String(slip.id));
-    setDefectiveGoodsImportSlips(prev => prev.map(item => String(item.id) === String(slip.id) ? slip : item));
+    const next = defectiveGoodsImportSlips.map(item => String(item.id) === String(slip.id) ? slip : item);
+    setDefectiveGoodsImportSlips(next);
     if (existing && user) logAction(user, 'UPDATE', 'Nhập Hàng Loại', `Cập nhật phiếu ${slip.slipNo}`, slip.id);
+    return await persistDirectly('defectiveGoodsImportSlips', next);
   };
-  const deleteDefectiveGoodsImportSlip = (id: number | string) => {
+  const deleteDefectiveGoodsImportSlip = async (id: number | string) => {
     if (!canWrite('manage_contracts')) return;
     const existing = defectiveGoodsImportSlips.find(item => String(item.id) === String(id));
-    setDefectiveGoodsImportSlips(prev => prev.filter(item => String(item.id) !== String(id)));
+    const next = defectiveGoodsImportSlips.filter(item => String(item.id) !== String(id));
+    setDefectiveGoodsImportSlips(next);
     if (existing && user) logAction(user, 'DELETE', 'Nhập Hàng Loại', `Xóa phiếu ${existing.slipNo}`, id);
+    return await persistDirectly('defectiveGoodsImportSlips', next);
   };
-  const saveSystemConfiguration = (configuration: SystemConfiguration) => {
-    if (canWrite('manage_settings')) setSystemConfiguration(configuration);
+  const saveSystemConfiguration = async (configuration: SystemConfiguration) => {
+    if (!canWrite('manage_settings')) return;
+    setSystemConfiguration(configuration);
+    return await persistDirectly('systemConfig', [configuration]);
   };
-  const deleteSystemConfiguration = () => {
-    if (canWrite('manage_settings')) setSystemConfiguration(null);
+  const deleteSystemConfiguration = async () => {
+    if (!canWrite('manage_settings')) return;
+    setSystemConfiguration(null);
+    return await persistDirectly('systemConfig', []);
   };
 
   return (

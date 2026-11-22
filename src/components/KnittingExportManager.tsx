@@ -730,7 +730,7 @@ export default function KnittingExportManager() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (selectedSources.length === 0 || !selectedContract) {
       setError('Vui lòng chọn ít nhất một phiếu nhận hàng đan làm nguồn xuất.');
@@ -844,9 +844,10 @@ export default function KnittingExportManager() {
       attachments
     };
 
-    if (editingId !== null) updateKnittingExportSlip(slip);
-    else {
-      addKnittingExportSlip(slip);
+    if (editingId !== null) {
+      await updateKnittingExportSlip(slip);
+    } else {
+      await addKnittingExportSlip(slip);
       void logDailyAction({
         actionType: 'CREATE_EXPORT',
         title: `Tạo phiếu xuất ${slip.slipNo}`,

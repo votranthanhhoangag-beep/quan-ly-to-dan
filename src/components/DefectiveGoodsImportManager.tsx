@@ -350,7 +350,7 @@ export default function DefectiveGoodsImportManager() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!selectedSource || !selectedContract) {
       setError('Vui lòng chọn phiếu nhận hàng đan làm nguồn nhập.');
@@ -424,8 +424,11 @@ export default function DefectiveGoodsImportManager() {
       note: note.trim()
     };
 
-    if (editingId !== null) updateDefectiveGoodsImportSlip(slip);
-    else addDefectiveGoodsImportSlip(slip);
+    if (editingId !== null) {
+      await updateDefectiveGoodsImportSlip(slip);
+    } else {
+      await addDefectiveGoodsImportSlip(slip);
+    }
     resetForm();
   };
 
