@@ -411,59 +411,59 @@ interface AppContextType {
   reloadDataInBackground: () => void;
   isSystemConfigurationLoaded: boolean;
 
-  addProduct: (item: CategoryItem) => void;
-  updateProduct: (item: CategoryItem) => void;
-  deleteProduct: (id: number | string) => void;
+  addProduct: (item: CategoryItem) => Promise<unknown> | void;
+  updateProduct: (item: CategoryItem) => Promise<unknown> | void;
+  deleteProduct: (id: number | string) => Promise<unknown> | void;
 
-  addMaterial: (item: CategoryItem) => void;
-  updateMaterial: (item: CategoryItem) => void;
-  deleteMaterial: (id: number | string) => void;
+  addMaterial: (item: CategoryItem) => Promise<unknown> | void;
+  updateMaterial: (item: CategoryItem) => Promise<unknown> | void;
+  deleteMaterial: (id: number | string) => Promise<unknown> | void;
 
-  addExpenseCat: (item: CategoryItem) => void;
-  updateExpenseCat: (item: CategoryItem) => void;
-  deleteExpenseCat: (id: number | string) => void;
+  addExpenseCat: (item: CategoryItem) => Promise<unknown> | void;
+  updateExpenseCat: (item: CategoryItem) => Promise<unknown> | void;
+  deleteExpenseCat: (id: number | string) => Promise<unknown> | void;
 
-  addOtherExpenseCat: (item: CategoryItem) => void;
-  updateOtherExpenseCat: (item: CategoryItem) => void;
-  deleteOtherExpenseCat: (id: number | string) => void;
+  addOtherExpenseCat: (item: CategoryItem) => Promise<unknown> | void;
+  updateOtherExpenseCat: (item: CategoryItem) => Promise<unknown> | void;
+  deleteOtherExpenseCat: (id: number | string) => Promise<unknown> | void;
 
-  addVehicle: (item: VehicleCategoryItem) => void;
-  updateVehicle: (item: VehicleCategoryItem) => void;
-  deleteVehicle: (id: number | string) => void;
+  addVehicle: (item: VehicleCategoryItem) => Promise<unknown> | void;
+  updateVehicle: (item: VehicleCategoryItem) => Promise<unknown> | void;
+  deleteVehicle: (id: number | string) => Promise<unknown> | void;
 
   // PHIẾU KHO
-  addSlip: (slip: SlipItem) => void;
-  updateSlip: (slip: SlipItem) => void;
-  deleteSlip: (id: number | string) => void;
-  addInventoryLog: (slip: SlipItem) => void;
-  updateInventoryLog: (slip: SlipItem) => void;
-  deleteInventoryLog: (id: number | string) => void;
+  addSlip: (slip: SlipItem) => Promise<unknown> | void;
+  updateSlip: (slip: SlipItem) => Promise<unknown> | void;
+  deleteSlip: (id: number | string) => Promise<unknown> | void;
+  addInventoryLog: (slip: SlipItem) => Promise<unknown> | void;
+  updateInventoryLog: (slip: SlipItem) => Promise<unknown> | void;
+  deleteInventoryLog: (id: number | string) => Promise<unknown> | void;
 
-  addExpense: (expense: ExpenseItem) => void;
-  updateExpense: (expense: ExpenseItem) => void;
-  deleteExpense: (id: number | string) => void;
-  saveExpenseAllocation: (allocation: ExpenseAllocation) => void;
+  addExpense: (expense: ExpenseItem) => Promise<unknown> | void;
+  updateExpense: (expense: ExpenseItem) => Promise<unknown> | void;
+  deleteExpense: (id: number | string) => Promise<unknown> | void;
+  saveExpenseAllocation: (allocation: ExpenseAllocation) => Promise<unknown> | void;
 
-  addMileageLog: (log: MileageLog) => void;
-  updateMileageLog: (log: MileageLog) => void;
-  deleteMileageLog: (id: number) => void;
-  addDepositSlip: (slip: DepositSlip) => void;
+  addMileageLog: (log: MileageLog) => Promise<unknown> | void;
+  updateMileageLog: (log: MileageLog) => Promise<unknown> | void;
+  deleteMileageLog: (id: number) => Promise<unknown> | void;
+  addDepositSlip: (slip: DepositSlip) => Promise<unknown> | void;
 
-  addContract: (item: ContractItem) => void;
-  updateContract: (item: ContractItem) => void;
+  addContract: (item: ContractItem) => Promise<unknown> | void;
+  updateContract: (item: ContractItem) => Promise<unknown> | void;
   deleteContract: (
     id: number | string,
     contractCode?: string,
     nextContracts?: ContractItem[]
-  ) => void;
-  addKnittingExportSlip: (slip: KnittingExportSlip) => void;
-  updateKnittingExportSlip: (slip: KnittingExportSlip) => void;
-  deleteKnittingExportSlip: (id: number | string) => void;
-  addDefectiveGoodsImportSlip: (slip: DefectiveGoodsImportSlip) => void;
-  updateDefectiveGoodsImportSlip: (slip: DefectiveGoodsImportSlip) => void;
-  deleteDefectiveGoodsImportSlip: (id: number | string) => void;
-  saveSystemConfiguration: (configuration: SystemConfiguration) => void;
-  deleteSystemConfiguration: () => void;
+  ) => Promise<unknown> | void;
+  addKnittingExportSlip: (slip: KnittingExportSlip) => Promise<unknown> | void;
+  updateKnittingExportSlip: (slip: KnittingExportSlip) => Promise<unknown> | void;
+  deleteKnittingExportSlip: (id: number | string) => Promise<unknown> | void;
+  addDefectiveGoodsImportSlip: (slip: DefectiveGoodsImportSlip) => Promise<unknown> | void;
+  updateDefectiveGoodsImportSlip: (slip: DefectiveGoodsImportSlip) => Promise<unknown> | void;
+  deleteDefectiveGoodsImportSlip: (id: number | string) => Promise<unknown> | void;
+  saveSystemConfiguration: (configuration: SystemConfiguration) => Promise<unknown> | void;
+  deleteSystemConfiguration: () => Promise<unknown> | void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);

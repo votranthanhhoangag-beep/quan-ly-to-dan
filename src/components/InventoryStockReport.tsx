@@ -789,6 +789,9 @@ export default function InventoryStockReport() {
         id: line.id,
         productCode: line.productCode,
         productName: line.productName,
+        sourceDefectiveGoodsImportSlipId: line.sourceDefectiveGoodsImportSlipId,
+        sourceDefectiveStockSourceId: line.sourceDefectiveStockSourceId,
+        sourceKnittingExportSlipId: line.sourceKnittingExportSlipId,
         quantity: 0,
         bundleQuantity: 0,
         sizeQuantities: Object.fromEntries(Array.from({ length: sizeCount }, (_, index) => [`Cái ${index + 1}`, 0])),
@@ -1065,8 +1068,31 @@ export default function InventoryStockReport() {
       })
       .forEach(slip => {
         getRepairLines(slip).forEach(line => {
-          const sourceKnittingExportSlipId = line.sourceKnittingExportSlipId;
-          const sourceDefectiveGoodsImportSlipId = line.sourceDefectiveGoodsImportSlipId;
+          let sourceKnittingExportSlipId = line.sourceKnittingExportSlipId;
+          let sourceDefectiveGoodsImportSlipId = line.sourceDefectiveGoodsImportSlipId;
+          const sourceDefectiveStockSourceId = String(line.sourceDefectiveStockSourceId || '');
+          if (sourceKnittingExportSlipId === undefined && sourceDefectiveGoodsImportSlipId === undefined) {
+            if (sourceDefectiveStockSourceId.startsWith('import:')) {
+              sourceDefectiveGoodsImportSlipId = sourceDefectiveStockSourceId.slice('import:'.length);
+            } else if (sourceDefectiveStockSourceId.startsWith('receipt:')) {
+              try {
+                const parsedSource = JSON.parse(sourceDefectiveStockSourceId.slice('receipt:'.length)) as unknown[];
+                const sourceContractId = String(parsedSource[0] || '');
+                const sourceReceiptId = String(parsedSource[1] || '');
+                const matchingSlip = knittingExportSlips.find(item =>
+                  String(item.sourceContractId || '') === sourceContractId &&
+                  (String(item.sourceReceiptId || '') === sourceReceiptId ||
+                    (Array.isArray(item.sourceAllocations) &&
+                      item.sourceAllocations.some(allocation =>
+                        String(allocation.sourceContractId || '') === sourceContractId &&
+                        String(allocation.sourceReceiptId || '') === sourceReceiptId)))
+                );
+                if (matchingSlip) sourceKnittingExportSlipId = matchingSlip.id;
+              } catch {
+                // Legacy slips may not contain a parseable source marker.
+              }
+            }
+          }
           if (sourceKnittingExportSlipId === undefined && sourceDefectiveGoodsImportSlipId === undefined) return;
           repairExportLineKeys.add(repairLineKey(slip.id, line.id));
           const sizeCount = getPiecesPerSet(line.productCode);
@@ -1414,15 +1440,15 @@ export default function InventoryStockReport() {
       const outgoingDefectiveSizes = buckets.outgoing.defective.get(key)?.sizes || {};
       const endingQualifiedSizes = Object.fromEntries(Object.keys(entry.sizes).map(size => [
         size,
-        (openingQualifiedSizes[size] || 0) +
+        Math.max(0, (openingQualifiedSizes[size] || 0) +
           (incomingQualifiedSizes[size] || 0) -
-          (outgoingQualifiedSizes[size] || 0)
+          (outgoingQualifiedSizes[size] || 0))
       ]));
       const endingDefectiveSizes = Object.fromEntries(Object.keys(entry.sizes).map(size => [
         size,
-        (openingDefectiveSizes[size] || 0) +
+        Math.max(0, (openingDefectiveSizes[size] || 0) +
           (incomingDefectiveSizes[size] || 0) -
-          (outgoingDefectiveSizes[size] || 0)
+          (outgoingDefectiveSizes[size] || 0))
       ]));
       const endingSizes = Object.fromEntries(Object.keys(entry.sizes).map(size => [
         size,
@@ -1594,6 +1620,9 @@ export default function InventoryStockReport() {
         id: `repair-receipt-line-${crypto.randomUUID()}`,
         productCode: line.productCode,
         productName: line.productName,
+        sourceDefectiveGoodsImportSlipId: line.sourceDefectiveGoodsImportSlipId,
+        sourceDefectiveStockSourceId: line.sourceDefectiveStockSourceId,
+        sourceKnittingExportSlipId: line.sourceKnittingExportSlipId,
         quantity: '',
         bundleQuantity: '',
         sizeQuantities: Object.fromEntries(Array.from({ length: sizeCount }, (_, index) => [`Cái ${index + 1}`, ''])),
@@ -1637,6 +1666,9 @@ export default function InventoryStockReport() {
       id: line.id,
       productCode: line.productCode,
       productName: line.productName,
+      sourceDefectiveGoodsImportSlipId: line.sourceDefectiveGoodsImportSlipId,
+      sourceDefectiveStockSourceId: line.sourceDefectiveStockSourceId,
+      sourceKnittingExportSlipId: line.sourceKnittingExportSlipId,
       quantity: String(sizeCount === 1 ? line.quantity : 0),
       bundleQuantity: String(line.bundleQuantity || 0),
       sizeQuantities: Object.fromEntries(
@@ -1776,6 +1808,9 @@ export default function InventoryStockReport() {
       id: line.id,
       productCode: line.productCode,
       productName: line.productName,
+      sourceDefectiveGoodsImportSlipId: line.sourceDefectiveGoodsImportSlipId,
+      sourceDefectiveStockSourceId: line.sourceDefectiveStockSourceId,
+      sourceKnittingExportSlipId: line.sourceKnittingExportSlipId,
       quantity: line.quantity,
       bundleQuantity: line.bundleQuantity,
       sizeQuantities: line.sizeQuantities,
