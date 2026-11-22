@@ -1,4 +1,4 @@
-import React, { useCallback, useEffectEvent, useState, useEffect, useRef } from 'react';
+import React, { useCallback, useEffectEvent, useMemo, useState, useEffect, useRef } from 'react';
 import { useApp, type CategoryItem, type ContractItem } from '../context/AppContext';
 import { filterPhoneDigits, isValidVietnamMobileNumber } from '../utils/vietnamPhone';
 import { getLatestMaterialUnitPrice, matchesMaterialNameSearch } from '../utils/materialSearch';
@@ -19,6 +19,7 @@ interface AccompanyingMaterial {
   materialCode: string;
   materialName: string;
   quantity: number;
+  normPerUnit?: number;
   unitPrice: number;
   amount: number;
   unit: MaterialUnit;
@@ -31,9 +32,11 @@ interface AccompanyingMaterialFormRow {
   materialName: string;
   query: string;
   unit: MaterialUnit;
+  normPerUnit: string;
   quantity: string;
   unitPrice: string;
   isDropdownOpen: boolean;
+  quantityManuallyEdited: boolean;
 }
 
 const createAccompanyingMaterialRow = (): AccompanyingMaterialFormRow => ({
@@ -43,9 +46,11 @@ const createAccompanyingMaterialRow = (): AccompanyingMaterialFormRow => ({
   materialName: '',
   query: '',
   unit: 'kg',
+  normPerUnit: '',
   quantity: '',
   unitPrice: '',
-  isDropdownOpen: false
+  isDropdownOpen: false,
+  quantityManuallyEdited: false
 });
 
 interface ActualExportLog {
@@ -96,6 +101,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     materials,
     contracts,
     slips = [],
+    knittingExportSlips = [],
     expenses = [],
     depositSlips = [],
     isDataLoaded,
@@ -107,9 +113,12 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     updateContract,
     deleteContract
   } = appContext;
-  const contractItems: ContractItem[] = Array.isArray(contracts)
-    ? contracts.filter((item: unknown): item is ContractItem => Boolean(item) && typeof item === 'object')
-    : [];
+  const contractItems: ContractItem[] = useMemo(
+    () => Array.isArray(contracts)
+      ? contracts.filter((item: unknown): item is ContractItem => Boolean(item) && typeof item === 'object')
+      : [],
+    [contracts]
+  );
   const productItems: CategoryItem[] = Array.isArray(products)
     ? products.filter((item: unknown): item is CategoryItem => Boolean(item) && typeof item === 'object')
     : [];
@@ -301,6 +310,9 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   const [subContractMaterials, setSubContractMaterials] = useState<AccompanyingMaterialFormRow[]>([
     createAccompanyingMaterialRow()
   ]);
+  const [parentContractMaterials, setParentContractMaterials] = useState<AccompanyingMaterialFormRow[]>([
+    createAccompanyingMaterialRow()
+  ]);
   const safeSizeQuantities = sizeQuantities && typeof sizeQuantities === 'object' && !Array.isArray(sizeQuantities)
     ? sizeQuantities
     : {};
@@ -318,6 +330,30 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   const [dueDate, setDueDate] = useState<string>(minDateString);
   const [contractImage, setContractImage] = useState<string>('');
   const [note, setNote] = useState<string>('');
+
+  useEffect(() => {
+    if (activeTab !== 'PARENT') return;
+    const contractQuantity = Number(quantity) || 0;
+    setParentContractMaterials(rows => {
+      let changed = false;
+      const nextRows = rows.map(row => {
+      if (row.quantityManuallyEdited) return row;
+      const normPerUnit = Number(row.normPerUnit) || 0;
+      if (normPerUnit <= 0) return row;
+      const calculatedQuantity = contractQuantity * normPerUnit;
+      const nextQuantity = Number.isFinite(calculatedQuantity) && calculatedQuantity > 0
+        ? String(Number(calculatedQuantity.toFixed(6)))
+        : '';
+      if (row.quantity === nextQuantity) return row;
+      changed = true;
+      return {
+        ...row,
+        quantity: nextQuantity
+      };
+      });
+      return changed ? nextRows : rows;
+    });
+  }, [activeTab, quantity, parentContractMaterials]);
 
   // Số lượng HĐ Tổ Đan & Tiến độ nhận khung
   const [contractQty, setContractQty] = useState<string>('0');
@@ -381,8 +417,74 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   const parentRemainingAmount = Math.max(0, parentTotalAmount - parentDepositNum);
 
   // Danh sách hợp đồng
-  const parentContractsList = contractItems.filter((c: any) => c && (c.contractType === 'PARENT' || !c.contractType));
-  const subContractsList = contractItems.filter((c: any) => c && c.contractType === 'SUB');
+  const parentContractsList = useMemo(
+    () => contractItems.filter((c: any) => c && (c.contractType === 'PARENT' || !c.contractType)),
+    [contractItems]
+  );
+  const subContractsList = useMemo(
+    () => contractItems.filter((c: any) => c && c.contractType === 'SUB'),
+    [contractItems]
+  );
+  const parentContractExportSummaries = useMemo(() => {
+    const summaries = new Map<string, { good: number; defective: number; total: number; exportCount: number }>();
+    (Array.isArray(knittingExportSlips) ? knittingExportSlips : []).forEach((slip: any) => {
+      if (!slip) return;
+      const slipContractId = slip.companyBContractId !== undefined
+        ? String(slip.companyBContractId)
+        : '';
+      const slipContractNo = String(slip.companyBContractNo || '').trim().toLowerCase();
+      const slipProductCode = String(slip.productCode || '').trim().toLowerCase();
+      const matchedParent = parentContractsList.find((contract: any) => {
+        if (!contract) return false;
+        const contractIdMatch = slipContractId &&
+          String(contract.id) === slipContractId;
+        const contractNoMatch = slipContractNo &&
+          String(contract.contractNo || '').trim().toLowerCase() === slipContractNo;
+        if (!contractIdMatch && !contractNoMatch) return false;
+        if (slipProductCode) {
+          const contractProductCode = String(contract.productCode || '').trim().toLowerCase();
+          if (contractProductCode && contractProductCode !== slipProductCode) return false;
+        }
+        return true;
+      });
+      if (!matchedParent) return;
+      const key = String(matchedParent.id);
+      const current = summaries.get(key) || { good: 0, defective: 0, total: 0, exportCount: 0 };
+      const good = Math.max(0, Number(slip.goodContractQuantity) || 0);
+      const defective = Math.max(0, Number(slip.defectiveContractQuantity) || 0);
+      summaries.set(key, {
+        good: current.good + good,
+        defective: current.defective + defective,
+        total: current.total + good + defective,
+        exportCount: current.exportCount + 1
+      });
+    });
+    return summaries;
+  }, [parentContractsList, knittingExportSlips]);
+
+  const parentContractMaterialSummaries = useMemo(() => {
+    const summaries = new Map<string, Array<{ name: string; unit: string; quantity: number }>>();
+    parentContractsList.forEach((contract: any) => {
+      const materialsByContract = new Map<string, { name: string; unit: string; quantity: number }>();
+      (Array.isArray(contract.accompanyingMaterials) ? contract.accompanyingMaterials : []).forEach((material: any) => {
+        const quantity = Number(material?.quantity) || 0;
+        if (quantity <= 0) return;
+        const name = String(material?.materialName || material?.materialCode || '').trim();
+        if (!name) return;
+        const unit = String(material?.unit || 'cái').trim() || 'cái';
+        const key = `${name}-${unit}`.toLowerCase();
+        const current = materialsByContract.get(key);
+        materialsByContract.set(key, {
+          name,
+          unit,
+          quantity: (current?.quantity || 0) + quantity
+        });
+      });
+      summaries.set(String(contract.id), Array.from(materialsByContract.values())
+        .sort((first, second) => first.name.localeCompare(second.name, 'vi')));
+    });
+    return summaries;
+  }, [parentContractsList]);
   const selectedParentContract = parentContractsList.find(
     (contract: any) => contract && String(contract.contractNo || '') === String(selectedParentNo)
   );
@@ -392,12 +494,15 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   const isSubDueDateInvalid = Boolean(parentDueDate && dueDate && dueDate >= parentDueDate);
   const isSubPhoneInvalid = !isValidVietnamMobileNumber(phone);
   const isSubZaloInvalid = !isValidVietnamMobileNumber(zalo);
-  const parentProductCodeList = Array.from(new Set<string>(
-    contractItems
-      .filter((contract: any) => contract && contract.contractType === 'PARENT')
-      .map((contract: any) => String(contract?.productCode || '').trim())
-      .filter(Boolean)
-  ));
+  const parentProductCodeList = useMemo(
+    () => Array.from(new Set<string>(
+      contractItems
+        .filter((contract: any) => contract && contract.contractType === 'PARENT')
+        .map((contract: any) => String(contract?.productCode || '').trim())
+        .filter(Boolean)
+    )),
+    [contractItems]
+  );
 
   const uniqueProductCodeList = Array.from(new Set<string>(
     [
@@ -407,11 +512,6 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       .map(code => String(code || '').trim())
       .filter(Boolean)
   ));
-  const productCodeOptions = activeTab === 'SUB' ? parentProductCodeList : uniqueProductCodeList;
-  const filteredProductCodeOptions = productCodeOptions.filter(code =>
-    typeof code === 'string' && code.toLowerCase().includes(String(productCode || '').trim().toLowerCase())
-  );
-
   const handleProductCodeSelect = (codeStr: string) => {
     try {
       const safeCode = typeof codeStr === 'string' ? codeStr : String(codeStr || '');
@@ -859,6 +959,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     setSizePrices({});
     setBoQuantity('');
     setSubContractMaterials([createAccompanyingMaterialRow()]);
+    setParentContractMaterials([createAccompanyingMaterialRow()]);
     setUnit('Bộ');
     setQuantity('');
     setUnitPrice('');
@@ -981,26 +1082,84 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       String(contract.productCode || '').trim().toLowerCase() === normalizedCode
     );
     const received = parentContract ? getParentReceivedTotal(parentContract) : 0;
-    const assignedToOtherContracts = subContractsList
+    const otherSubContracts = subContractsList
       .filter((contract: any) =>
         contract &&
         String(contract.id) !== String(excludedSubContractId ?? '') &&
         String(contract.parentContractNo || '').trim().toLowerCase() === normalizedParentNo &&
         String(contract.productCode || '').trim().toLowerCase() === normalizedCode
-      )
+      );
+    const assignedToOtherContracts = otherSubContracts
       .reduce((sum: number, contract: any) => sum + (Number(contract?.quantity) || 0), 0);
+    const currentSubContractQuantity = excludedSubContractId
+      ? subContractsList
+        .filter((contract: any) =>
+          contract &&
+          String(contract.id) === String(excludedSubContractId) &&
+          String(contract.parentContractNo || '').trim().toLowerCase() === normalizedParentNo &&
+          String(contract.productCode || '').trim().toLowerCase() === normalizedCode
+        )
+        .reduce((sum: number, contract: any) => sum + (Number(contract?.quantity) || 0), 0)
+      : 0;
     return {
       received,
       assignedToOtherContracts,
-      available: Math.max(0, received - assignedToOtherContracts)
+      available: Math.max(0, received - assignedToOtherContracts + currentSubContractQuantity)
     };
   };
 
-  const subContractFrameCapacity = getSubcontractFrameCapacity(
-    selectedParentNo,
-    productCode,
-    editingId
+  const subContractFrameCapacity = useMemo(
+    () => getSubcontractFrameCapacity(selectedParentNo, productCode, editingId),
+    [selectedParentNo, productCode, editingId, contractItems, slips]
   );
+
+  const availableSubContractProductCodes = useMemo(() => {
+    const editingContract = editingId
+      ? contractItems.find((contract: any) =>
+        contract &&
+        contract.contractType === 'SUB' &&
+        String(contract.id) === String(editingId)
+      )
+      : null;
+    const editingCode = String(editingContract?.productCode || '').trim();
+
+    const availableCodes = parentProductCodeList.filter(code => {
+      if (editingId && editingCode && code.toLowerCase() === editingCode.toLowerCase()) return true;
+      if (!code) return false;
+      const parentContract = parentContractsList.find((contract: any) =>
+        contract &&
+        String(contract.productCode || '').trim().toLowerCase() === code.toLowerCase()
+      );
+      if (!parentContract) return false;
+      const capacity = getSubcontractFrameCapacity(
+        String(parentContract.contractNo || ''),
+        code,
+        editingId
+      );
+      return capacity.available > 0;
+    });
+    if (editingId && editingCode && !availableCodes.some(code =>
+      code.toLowerCase() === editingCode.toLowerCase()
+    )) {
+      availableCodes.push(editingCode);
+    }
+    return availableCodes;
+  }, [editingId, contractItems, parentProductCodeList, slips]);
+
+  const productCodeOptions = activeTab === 'SUB'
+    ? availableSubContractProductCodes
+    : uniqueProductCodeList;
+  const filteredProductCodeOptions = productCodeOptions.filter(code =>
+    typeof code === 'string' && code.toLowerCase().includes(String(productCode || '').trim().toLowerCase())
+  );
+  const selectedSubContractCodeIsExhausted = Boolean(
+    activeTab === 'SUB' &&
+    !editingId &&
+    String(selectedParentNo || '').trim() &&
+    String(productCode || '').trim() &&
+    subContractFrameCapacity.available <= 0
+  );
+
   useEffect(() => {
     if (activeTab !== 'SUB' || editingId || isContractQtyManuallyEdited) return;
     setContractQty(String(subContractFrameCapacity.available));
@@ -1179,9 +1338,11 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
           materialName: material.materialName,
           query: `${material.materialCode} - ${material.materialName}`,
           unit: material.unit,
+          normPerUnit: '',
           quantity: String(material.quantity),
           unitPrice: String(Number(material.unitPrice) || 0),
-          isDropdownOpen: false
+          isDropdownOpen: false,
+          quantityManuallyEdited: false
         }))
         : [createAccompanyingMaterialRow()]);
       if (item.quantity) setContractQty(String(item.quantity));
@@ -1196,6 +1357,25 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       setRequiredDeposit(String(item.requiredDeposit || ''));
       setDepositMethod(item.depositMethod || 'TIEN_MAT');
       setDepositDateParent(formatInputDate(getParentDepositDate(item) || minDateString));
+      const savedParentMaterials = Array.isArray(item.accompanyingMaterials)
+        ? item.accompanyingMaterials.filter((material: unknown): material is AccompanyingMaterial =>
+          Boolean(material) && typeof material === 'object')
+        : [];
+      setParentContractMaterials(savedParentMaterials.length > 0
+        ? savedParentMaterials.map((material: AccompanyingMaterial) => ({
+          id: createUniqueId('parent-material-'),
+          materialId: material.materialId,
+          materialCode: material.materialCode,
+          materialName: material.materialName,
+          query: `${material.materialCode} - ${material.materialName}`.replace(/^ - | - $/, '').trim(),
+          unit: material.unit,
+          normPerUnit: String(Number(material.normPerUnit) || ''),
+          quantity: String(material.quantity),
+          unitPrice: String(Number(material.unitPrice) || 0),
+          isDropdownOpen: false,
+          quantityManuallyEdited: true
+        }))
+        : [createAccompanyingMaterialRow()]);
     }
     setUnit(getUnitFromProductCode(String(item.productCode || '')) || item.unit || 'Bộ');
     setQuantity(String(item.quantity || 0));
@@ -1485,6 +1665,36 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
               ? new Date().toISOString()
               : existingParent.depositReceivedAt
             : undefined;
+          const parentMaterialRows = parentContractMaterials.filter(row =>
+            row &&
+            (String(row.query ?? '').trim() ||
+              String(row.quantity ?? '').trim() ||
+              (row.materialId !== null && row.materialId !== undefined))
+          );
+          if (parentMaterialRows.some(row =>
+            row.materialId === null ||
+            !Number.isFinite(Number(row.quantity)) || Number(row.quantity) <= 0 ||
+            !Number.isFinite(Number(row.unitPrice || 0)) || Number(row.unitPrice || 0) < 0
+          )) {
+            alert('Vui lòng chọn nguyên phụ liệu, nhập định mức hợp lệ và số lượng lớn hơn 0 cho từng dòng!');
+            return;
+          }
+          const savedParentMaterials: AccompanyingMaterial[] = parentMaterialRows.flatMap(row => {
+            if (row.materialId === null) return [];
+            const material = materialItems.find((item: CategoryItem) => item?.id === row.materialId);
+            const quantity = Number(row.quantity) || 0;
+            const unitPrice = Number(row.unitPrice) || 0;
+            return [{
+              materialId: row.materialId,
+              materialCode: material?.code || row.materialCode,
+              materialName: material?.name || row.materialName,
+              quantity,
+              normPerUnit: Number(row.normPerUnit) || 0,
+              unitPrice,
+              amount: quantity * unitPrice,
+              unit: row.unit
+            }];
+          });
           const payload = {
             id: editingId || createUniqueId('CTR-P-'),
             contractType: 'PARENT',
@@ -1504,7 +1714,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             dueDate,
             vatRatePercent: Number(companyVatRatePercent) || 0,
             contractImage,
-            note
+            note,
+            accompanyingMaterials: savedParentMaterials
           };
           if (editingId) {
             await updateContract(payload);
@@ -1686,6 +1897,112 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             </div>
           </div>
 
+          <section style={{ backgroundColor: '#fff', padding: '16px', borderRadius: '8px', border: '2px solid #2563eb' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+              <strong style={{ color: '#1d4ed8', fontSize: '14px' }}>Nguyên Phụ Liệu Kèm Theo</strong>
+              <button
+                type="button"
+                onClick={() => setParentContractMaterials(rows => [...rows, createAccompanyingMaterialRow()])}
+                style={{ padding: '7px 12px', border: 'none', borderRadius: '5px', backgroundColor: '#2563eb', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                + Thêm dòng
+              </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(210px, 2fr) minmax(80px, .6fr) minmax(110px, .8fr) minmax(100px, .8fr) minmax(120px, 1fr) minmax(140px, 1fr) 42px', gap: '8px', marginBottom: '6px', color: '#475569', fontSize: '12px', fontWeight: 'bold' }}>
+              <span>Nguyên vật liệu</span>
+              <span>Đơn vị</span>
+              <span>Định mức / sản phẩm</span>
+              <span>Số lượng</span>
+              <span>Đơn giá (VNĐ)</span>
+              <span>Thành tiền (VNĐ)</span>
+              <span />
+            </div>
+            {parentContractMaterials.map(row => {
+              const rowQuantity = Number(row.quantity) || 0;
+              const rowUnitPrice = Number(row.unitPrice) || 0;
+              return (
+                <div key={row.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(210px, 2fr) minmax(80px, .6fr) minmax(110px, .8fr) minmax(100px, .8fr) minmax(120px, 1fr) minmax(140px, 1fr) 42px', gap: '8px', alignItems: 'start', marginTop: '8px' }}>
+                  <input
+                    type="text"
+                    placeholder="Tên nguyên vật liệu..."
+                    value={row.query}
+                    onChange={event => setParentContractMaterials(rows => rows.map(item => item.id === row.id
+                      ? {
+                        ...item,
+                        query: event.target.value,
+                        materialName: event.target.value,
+                        materialCode: event.target.value,
+                        materialId: event.target.value.trim() ? 0 : null
+                      }
+                      : item))}
+                    style={{ width: '100%', padding: '9px', border: '1px solid #94a3b8', borderRadius: '5px', boxSizing: 'border-box' }}
+                  />
+                  <select
+                    value={row.unit}
+                    onChange={event => setParentContractMaterials(rows => rows.map(item =>
+                      item.id === row.id ? { ...item, unit: event.target.value as MaterialUnit } : item
+                    ))}
+                    style={{ width: '100%', padding: '9px', border: '1px solid #94a3b8', borderRadius: '5px', backgroundColor: '#fff' }}
+                  >
+                    {[...new Set(['kg', 'lọn', 'bó', 'cái', ...materialItems.map((material: CategoryItem) => material?.unit).filter(Boolean), row.unit].filter(Boolean))].map(option => (
+                      <option key={String(option)} value={String(option)}>{String(option)}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    aria-label="Định mức nguyên phụ liệu"
+                    placeholder="VD: 0.7"
+                    value={row.normPerUnit}
+                    onChange={event => setParentContractMaterials(rows => rows.map(item =>
+                      item.id === row.id
+                        ? { ...item, normPerUnit: event.target.value, quantityManuallyEdited: false }
+                        : item
+                    ))}
+                    style={{ width: '100%', padding: '9px', border: '1px solid #94a3b8', borderRadius: '5px', boxSizing: 'border-box' }}
+                  />
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="any"
+                    aria-label="Số lượng nguyên phụ liệu"
+                    value={row.quantity}
+                    onChange={event => setParentContractMaterials(rows => rows.map(item =>
+                      item.id === row.id
+                        ? { ...item, quantity: event.target.value, quantityManuallyEdited: true }
+                        : item
+                    ))}
+                    style={{ width: '100%', padding: '9px', border: '1px solid #94a3b8', borderRadius: '5px', boxSizing: 'border-box' }}
+                  />
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={row.unitPrice ? formatCurrency(row.unitPrice) : ''}
+                    onChange={event => setParentContractMaterials(rows => rows.map(item =>
+                      item.id === row.id ? { ...item, unitPrice: event.target.value.replace(/\D/g, '') } : item
+                    ))}
+                    style={{ width: '100%', padding: '9px', border: '1px solid #94a3b8', borderRadius: '5px', boxSizing: 'border-box' }}
+                  />
+                  <input
+                    type="text"
+                    readOnly
+                    value={formatCurrency(rowQuantity * rowUnitPrice)}
+                    style={{ width: '100%', padding: '9px', border: '1px solid #d1fae5', borderRadius: '5px', backgroundColor: '#f0fdf4', boxSizing: 'border-box' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setParentContractMaterials(rows => rows.filter(item => item.id !== row.id))}
+                    style={{ width: '42px', height: '38px', border: '1px solid #fca5a5', borderRadius: '5px', backgroundColor: '#fff1f2', color: '#b91c1c', cursor: 'pointer', fontWeight: 'bold' }}
+                    title="Xóa dòng"
+                  >
+                    ×
+                  </button>
+                </div>
+              );
+            })}
+          </section>
+
           <button type="submit" disabled={isSubmitting} style={{ padding: '12px', backgroundColor: isSubmitting ? '#94a3b8' : '#2563eb', color: '#fff', fontWeight: 'bold', fontSize: '14px', borderRadius: '6px', border: 'none', cursor: isSubmitting ? 'wait' : 'pointer' }}>
             {isSubmitting ? '⏳ Đang lưu...' : '💾 Lưu HĐ CTY'}
           </button>
@@ -1790,6 +2107,10 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
           setIsSubmitting(true);
           try {
           if (!productCode) { alert('Vui lòng nhập hoặc chọn Mã Hàng!'); return; }
+          if (selectedSubContractCodeIsExhausted) {
+            alert(`⛔ Mã hàng ${productCode} đã hết số lượng giao khoán. Không thể tạo hợp đồng mới với mã này.`);
+            return;
+          }
           if (!selectedParentNo) { alert('Mã hàng này chưa được gắn với HĐ Cty nào. Vui lòng tạo HĐ Cty trước!'); return; }
           if (exceedsCompanyFrameCapacity) {
             alert(
@@ -1941,6 +2262,25 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                 const filledFields: string[] = [];
                 const detailsToReview: string[] = [];
                 if (parsed.productCode) {
+                  if (!editingId) {
+                    const spokenCode = String(parsed.productCode).trim();
+                    const spokenParent = parentContractsList.find((contract: any) =>
+                      contract &&
+                      String(contract.productCode || '').trim().toLowerCase() === spokenCode.toLowerCase()
+                    );
+                    if (spokenParent) {
+                      const spokenCapacity = getSubcontractFrameCapacity(
+                        String(spokenParent.contractNo || ''),
+                        spokenCode,
+                        null
+                      );
+                      if (spokenCapacity.available <= 0) {
+                        window.alert(
+                          `⛔ Mã hàng ${spokenCode} đã hết số lượng giao khoán (còn lại 0). Không thể tạo HĐ Tổ Đan mới bằng mã này.`
+                        );
+                      }
+                    }
+                  }
                   handleSubProductCodeSelect(parsed.productCode);
                   filledFields.push(`Mã hàng ${parsed.productCode}`);
                 }
@@ -2193,6 +2533,11 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             <div style={{ marginTop: '7px', fontSize: '12px', color: exceedsCompanyFrameCapacity ? '#b91c1c' : '#475569', fontWeight: 700 }}>
               Khung Công ty đã nhận: {formatCurrency(subContractFrameCapacity.received)} · Đã giao khoán cho HĐ khác: {formatCurrency(subContractFrameCapacity.assignedToOtherContracts)} · Tối đa còn có thể giao khoán mã này: {formatCurrency(subContractFrameCapacity.available)}
             </div>
+            {selectedSubContractCodeIsExhausted && (
+              <div role="alert" style={{ marginTop: '8px', padding: '9px 10px', border: '1px solid #fca5a5', borderRadius: '6px', backgroundColor: '#fef2f2', color: '#b91c1c', fontSize: '12px', fontWeight: 700 }}>
+                ⛔ Mã hàng {productCode} đã hết số lượng giao khoán (còn lại 0). Không thể tạo HĐ Tổ Đan mới bằng mã này.
+              </div>
+            )}
             {exceedsCompanyFrameCapacity && (
               <div role="alert" style={{ marginTop: '8px', padding: '9px 10px', border: '1px solid #fca5a5', borderRadius: '6px', backgroundColor: '#fef2f2', color: '#b91c1c', fontSize: '12px', fontWeight: 700 }}>
                 ⛔ Mã hàng {productCode || '(chưa chọn)'} chỉ còn tối đa {subContractFrameCapacity.available.toLocaleString('vi-VN')}.
@@ -2398,7 +2743,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             </div>
           </div>
 
-          <button type="submit" disabled={isSubmitting || exceedsCompanyFrameCapacity || isSizeUnitPriceOverBundlePrice || isSubDueDateInvalid || isSubPhoneInvalid || isSubZaloInvalid} style={{ padding: '14px', backgroundColor: isSubmitting || exceedsCompanyFrameCapacity || isSizeUnitPriceOverBundlePrice || isSubDueDateInvalid || isSubPhoneInvalid || isSubZaloInvalid ? '#94a3b8' : '#7c3aed', color: '#fff', fontWeight: 'bold', fontSize: '15px', borderRadius: '8px', border: 'none', cursor: isSubmitting || exceedsCompanyFrameCapacity || isSizeUnitPriceOverBundlePrice || isSubDueDateInvalid || isSubPhoneInvalid || isSubZaloInvalid ? 'not-allowed' : 'pointer' }}>
+          <button type="submit" disabled={isSubmitting || selectedSubContractCodeIsExhausted || exceedsCompanyFrameCapacity || isSizeUnitPriceOverBundlePrice || isSubDueDateInvalid || isSubPhoneInvalid || isSubZaloInvalid} style={{ padding: '14px', backgroundColor: isSubmitting || selectedSubContractCodeIsExhausted || exceedsCompanyFrameCapacity || isSizeUnitPriceOverBundlePrice || isSubDueDateInvalid || isSubPhoneInvalid || isSubZaloInvalid ? '#94a3b8' : '#7c3aed', color: '#fff', fontWeight: 'bold', fontSize: '15px', borderRadius: '8px', border: 'none', cursor: isSubmitting || selectedSubContractCodeIsExhausted || exceedsCompanyFrameCapacity || isSizeUnitPriceOverBundlePrice || isSubDueDateInvalid || isSubPhoneInvalid || isSubZaloInvalid ? 'not-allowed' : 'pointer' }}>
             {isSubmitting ? '⏳ Đang lưu...' : '💾 Lưu Hợp Đồng Tổ Đan'}
           </button>
         </form>
@@ -2905,6 +3250,13 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                   : null;
                 const isOverdue = !isQuantityComplete && daysUntilDue !== null && daysUntilDue < 0;
                 const isNearDue = !isQuantityComplete && daysUntilDue !== null && daysUntilDue >= 0 && daysUntilDue <= 3;
+                const exportSummary = parentContractExportSummaries.get(String(item.id)) || {
+                  good: 0,
+                  defective: 0,
+                  total: 0,
+                  exportCount: 0
+                };
+                const contractMaterials = parentContractMaterialSummaries.get(String(item.id)) || [];
 
                 return (
                   <div key={item.id} style={{ background: '#fff', borderRadius: '10px', border: '1px solid #cbd5e1', padding: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
@@ -2939,6 +3291,17 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                           {receivedQty.toLocaleString()} / {targetQty.toLocaleString()} ({targetQty > 0 ? `${Math.min(100, Math.round(receivedQty / targetQty * 100))}%` : '—'})
                         </div>
                       </div>
+                      <div style={{ gridColumn: '1 / -1', background: '#f0fdf4', padding: '8px', borderRadius: '6px', border: '1px solid #bbf7d0' }}>
+                        <span style={{ color: '#166534', fontWeight: 700 }}>Tổng Xuất Giao Cty:</span>
+                        <div style={{ marginTop: '3px', fontWeight: 800, color: '#0f172a' }}>
+                          {exportSummary.total.toLocaleString('vi-VN')} tổng
+                          {' / '}
+                          <span style={{ color: '#15803d' }}>{exportSummary.good.toLocaleString('vi-VN')} đạt</span>
+                          {' / '}
+                          <span style={{ color: '#b91c1c' }}>{exportSummary.defective.toLocaleString('vi-VN')} loại</span>
+                          {exportSummary.exportCount > 0 && <small style={{ display: 'block', color: '#64748b', marginTop: '2px' }}>{exportSummary.exportCount} đợt xuất</small>}
+                        </div>
+                      </div>
                       <div style={{ background: '#f8fafc', padding: '6px', borderRadius: '6px' }}>
                         <span style={{ color: '#64748b' }}>Thành Tiền:</span>
                         <div style={{ fontWeight: 'bold', color: '#15803d' }}>{tAmt > 0 ? `${formatCurrency(tAmt)} đ` : '—'}</div>
@@ -2963,6 +3326,20 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                         </div>
                       </div>
                     </div>
+
+                    {contractMaterials.length > 0 && (
+                      <div style={{ marginBottom: '10px', padding: '8px', borderRadius: '6px', border: '1px solid #bfdbfe', backgroundColor: '#eff6ff' }}>
+                        <span style={{ color: '#1e40af', fontWeight: 800, fontSize: '12px' }}>Nguyên Phụ Liệu HĐ:</span>
+                        <div style={{ marginTop: '4px', display: 'grid', gap: '3px', color: '#334155', fontSize: '12px' }}>
+                          {contractMaterials.map(material => (
+                            <div key={`${material.name}-${material.unit}`} style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                              <span>{material.name}</span>
+                              <strong style={{ color: '#1d4ed8', whiteSpace: 'nowrap' }}>{material.quantity.toLocaleString('vi-VN')} {material.unit}</strong>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     <div style={{ display: 'flex', gap: '6px', borderTop: '1px solid #f1f5f9', paddingTop: '8px' }}>
                       <button
@@ -3017,6 +3394,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                   <th className="whitespace-nowrap" style={{ padding: '10px' }}>Công Ty</th>
                   <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>SL Hợp Đồng</th>
                   <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Đã Nhận / Đã Giao</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Tổng Xuất Cty (Đạt / Loại)</th>
+                  <th className="whitespace-nowrap" style={{ padding: '10px' }}>Nguyên Phụ Liệu HĐ</th>
                   <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Tiền Cọc Đã Nhận</th>
                   <th className="whitespace-nowrap" style={{ padding: '10px' }}>Ngày Nhận Cọc</th>
                   <th className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>Thành Tiền</th>
@@ -3050,6 +3429,14 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                   const isOverdue = !isQuantityComplete && daysUntilDue !== null && daysUntilDue < 0;
                   const isNearDue = !isQuantityComplete && daysUntilDue !== null && daysUntilDue >= 0 && daysUntilDue <= 3;
 
+                  const exportSummary = parentContractExportSummaries.get(String(item.id)) || {
+                    good: 0,
+                    defective: 0,
+                    total: 0,
+                    exportCount: 0
+                  };
+                  const contractMaterials = parentContractMaterialSummaries.get(String(item.id)) || [];
+
                   return (
                     <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                       <td className="whitespace-nowrap" style={{ padding: '10px', fontWeight: 'bold', color: '#7c3aed' }}>{item.productCode}</td>
@@ -3063,6 +3450,22 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                         <div style={{ color: '#64748b', fontSize: '11px', marginTop: '3px' }}>
                           {targetQty > 0 ? `${Math.min(100, Math.round(receivedQty / targetQty * 100))}%` : '—'}
                         </div>
+                      </td>
+                      <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <strong style={{ color: '#1e293b' }}>{exportSummary.total.toLocaleString('vi-VN')} tổng</strong>
+                        <div style={{ marginTop: '3px', fontSize: '12px' }}>
+                          <span style={{ color: '#15803d', fontWeight: 700 }}>{exportSummary.good.toLocaleString('vi-VN')} đạt</span>
+                          {' / '}
+                          <span style={{ color: '#b91c1c', fontWeight: 700 }}>{exportSummary.defective.toLocaleString('vi-VN')} loại</span>
+                        </div>
+                        {exportSummary.exportCount > 0 && <small style={{ display: 'block', color: '#64748b', marginTop: '2px' }}>{exportSummary.exportCount} đợt xuất</small>}
+                      </td>
+                      <td className="whitespace-nowrap" style={{ padding: '10px' }}>
+                        {contractMaterials.length > 0 ? contractMaterials.map(material => (
+                          <div key={`${material.name}-${material.unit}`} style={{ color: '#334155', fontSize: '12px', lineHeight: 1.6 }}>
+                            {material.name}: <strong style={{ color: '#1d4ed8' }}>{material.quantity.toLocaleString('vi-VN')} {material.unit}</strong>
+                          </div>
+                        )) : <span style={{ color: '#94a3b8' }}>—</span>}
                       </td>
                       <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700, color: depAmt > 0 ? '#15803d' : '#64748b' }}>
                         {depAmt > 0 ? `${formatCurrency(depAmt)} đ` : '—'}

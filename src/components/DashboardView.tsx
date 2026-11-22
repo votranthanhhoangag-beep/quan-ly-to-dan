@@ -382,6 +382,8 @@ export default function DashboardView() {
     });
 
     const goodQuantity = matchedExports.reduce((sum, slip) => sum + Math.max(0, Number(slip.goodContractQuantity) || 0), 0);
+    const defectiveQuantity = matchedExports.reduce((sum, slip) => sum + Math.max(0, Number(slip.defectiveContractQuantity) || 0), 0);
+    const totalExportQuantity = goodQuantity + defectiveQuantity;
     const unitPrice = Number(contract.unitPrice) || 0;
     const contractQuantity = Number(contract.quantity) || 0;
     const contractTotalAmount = Number(contract.totalAmount) || (contractQuantity * unitPrice);
@@ -395,6 +397,8 @@ export default function DashboardView() {
       unitPrice,
       contractTotalAmount,
       goodQuantity,
+      defectiveQuantity,
+      totalExportQuantity,
       realizedRevenue,
       receivedFrames,
       fulfillmentPercent,
@@ -402,28 +406,52 @@ export default function DashboardView() {
     };
   }), [parentContracts, knittingExportSlips, getParentReceivedQuantity, findParentForExport]);
 
-  const { totalRealizedRevenue, totalGoodExportQuantity } = useMemo(() => ({
+  const { totalRealizedRevenue, totalGoodExportQuantity, totalDefectiveExportQuantity, totalExportQuantity } = useMemo(() => ({
     totalRealizedRevenue: realizedRevenueContracts.reduce((sum, item) => sum + item.realizedRevenue, 0),
-    totalGoodExportQuantity: realizedRevenueContracts.reduce((sum, item) => sum + item.goodQuantity, 0)
+    totalGoodExportQuantity: realizedRevenueContracts.reduce((sum, item) => sum + item.goodQuantity, 0),
+    totalDefectiveExportQuantity: realizedRevenueContracts.reduce((sum, item) => sum + item.defectiveQuantity, 0),
+    totalExportQuantity: realizedRevenueContracts.reduce((sum, item) => sum + item.totalExportQuantity, 0)
   }), [realizedRevenueContracts]);
   const actualNetRevenue = totalRealizedRevenue - weavingContractValue;
 
-  const materialTotals = new Map<string, { name: string; unit: string; quantity: number }>();
-  displaySubContracts.forEach(contract => {
-    (Array.isArray(contract.accompanyingMaterials) ? contract.accompanyingMaterials : []).forEach(material => {
-      const name = material.materialName || material.materialCode || 'Nguyên vật liệu';
-      const key = `${material.materialId}-${material.unit}`;
-      const existing = materialTotals.get(key);
-      materialTotals.set(key, {
-        name,
-        unit: material.unit,
-        quantity: (existing?.quantity || 0) + (Number(material.quantity) || 0)
+  const parentMaterialSummary = useMemo(() => {
+    const totals = new Map<string, { name: string; unit: string; quantity: number }>();
+    const contractsWithMaterials = parentContracts.map(contract => {
+      const materialsByContract = new Map<string, { name: string; unit: string; quantity: number }>();
+      (Array.isArray(contract.accompanyingMaterials) ? contract.accompanyingMaterials : []).forEach(material => {
+        const quantity = Number(material.quantity) || 0;
+        if (quantity <= 0) return;
+        const name = material.materialName || material.materialCode || 'Nguyên vật liệu';
+        const unit = material.unit || 'cái';
+        const key = `${material.materialId || name}-${unit}`.toLowerCase();
+        const existing = materialsByContract.get(key);
+        materialsByContract.set(key, {
+          name,
+          unit,
+          quantity: (existing?.quantity || 0) + quantity
+        });
+        const totalExisting = totals.get(key);
+        totals.set(key, {
+          name,
+          unit,
+          quantity: (totalExisting?.quantity || 0) + quantity
+        });
       });
-    });
-  });
-  const topMaterials = Array.from(materialTotals.values())
-    .sort((first, second) => second.quantity - first.quantity)
-    .slice(0, 5);
+      return {
+        contract,
+        materials: Array.from(materialsByContract.values())
+          .sort((first, second) => second.quantity - first.quantity || first.name.localeCompare(second.name, 'vi'))
+      };
+    }).filter(row => row.materials.length > 0);
+
+    return {
+      contractsWithMaterials,
+      totals: Array.from(totals.values())
+        .filter(material => material.quantity > 0)
+        .sort((first, second) => second.quantity - first.quantity || first.name.localeCompare(second.name, 'vi'))
+    };
+  }, [parentContracts]);
+  const topMaterials = parentMaterialSummary.totals.slice(0, 5);
   const contractDebts = displaySubContracts
     .map(contract => ({
       contract,
@@ -631,7 +659,7 @@ export default function DashboardView() {
         </article>
 
         <article style={{ ...cardStyle, backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' }}>
-          <div style={{ color: '#15803d', fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em' }}>NGUYÊN PHỤ LIỆU ĐÃ CẤP TỔ ĐAN</div>
+          <div style={{ color: '#15803d', fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em' }}>TỔNG NGUYÊN PHỤ LIỆU HĐ CTY</div>
           {topMaterials.length > 0 ? (
             <div style={{ display: 'grid', gap: '8px', marginTop: '12px' }}>
               {topMaterials.map(material => (
@@ -642,7 +670,7 @@ export default function DashboardView() {
               ))}
             </div>
           ) : (
-            <div style={{ marginTop: '12px', color: '#64748b', fontSize: '13px' }}>Chưa có dữ liệu phụ liệu trên hợp đồng Tổ Đan.</div>
+            <div style={{ marginTop: '12px', color: '#64748b', fontSize: '13px' }}>Chưa có nguyên phụ liệu được thêm vào hợp đồng Công ty.</div>
           )}
         </article>
       </section>
@@ -884,6 +912,40 @@ export default function DashboardView() {
           </div>
         </div>
 
+        <div style={{ padding: '14px', borderRadius: '10px', border: '1px solid #bfdbfe', backgroundColor: '#f8fafc' }}>
+          <h4 style={{ margin: '0 0 10px', color: '#1e40af', fontSize: '15px', fontWeight: 800 }}>
+            🧵 Nguyên Phụ Liệu Theo Hợp Đồng Công Ty
+          </h4>
+          {parentMaterialSummary.totals.length > 0 ? (
+            <>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                {parentMaterialSummary.totals.map(material => (
+                  <span key={`${material.name}-${material.unit}`} style={{ padding: '6px 9px', borderRadius: '999px', backgroundColor: '#dbeafe', color: '#1e40af', fontSize: '12px', fontWeight: 800 }}>
+                    Tổng {material.name}: {formatNumber(material.quantity)} {material.unit}
+                  </span>
+                ))}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px' }}>
+                {parentMaterialSummary.contractsWithMaterials.map(({ contract, materials }) => (
+                  <div key={String(contract.id)} style={{ padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: '#fff' }}>
+                    <strong style={{ display: 'block', color: '#1e293b', marginBottom: '5px' }}>
+                      {contract.contractNo || '—'} · {contract.productCode || '—'}
+                    </strong>
+                    {materials.map(material => (
+                      <div key={`${material.name}-${material.unit}`} style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', color: '#475569', fontSize: '12px', marginTop: '3px' }}>
+                        <span>{material.name}</span>
+                        <strong style={{ whiteSpace: 'nowrap', color: '#1d4ed8' }}>{formatNumber(material.quantity)} {material.unit}</strong>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div style={{ color: '#64748b', fontSize: '13px' }}>Chưa có nguyên phụ liệu được thêm vào hợp đồng Công ty.</div>
+          )}
+        </div>
+
         {/* BẢNG CHI TIẾT DOANH THU THEO TỪNG HỢP ĐỒNG */}
         <div>
           <h4 style={{ margin: '8px 0 6px', color: '#0f172a', fontSize: '15px', fontWeight: 700 }}>
@@ -893,15 +955,15 @@ export default function DashboardView() {
             <table style={{ borderCollapse: 'collapse' }} className="min-w-[850px] divide-y divide-gray-200 text-sm">
               <thead>
                 <tr style={{ backgroundColor: '#f8fafc' }}>
-                  {['Hợp Đồng / Đối Tác', 'Mã Hàng / Tên Hàng', 'Khung Nhận HĐ Cty', 'Tổng HĐ (Dự kiến)', 'Đơn Giá HĐ', 'Đã Xuất Đạt', 'Doanh Thu Thực Tế (Đạt)', 'Tiến Độ Xuất'].map(header => (
-                    <th key={header} className="whitespace-nowrap" style={{ padding: '9px 10px', color: '#475569', textAlign: header.includes('Giá') || header.includes('Tổng HĐ') || header.includes('Xuất Đạt') || header.includes('Doanh Thu') || header.includes('Khung') ? 'right' : 'left', fontSize: '12px' }}>
+                  {['Hợp Đồng / Đối Tác', 'Mã Hàng / Tên Hàng', 'Khung Nhận HĐ Cty', 'Tổng HĐ (Dự kiến)', 'Đơn Giá HĐ', 'Tổng Xuất Cty (Đạt / Loại)', 'Doanh Thu Thực Tế (Đạt)', 'Tiến Độ Xuất'].map(header => (
+                    <th key={header} className="whitespace-nowrap" style={{ padding: '9px 10px', color: '#475569', textAlign: header.includes('Giá') || header.includes('Tổng HĐ') || header.includes('Xuất Cty') || header.includes('Doanh Thu') || header.includes('Khung') ? 'right' : 'left', fontSize: '12px' }}>
                       {header}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {realizedRevenueContracts.map(({ contract, contractQuantity, unitPrice, contractTotalAmount, goodQuantity, realizedRevenue, receivedFrames, fulfillmentPercent, exportCount }) => {
+                {realizedRevenueContracts.map(({ contract, contractQuantity, unitPrice, contractTotalAmount, goodQuantity, defectiveQuantity, totalExportQuantity, realizedRevenue, receivedFrames, fulfillmentPercent, exportCount }) => {
                   const unit = contract.unit || 'sản phẩm';
                   return (
                     <tr key={String(contract.id)} style={{ borderTop: '1px solid #e2e8f0' }}>
@@ -924,8 +986,15 @@ export default function DashboardView() {
                         {formatCurrency(unitPrice)}
                       </td>
                       <td className="whitespace-nowrap" style={{ padding: '9px 10px', textAlign: 'right' }}>
-                        <strong style={{ color: goodQuantity > 0 ? '#15803d' : '#64748b' }}>{formatNumber(goodQuantity)}</strong> {unit}
-                        {exportCount > 0 && <small style={{ display: 'block', color: '#64748b' }}>({exportCount} đợt xuất)</small>}
+                        <div>
+                          <strong style={{ color: totalExportQuantity > 0 ? '#1e293b' : '#64748b' }}>{formatNumber(totalExportQuantity)}</strong> {unit}
+                        </div>
+                        <small style={{ display: 'block', color: '#475569' }}>
+                          <span style={{ color: '#15803d', fontWeight: 700 }}>{formatNumber(goodQuantity)} đạt</span>
+                          {' / '}
+                          <span style={{ color: '#b91c1c', fontWeight: 700 }}>{formatNumber(defectiveQuantity)} loại</span>
+                        </small>
+                        {exportCount > 0 && <small style={{ display: 'block', color: '#64748b' }}>{exportCount} đợt xuất</small>}
                       </td>
                       <td className="whitespace-nowrap" style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 800, color: realizedRevenue > 0 ? '#166534' : '#64748b' }}>
                         {formatCurrency(realizedRevenue)}
@@ -955,7 +1024,14 @@ export default function DashboardView() {
                     <td colSpan={3} className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', color: '#1e293b' }}>Tổng toàn bộ HĐ CTY:</td>
                     <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', color: '#1e40af' }}>{formatCurrency(companyContractValue)}</td>
                     <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>—</td>
-                    <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', color: '#166534' }}>{formatNumber(totalGoodExportQuantity)}</td>
+                    <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', color: '#1e293b' }}>
+                      <div><strong>{formatNumber(totalExportQuantity)}</strong> sản phẩm</div>
+                      <small style={{ color: '#475569' }}>
+                        <span style={{ color: '#166534' }}>{formatNumber(totalGoodExportQuantity)} đạt</span>
+                        {' / '}
+                        <span style={{ color: '#b91c1c' }}>{formatNumber(totalDefectiveExportQuantity)} loại</span>
+                      </small>
+                    </td>
                     <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', color: '#166534', fontSize: '15px' }}>{formatCurrency(totalRealizedRevenue)}</td>
                     <td className="whitespace-nowrap" style={{ padding: '10px' }}>—</td>
                   </tr>

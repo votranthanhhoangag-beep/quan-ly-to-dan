@@ -92,6 +92,7 @@ export interface SlipItem {
     materialCode: string;
     materialName: string;
     quantity: number;
+    normPerUnit?: number;
     unitPrice?: number;
     amount?: number;
     unit: string;
