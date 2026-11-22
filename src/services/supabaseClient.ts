@@ -11,25 +11,7 @@ const fetchWithTimeout: typeof fetch = (input, init) => {
   headers.set('Pragma', 'no-cache');
   headers.set('Expires', '0');
 
-  let finalInput = input;
-  const method = (init?.method || (typeof input === 'object' && 'method' in input ? (input as Request).method : 'GET') || 'GET').toUpperCase();
-
-  if (method === 'GET') {
-    if (typeof input === 'string') {
-      const separator = input.includes('?') ? '&' : '?';
-      finalInput = `${input}${separator}_t=${Date.now()}`;
-    } else if (typeof Request !== 'undefined' && input instanceof Request) {
-      try {
-        const url = new URL(input.url);
-        url.searchParams.set('_t', Date.now().toString());
-        finalInput = new Request(url.toString(), input);
-      } catch {
-        finalInput = input;
-      }
-    }
-  }
-
-  return fetch(finalInput, {
+  return fetch(input, {
     ...init,
     cache: 'no-store',
     headers,
