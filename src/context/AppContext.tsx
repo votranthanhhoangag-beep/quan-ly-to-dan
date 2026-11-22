@@ -716,15 +716,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsBackgroundLoad(true);
     setLoadAttempt(attempt => attempt + 1);
   }, []);
+  const userId = user?.id;
 
   const persistDirectly = useCallback(async (sheetName: string, value: unknown[]) => {
-    if (!user?.id) return value;
+    if (!userId) return value;
     suppressedSaveSnapshots.current.set(sheetName, value);
     window.dispatchEvent(new CustomEvent('erp:sync-status', {
       detail: { status: 'syncing', message: `Đang lưu ${sheetName} lên Supabase...` }
     }));
     try {
-      const remoteValue = await saveDataStore(sheetName, user.id, value);
+      const remoteValue = await saveDataStore(sheetName, userId, value);
       applySheetSnapshot(sheetName, remoteValue);
       lastFetchedSnapshots.current.set(sheetName, JSON.stringify(remoteValue));
       setDataLoadError('');
@@ -741,7 +742,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }));
       throw error;
     }
-  }, [applySheetSnapshot, user?.id]);
+  }, [applySheetSnapshot, userId]);
 
   const shouldPersistSnapshot = useCallback((sheetName: string, value: unknown) => {
     if (!user?.id || !isLoaded.current || !persistenceEffectsMounted.current) return false;
