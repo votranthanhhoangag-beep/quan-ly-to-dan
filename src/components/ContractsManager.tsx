@@ -125,6 +125,49 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   const materialItems: CategoryItem[] = Array.isArray(materials)
     ? materials.filter((item: unknown): item is CategoryItem => Boolean(item) && typeof item === 'object')
     : [];
+  const parentMaterialSuggestions = useMemo<CategoryItem[]>(() => {
+    const suggestions = new Map<string, CategoryItem>();
+    const addSuggestion = (id: number | string | undefined, code: unknown, name: unknown, unit?: unknown) => {
+      const cleanName = String(name || '').trim();
+      if (!cleanName) return;
+      const cleanCode = String(code || '').trim();
+      const key = `${cleanCode.toLowerCase()}|${cleanName.toLowerCase()}`;
+      if (suggestions.has(key)) return;
+      const numericId = Number(id);
+      suggestions.set(key, {
+        id: Number.isFinite(numericId) && numericId > 0 ? numericId : 0,
+        code: cleanCode,
+        name: cleanName,
+        note: '',
+        unit: String(unit || '').trim() || undefined
+      });
+    };
+
+    materialItems.forEach(material => addSuggestion(
+      material.id,
+      material.code,
+      material.name,
+      material.unit
+    ));
+    contractItems.forEach((contract: any) => {
+      (Array.isArray(contract?.accompanyingMaterials) ? contract.accompanyingMaterials : []).forEach((material: any) =>
+        addSuggestion(material?.materialId, material?.materialCode, material?.materialName, material?.unit)
+      );
+    });
+    (Array.isArray(slips) ? slips : []).forEach((slip: any) => {
+      (Array.isArray(slip?.accompanyingMaterials) ? slip.accompanyingMaterials : []).forEach((material: any) =>
+        addSuggestion(material?.materialId, material?.materialCode, material?.materialName, material?.unit)
+      );
+    });
+    (Array.isArray(expenses) ? expenses : []).forEach((expense: any) => {
+      (Array.isArray(expense?.items) ? expense.items : []).forEach((item: any) =>
+        addSuggestion(item?.sourceId, item?.sourceCode, item?.name, item?.unit)
+      );
+    });
+    return Array.from(suggestions.values()).sort((first, second) =>
+      first.name.localeCompare(second.name, 'vi', { sensitivity: 'base', numeric: true })
+    );
+  }, [materialItems, contractItems, slips, expenses]);
   
   const today = new Date();
   const minDateString = today.toISOString().split('T')[0];
@@ -337,8 +380,12 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     setParentContractMaterials(rows => {
       let changed = false;
       const nextRows = rows.map(row => {
-      if (row.quantityManuallyEdited) return row;
       const normPerUnit = Number(row.normPerUnit) || 0;
+      if (contractQuantity <= 0) {
+        if (row.quantityManuallyEdited || row.quantity === '') return row;
+        changed = true;
+        return { ...row, quantity: '' };
+      }
       if (normPerUnit <= 0) return row;
       const calculatedQuantity = contractQuantity * normPerUnit;
       const nextQuantity = Number.isFinite(calculatedQuantity) && calculatedQuantity > 0
@@ -348,12 +395,15 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       changed = true;
       return {
         ...row,
-        quantity: nextQuantity
+        quantity: nextQuantity,
+        quantityManuallyEdited: false
       };
       });
       return changed ? nextRows : rows;
     });
-  }, [activeTab, quantity, parentContractMaterials]);
+  }, [activeTab, quantity, parentContractMaterials.map(row =>
+    `${row.id}:${row.normPerUnit}`
+  ).join('|')]);
 
   // Số lượng HĐ Tổ Đan & Tiến độ nhận khung
   const [contractQty, setContractQty] = useState<string>('0');
@@ -457,6 +507,43 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
         defective: current.defective + defective,
         total: current.total + good + defective,
         exportCount: current.exportCount + 1
+      });
+    });
+
+    summaries.forEach((summary, contractId) => {
+      const repairReExportQuantity = (Array.isArray(knittingExportSlips) ? knittingExportSlips : [])
+        .filter((slip: any) => {
+          const parent = parentContractsList.find((contract: any) =>
+            contract && String(contract.id) === contractId
+          );
+          if (!parent) return false;
+          const slipContractId = slip?.companyBContractId !== undefined
+            ? String(slip.companyBContractId)
+            : '';
+          const slipContractNo = String(slip?.companyBContractNo || '').trim().toLowerCase();
+          const idMatch = slipContractId && String(parent.id) === slipContractId;
+          const noMatch = !idMatch && slipContractNo &&
+            String(parent.contractNo || '').trim().toLowerCase() === slipContractNo;
+          if (!idMatch && !noMatch) return false;
+          const slipProductCode = String(slip?.productCode || '').trim().toLowerCase();
+          return !slipProductCode ||
+            String(parent.productCode || '').trim().toLowerCase() === slipProductCode;
+        })
+        .reduce((sum: number, slip: any) => {
+          const repairSource =
+            String(slip?.sourceReceiptId || '').trim().toLowerCase().startsWith('repair-') ||
+            (Array.isArray(slip?.sourceAllocations) && slip.sourceAllocations.some((allocation: any) =>
+              String(allocation?.sourceReceiptId || '').trim().toLowerCase().startsWith('repair-')
+            ));
+          return sum + (repairSource ? Math.max(0, Number(slip.goodContractQuantity) || 0) : 0);
+        }, 0);
+
+      const reclassifiedQuantity = Math.min(repairReExportQuantity, summary.defective);
+      if (reclassifiedQuantity <= 0) return;
+      summaries.set(contractId, {
+        ...summary,
+        defective: Math.max(0, summary.defective - reclassifiedQuantity),
+        total: Math.max(0, summary.good + summary.defective - reclassifiedQuantity)
       });
     });
     return summaries;
@@ -1672,7 +1759,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
               (row.materialId !== null && row.materialId !== undefined))
           );
           if (parentMaterialRows.some(row =>
-            row.materialId === null ||
+            (!String(row.query ?? '').trim() && !String(row.materialName ?? '').trim()) ||
             !Number.isFinite(Number(row.quantity)) || Number(row.quantity) <= 0 ||
             !Number.isFinite(Number(row.unitPrice || 0)) || Number(row.unitPrice || 0) < 0
           )) {
@@ -1680,12 +1767,11 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             return;
           }
           const savedParentMaterials: AccompanyingMaterial[] = parentMaterialRows.flatMap(row => {
-            if (row.materialId === null) return [];
             const material = materialItems.find((item: CategoryItem) => item?.id === row.materialId);
             const quantity = Number(row.quantity) || 0;
             const unitPrice = Number(row.unitPrice) || 0;
             return [{
-              materialId: row.materialId,
+              materialId: row.materialId ?? 0,
               materialCode: material?.code || row.materialCode,
               materialName: material?.name || row.materialName,
               quantity,
@@ -1920,23 +2006,63 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             {parentContractMaterials.map(row => {
               const rowQuantity = Number(row.quantity) || 0;
               const rowUnitPrice = Number(row.unitPrice) || 0;
+              const materialSuggestions = parentMaterialSuggestions.filter(material =>
+                matchesMaterialNameSearch(material, String(row.query || ''))
+              ).slice(0, 12);
               return (
                 <div key={row.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(210px, 2fr) minmax(80px, .6fr) minmax(110px, .8fr) minmax(100px, .8fr) minmax(120px, 1fr) minmax(140px, 1fr) 42px', gap: '8px', alignItems: 'start', marginTop: '8px' }}>
-                  <input
-                    type="text"
-                    placeholder="Tên nguyên vật liệu..."
-                    value={row.query}
-                    onChange={event => setParentContractMaterials(rows => rows.map(item => item.id === row.id
-                      ? {
-                        ...item,
-                        query: event.target.value,
-                        materialName: event.target.value,
-                        materialCode: event.target.value,
-                        materialId: event.target.value.trim() ? 0 : null
-                      }
-                      : item))}
-                    style={{ width: '100%', padding: '9px', border: '1px solid #94a3b8', borderRadius: '5px', boxSizing: 'border-box' }}
-                  />
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="search"
+                      autoComplete="off"
+                      placeholder="Gõ tên nguyên vật liệu..."
+                      value={row.query}
+                      onFocus={() => setParentContractMaterials(rows => rows.map(item =>
+                        item.id === row.id ? { ...item, isDropdownOpen: true } : item
+                      ))}
+                      onBlur={() => setParentContractMaterials(rows => rows.map(item =>
+                        item.id === row.id ? { ...item, isDropdownOpen: false } : item
+                      ))}
+                      onChange={event => setParentContractMaterials(rows => rows.map(item => item.id === row.id
+                        ? {
+                          ...item,
+                          query: event.target.value,
+                          materialName: event.target.value,
+                          materialCode: event.target.value,
+                          materialId: null,
+                          isDropdownOpen: true
+                        }
+                        : item))}
+                      style={{ width: '100%', padding: '9px', border: '1px solid #94a3b8', borderRadius: '5px', boxSizing: 'border-box' }}
+                    />
+                    {row.isDropdownOpen && materialSuggestions.length > 0 && (
+                      <div role="listbox" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 30, maxHeight: '180px', overflowY: 'auto', backgroundColor: '#fff', border: '1px solid #94a3b8', borderRadius: '5px', boxShadow: '0 4px 12px rgba(15,23,42,.15)' }}>
+                        {materialSuggestions.map(material => (
+                          <button
+                            key={`${material.id}-${material.code}-${material.name}`}
+                            type="button"
+                            role="option"
+                            onMouseDown={event => event.preventDefault()}
+                            onClick={() => setParentContractMaterials(rows => rows.map(item => item.id === row.id
+                              ? {
+                                ...item,
+                                materialId: material.id > 0 ? material.id : 0,
+                                materialCode: material.code,
+                                materialName: material.name,
+                                query: material.name,
+                                unit: material.unit || item.unit,
+                                unitPrice: String(getLatestMaterialUnitPrice(material, slips, expenses) || ''),
+                                isDropdownOpen: false
+                              }
+                              : item))}
+                            style={{ display: 'block', width: '100%', padding: '9px 10px', border: 0, borderBottom: '1px solid #e2e8f0', backgroundColor: '#fff', color: '#1e293b', textAlign: 'left', cursor: 'pointer' }}
+                          >
+                            {material.name}{material.unit ? ` · ${material.unit}` : ''}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <select
                     value={row.unit}
                     onChange={event => setParentContractMaterials(rows => rows.map(item =>
@@ -3294,8 +3420,9 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                       <div style={{ gridColumn: '1 / -1', background: '#f0fdf4', padding: '8px', borderRadius: '6px', border: '1px solid #bbf7d0' }}>
                         <span style={{ color: '#166534', fontWeight: 700 }}>Tổng Xuất Giao Cty:</span>
                         <div style={{ marginTop: '3px', fontWeight: 800, color: '#0f172a' }}>
-                          {exportSummary.total.toLocaleString('vi-VN')} tổng
-                          {' / '}
+                          Tổng giao: {exportSummary.total.toLocaleString('vi-VN')} {getUnitFromProductCode(String(item.productCode || '')) || item.unit || 'Cái'}
+                        </div>
+                        <div style={{ marginTop: '3px', fontSize: '12px' }}>
                           <span style={{ color: '#15803d' }}>{exportSummary.good.toLocaleString('vi-VN')} đạt</span>
                           {' / '}
                           <span style={{ color: '#b91c1c' }}>{exportSummary.defective.toLocaleString('vi-VN')} loại</span>
@@ -3452,7 +3579,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                         </div>
                       </td>
                       <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <strong style={{ color: '#1e293b' }}>{exportSummary.total.toLocaleString('vi-VN')} tổng</strong>
+                        <strong style={{ color: '#1e293b' }}>Tổng giao: {exportSummary.total.toLocaleString('vi-VN')} {getUnitFromProductCode(String(item.productCode || '')) || item.unit || 'Cái'}</strong>
                         <div style={{ marginTop: '3px', fontSize: '12px' }}>
                           <span style={{ color: '#15803d', fontWeight: 700 }}>{exportSummary.good.toLocaleString('vi-VN')} đạt</span>
                           {' / '}

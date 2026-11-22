@@ -375,14 +375,68 @@ export default function DashboardView() {
     String(contract.productCode || '').trim().toLowerCase() === String(slip.productCode || '').trim().toLowerCase()
   ), [parentContracts]);
 
+  const repairedGoodQuantityByExport = useMemo(() => {
+    const result = new Map<string, number>();
+    (Array.isArray(slips) ? slips : []).forEach(slip => {
+      if (!slip || String(slip.type || '').toUpperCase() !== 'NHAN_SUA_KHOAN') return;
+      (Array.isArray(slip.repairLines) ? slip.repairLines : []).forEach((line: any) => {
+        if (!line) return;
+        const sourceExportId = line.sourceKnittingExportSlipId;
+        if (sourceExportId === undefined || sourceExportId === null) return;
+        const sourceExport = knittingExportSlips.find(item =>
+          String(item.id) === String(sourceExportId)
+        );
+        const piecesPerSet = Number(sourceExport?.piecesPerSet) || 1;
+        let repairedQuantity = 0;
+        if (line.goodQuantity !== undefined) {
+          repairedQuantity = Math.max(0, Number(line.goodQuantity) || 0);
+        } else {
+          const goodBundles = Math.max(0, Number(line.goodBundleQuantity) || 0);
+          const goodSizes = line.goodSizeQuantities && typeof line.goodSizeQuantities === 'object'
+            ? (Object.values(line.goodSizeQuantities) as unknown[]).reduce((sum: number, quantity) =>
+              sum + (Number(quantity) || 0), 0)
+            : 0;
+          repairedQuantity = piecesPerSet > 1
+            ? goodBundles + (goodSizes / piecesPerSet)
+            : goodBundles + goodSizes;
+        }
+        if (repairedQuantity <= 0) return;
+        const key = String(sourceExportId);
+        result.set(key, (result.get(key) || 0) + repairedQuantity);
+      });
+    });
+    return result;
+  }, [slips, knittingExportSlips]);
+
   const realizedRevenueContracts = useMemo(() => parentContracts.map(contract => {
     const matchedExports = knittingExportSlips.filter(slip => {
       const parent = findParentForExport(slip);
       return parent ? String(parent.id) === String(contract.id) : false;
     });
 
-    const goodQuantity = matchedExports.reduce((sum, slip) => sum + Math.max(0, Number(slip.goodContractQuantity) || 0), 0);
-    const defectiveQuantity = matchedExports.reduce((sum, slip) => sum + Math.max(0, Number(slip.defectiveContractQuantity) || 0), 0);
+    const rawGoodQuantity = matchedExports.reduce((sum, slip) => sum + Math.max(0, Number(slip.goodContractQuantity) || 0), 0);
+    const rawDefectiveQuantity = matchedExports.reduce((sum, slip) => sum + Math.max(0, Number(slip.defectiveContractQuantity) || 0), 0);
+    const reExportedGoodQuantity = matchedExports.reduce((sum, slip) => {
+      const isRepairReExport =
+        String(slip.sourceReceiptId || '').trim().toLowerCase().startsWith('repair-') ||
+        (Array.isArray(slip.sourceAllocations) && slip.sourceAllocations.some((allocation: any) =>
+          String(allocation?.sourceReceiptId || '').trim().toLowerCase().startsWith('repair-')
+        ));
+      return sum + (isRepairReExport ? Math.max(0, Number(slip.goodContractQuantity) || 0) : 0);
+    }, 0);
+    const repairedQuantity = matchedExports.reduce((sum, slip) =>
+      sum + (repairedGoodQuantityByExport.get(String(slip.id)) || 0), 0);
+    const reclassifiedQuantity = Math.min(
+      reExportedGoodQuantity,
+      repairedQuantity,
+      rawDefectiveQuantity
+    );
+    const goodQuantity = reclassifiedQuantity > 0
+      ? rawGoodQuantity
+      : (rawDefectiveQuantity > 0
+        ? rawGoodQuantity
+        : Math.max(0, rawGoodQuantity - reExportedGoodQuantity));
+    const defectiveQuantity = Math.max(0, rawDefectiveQuantity - reclassifiedQuantity);
     const totalExportQuantity = goodQuantity + defectiveQuantity;
     const unitPrice = Number(contract.unitPrice) || 0;
     const contractQuantity = Number(contract.quantity) || 0;
@@ -404,7 +458,7 @@ export default function DashboardView() {
       fulfillmentPercent,
       exportCount: matchedExports.length
     };
-  }), [parentContracts, knittingExportSlips, getParentReceivedQuantity, findParentForExport]);
+  }), [parentContracts, knittingExportSlips, getParentReceivedQuantity, findParentForExport, repairedGoodQuantityByExport]);
 
   const { totalRealizedRevenue, totalGoodExportQuantity, totalDefectiveExportQuantity, totalExportQuantity } = useMemo(() => ({
     totalRealizedRevenue: realizedRevenueContracts.reduce((sum, item) => sum + item.realizedRevenue, 0),
@@ -987,7 +1041,7 @@ export default function DashboardView() {
                       </td>
                       <td className="whitespace-nowrap" style={{ padding: '9px 10px', textAlign: 'right' }}>
                         <div>
-                          <strong style={{ color: totalExportQuantity > 0 ? '#1e293b' : '#64748b' }}>{formatNumber(totalExportQuantity)}</strong> {unit}
+                          <strong style={{ color: totalExportQuantity > 0 ? '#1e293b' : '#64748b' }}>Tổng giao: {formatNumber(totalExportQuantity)} {unit}</strong>
                         </div>
                         <small style={{ display: 'block', color: '#475569' }}>
                           <span style={{ color: '#15803d', fontWeight: 700 }}>{formatNumber(goodQuantity)} đạt</span>
@@ -1025,7 +1079,7 @@ export default function DashboardView() {
                     <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', color: '#1e40af' }}>{formatCurrency(companyContractValue)}</td>
                     <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right' }}>—</td>
                     <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'right', color: '#1e293b' }}>
-                      <div><strong>{formatNumber(totalExportQuantity)}</strong> sản phẩm</div>
+                      <div><strong>Tổng giao: {formatNumber(totalExportQuantity)} sản phẩm</strong></div>
                       <small style={{ color: '#475569' }}>
                         <span style={{ color: '#166534' }}>{formatNumber(totalGoodExportQuantity)} đạt</span>
                         {' / '}
