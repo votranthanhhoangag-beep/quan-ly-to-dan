@@ -14,6 +14,12 @@ import { parseVietnameseFormSpeech } from '../utils/voiceFormParser';
 
 type MaterialUnit = string;
 
+const parseDecimalInput = (value: unknown): number => {
+  const normalized = String(value ?? '').trim().replace(',', '.');
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 interface AccompanyingMaterial {
   materialId: number;
   materialCode: string;
@@ -379,6 +385,11 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   const [newDate, setNewDate] = useState<string>(minDateString);
   const [newQty, setNewQty] = useState<string>('');
   const [newNote, setNewNote] = useState<string>('');
+  const subContractActualReceived = useMemo(() => {
+    const loggedQuantity = (Array.isArray(exportLogs) ? exportLogs : [])
+      .reduce((sum, log) => sum + (Number(log.actualQty) || 0), 0);
+    return loggedQuantity + (Number(newQty) || 0);
+  }, [exportLogs, newQty]);
 
   useEffect(() => {
     if (activeTab !== 'PARENT') return;
@@ -386,8 +397,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     setParentContractMaterials(rows => {
       let changed = false;
       const nextRows = rows.map(row => {
-      const normPerUnit = Number(row.normPerUnit) || 0;
-      if (row.quantityManuallyEdited) return row;
+      const normPerUnit = parseDecimalInput(row.normPerUnit);
       if (contractQuantity <= 0) {
         if (row.quantity === '') return row;
         changed = true;
@@ -414,12 +424,11 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
 
   useEffect(() => {
     if (activeTab !== 'SUB') return;
-    const contractQuantity = Number(contractQty) || 0;
+    const contractQuantity = subContractActualReceived;
     setSubContractMaterials(rows => {
       let changed = false;
       const nextRows = rows.map(row => {
-        const normPerUnit = Number(row.normPerUnit) || 0;
-        if (row.quantityManuallyEdited) return row;
+        const normPerUnit = parseDecimalInput(row.normPerUnit);
         if (contractQuantity <= 0) {
           if (row.quantity === '') return row;
           changed = true;
@@ -436,7 +445,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       });
       return changed ? nextRows : rows;
     });
-  }, [activeTab, contractQty, subContractMaterials.map(row =>
+  }, [activeTab, subContractActualReceived, subContractMaterials.map(row =>
     `${row.id}:${row.normPerUnit}`
   ).join('|')]);
 
@@ -648,7 +657,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
         item.code === norm.materialCode ||
         item.name === norm.materialName
       );
-      const quantity = (Number(contractQuantity) || 0) * (Number(norm.normPerUnit) || 0);
+      const quantity = (Number(contractQuantity) || 0) * (parseDecimalInput(norm.normPerUnit) || 0);
       return {
         id: createUniqueId('inherited-material-'),
         materialId: material?.id ?? norm.materialId ?? 0,
@@ -734,7 +743,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
         setBoQuantity('');
       }
       const cleanCode = safeCode.trim().toLowerCase();
-      applyProductMaterialNorms(safeCode, setSubContractMaterials, false, Number(contractQty) || 0);
+      applyProductMaterialNorms(safeCode, setSubContractMaterials, false, subContractActualReceived);
       const matchedParent = contractItems.find(
         (contract: any) =>
           contract &&
@@ -855,7 +864,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
 
   const { summaryText, totalAmount: calculatedTotalAmount } = calculateExactTotal();
   const accompanyingMaterialTotal = safeSubContractMaterials.reduce(
-    (total, row) => total + (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0),
+    (total, row) => total + (Number(row.quantity) || 0) * parseDecimalInput(row.unitPrice),
     0
   );
 
@@ -1507,7 +1516,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
           quantity: String(material.quantity),
           unitPrice: String(Number(material.unitPrice) || 0),
           isDropdownOpen: false,
-          quantityManuallyEdited: false
+          quantityManuallyEdited: true
         }))
         : [createAccompanyingMaterialRow()]);
       if (item.quantity) setContractQty(String(item.quantity));
@@ -1853,7 +1862,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
               materialCode: material?.code || row.materialCode,
               materialName: material?.name || row.materialName,
               quantity,
-              normPerUnit: Number(row.normPerUnit) || 0,
+              normPerUnit: parseDecimalInput(row.normPerUnit),
               unitPrice,
               amount: quantity * unitPrice,
               unit: row.unit
@@ -2153,23 +2162,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                     ))}
                   </select>
                   <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    aria-label="Định mức nguyên phụ liệu"
-                    placeholder="VD: 0.7"
-                    value={row.normPerUnit}
-                    onChange={event => setSubContractMaterials(rows => rows.map(item =>
-                      item.id === row.id
-                        ? { ...item, normPerUnit: event.target.value, quantityManuallyEdited: false }
-                        : item
-                    ))}
-                    style={{ width: '100%', padding: '9px', border: '1px solid #94a3b8', borderRadius: '5px', boxSizing: 'border-box' }}
-                  />
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
+                    type="text"
+                    inputMode="decimal"
                     aria-label="Định mức nguyên phụ liệu"
                     placeholder="VD: 0.7"
                     value={row.normPerUnit}
@@ -2371,7 +2365,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
           if (materialRowsWithInput.some(row =>
             row.materialId === null ||
             !Number.isFinite(Number(row.quantity)) || Number(row.quantity) <= 0 ||
-            !Number.isFinite(Number(row.unitPrice || 0)) || Number(row.unitPrice || 0) < 0
+            !Number.isFinite(parseDecimalInput(row.unitPrice)) || parseDecimalInput(row.unitPrice) < 0
           )) {
             alert('Vui lòng chọn nguyên phụ liệu, nhập số lượng lớn hơn 0 và đơn giá hợp lệ cho từng dòng!');
             return;
@@ -2384,9 +2378,9 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
               materialCode: material?.code || row.materialCode,
               materialName: material?.name || row.materialName,
               quantity: Number(row.quantity),
-              normPerUnit: Number(row.normPerUnit) || 0,
-              unitPrice: Number(row.unitPrice) || 0,
-              amount: Number(row.quantity) * (Number(row.unitPrice) || 0),
+              normPerUnit: parseDecimalInput(row.normPerUnit),
+              unitPrice: parseDecimalInput(row.unitPrice),
+              amount: Number(row.quantity) * parseDecimalInput(row.unitPrice),
               unit: row.unit
             }];
           });
@@ -2899,6 +2893,19 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                     ))}
                   </select>
                   <input
+                    type="text"
+                    inputMode="decimal"
+                    aria-label="Định mức nguyên phụ liệu"
+                    placeholder="VD: 0.7"
+                    value={row.normPerUnit}
+                    onChange={event => setSubContractMaterials(rows => rows.map(item =>
+                      item.id === row.id
+                        ? { ...item, normPerUnit: event.target.value, quantityManuallyEdited: false }
+                        : item
+                    ))}
+                    style={{ width: '100%', padding: '9px', border: '1px solid #94a3b8', borderRadius: '5px', boxSizing: 'border-box' }}
+                  />
+                  <input
                     type="number"
                     min="0.01"
                     step="any"
@@ -2911,19 +2918,20 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                     style={{ width: '100%', padding: '9px', border: '1px solid #94a3b8', borderRadius: '5px', boxSizing: 'border-box' }}
                   />
                   <input
-                    type="number"
-                    min="0"
-                    step="any"
+                    type="text"
+                    inputMode="decimal"
                     aria-label="Đơn giá nguyên phụ liệu"
                     placeholder="Nhập đơn giá"
                     value={row.unitPrice}
                     onChange={event => setSubContractMaterials(rows => rows.map(item =>
-                      item.id === row.id ? { ...item, unitPrice: event.target.value } : item
+                      item.id === row.id
+                        ? { ...item, unitPrice: event.target.value.replace(',', '.').replace(/[^\d.]/g, '') }
+                        : item
                     ))}
                     style={{ width: '100%', padding: '9px', border: '1px solid #94a3b8', borderRadius: '5px', boxSizing: 'border-box' }}
                   />
                   <div aria-label="Thành tiền nguyên phụ liệu" style={{ minHeight: '37px', padding: '9px', border: '1px solid #e2e8f0', borderRadius: '5px', boxSizing: 'border-box', backgroundColor: '#f8fafc', textAlign: 'right', fontWeight: 700 }}>
-                    {((Number(row.quantity) || 0) * (Number(row.unitPrice) || 0)).toLocaleString('vi-VN')} đ
+                    {((Number(row.quantity) || 0) * parseDecimalInput(row.unitPrice)).toLocaleString('vi-VN')} đ
                   </div>
                   <button
                     type="button"

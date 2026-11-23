@@ -225,7 +225,8 @@ export default function CategoryManager() {
       }
       if (activeTab === 'hanghoa' && materialNormRows.some(row => {
         const hasInput = Boolean(row.query.trim() || row.materialName.trim() || row.normPerUnit.trim());
-        return hasInput && (!row.materialName.trim() || !Number.isFinite(Number(row.normPerUnit)) || Number(row.normPerUnit) <= 0);
+        const parsedNorm = Number(String(row.normPerUnit).trim().replace(',', '.'));
+        return hasInput && (!row.materialName.trim() || !Number.isFinite(parsedNorm) || parsedNorm <= 0);
       })) {
         alert('⚠️ Vui lòng chọn nguyên vật liệu và nhập định mức hợp lệ cho từng dòng.');
         return;
@@ -233,7 +234,7 @@ export default function CategoryManager() {
       const itemId = editingId || Date.now();
       const materialNorms = activeTab === 'hanghoa'
         ? materialNormRows.flatMap(row => {
-          const normPerUnit = Number(row.normPerUnit);
+          const normPerUnit = Number(String(row.normPerUnit).trim().replace(',', '.'));
           const material = materialNormOptions.find(item => item.id === row.materialId);
           if (!row.materialName.trim() || !Number.isFinite(normPerUnit) || normPerUnit <= 0) return [];
           return [{
@@ -565,7 +566,7 @@ export default function CategoryManager() {
                       <select value={row.unit} onChange={event => setMaterialNormRows(rows => rows.map((item, index) => index === rowIndex ? { ...item, unit: event.target.value } : item))} style={{ width: '100%', padding: '8px', border: '1px solid #94a3b8', borderRadius: '5px' }}>
                         {[...new Set(['kg', 'lọn', 'bó', 'cái', 'mét', 'cuộn', 'tấm', 'thùng', 'bao', ...materialNormOptions.map(item => item.unit).filter(Boolean), row.unit].filter(Boolean))].map(option => <option key={String(option)} value={String(option)}>{String(option)}</option>)}
                       </select>
-                      <input type="number" min="0" step="any" value={row.normPerUnit} onChange={event => setMaterialNormRows(rows => rows.map((item, index) => index === rowIndex ? { ...item, normPerUnit: event.target.value } : item))} placeholder="VD: 0.7" style={{ width: '100%', padding: '8px', border: '1px solid #94a3b8', borderRadius: '5px', boxSizing: 'border-box' }} />
+                      <input type="text" inputMode="decimal" value={row.normPerUnit} onChange={event => setMaterialNormRows(rows => rows.map((item, index) => index === rowIndex ? { ...item, normPerUnit: event.target.value } : item))} placeholder="VD: 0.7" style={{ width: '100%', padding: '8px', border: '1px solid #94a3b8', borderRadius: '5px', boxSizing: 'border-box' }} />
                       <button type="button" aria-label="Xóa dòng nguyên vật liệu" onClick={() => setMaterialNormRows(rows => rows.filter((_item, index) => index !== rowIndex))} style={{ border: 0, borderRadius: '5px', background: '#fee2e2', color: '#b91c1c', fontSize: '17px', fontWeight: 'bold', cursor: 'pointer' }}>−</button>
                     </div>
                   );
