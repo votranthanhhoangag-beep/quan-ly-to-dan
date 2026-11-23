@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useApp, type CategoryItem, type VehicleCategoryItem } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { saveDataStore } from '../services/supabaseDataService';
@@ -70,6 +70,17 @@ export default function CategoryManager() {
   const [unit, setUnit] = useState('');
   const [note, setNote] = useState('');
   const [lowStockLimit, setLowStockLimit] = useState('');
+  const [materialNormRows, setMaterialNormRows] = useState<Array<{
+    materialId: number | null;
+    materialCode: string;
+    materialName: string;
+    query: string;
+    unit: string;
+    normPerUnit: string;
+  }>>([]);
+  const materialNormOptions = useMemo(() => materials.slice().sort((a, b) =>
+    a.name.localeCompare(b.name, 'vi', { sensitivity: 'base', numeric: true })
+  ), [materials]);
 
   // Form Xe
   const [vehicleName, setVehicleName] = useState('');
@@ -121,6 +132,16 @@ export default function CategoryManager() {
         setLowStockLimit(activeTab === 'nguyenvatlieu' && Number.isFinite(Number(g.lowStockLimit))
           ? String(g.lowStockLimit ?? '')
           : '');
+        setMaterialNormRows(activeTab === 'hanghoa'
+          ? (Array.isArray(g.materialNorms) ? g.materialNorms : []).map(norm => ({
+            materialId: norm.materialId,
+            materialCode: norm.materialCode,
+            materialName: norm.materialName,
+            query: `${norm.materialCode ? `${norm.materialCode} - ` : ''}${norm.materialName}`.trim(),
+            unit: norm.unit || '',
+            normPerUnit: String(norm.normPerUnit ?? '')
+          }))
+          : []);
       }
     } else {
       setEditingId(null);
@@ -129,6 +150,7 @@ export default function CategoryManager() {
       setUnit('');
       setNote('');
       setLowStockLimit('');
+      setMaterialNormRows([]);
       setVehicleName('');
       setModelYear('');
       setPlateNo('');
@@ -201,14 +223,36 @@ export default function CategoryManager() {
         alert('⚠️ Hạn mức tồn kho phải là số không âm hợp lệ.');
         return;
       }
+      if (activeTab === 'hanghoa' && materialNormRows.some(row => {
+        const hasInput = Boolean(row.query.trim() || row.materialName.trim() || row.normPerUnit.trim());
+        return hasInput && (!row.materialName.trim() || !Number.isFinite(Number(row.normPerUnit)) || Number(row.normPerUnit) <= 0);
+      })) {
+        alert('⚠️ Vui lòng chọn nguyên vật liệu và nhập định mức hợp lệ cho từng dòng.');
+        return;
+      }
       const itemId = editingId || Date.now();
+      const materialNorms = activeTab === 'hanghoa'
+        ? materialNormRows.flatMap(row => {
+          const normPerUnit = Number(row.normPerUnit);
+          const material = materialNormOptions.find(item => item.id === row.materialId);
+          if (!row.materialName.trim() || !Number.isFinite(normPerUnit) || normPerUnit <= 0) return [];
+          return [{
+            materialId: material?.id ?? row.materialId ?? 0,
+            materialCode: material?.code || row.materialCode,
+            materialName: material?.name || row.materialName.trim(),
+            unit: row.unit.trim() || material?.unit || '',
+            normPerUnit
+          }];
+        })
+        : undefined;
       const catItem: CategoryItem = {
         id: itemId,
         code: activeTab === 'chikhac' && !editingId ? `CHIKHAC-${itemId}` : code,
         name,
         unit: activeTab === 'chikhac' ? '' : unit.trim(),
         note,
-        ...(activeTab === 'nguyenvatlieu' ? { lowStockLimit: minimumStock } : {})
+        ...(activeTab === 'nguyenvatlieu' ? { lowStockLimit: minimumStock } : {}),
+        ...(materialNorms ? { materialNorms } : {})
       };
 
       if (activeTab === 'hanghoa') {
@@ -305,6 +349,20 @@ export default function CategoryManager() {
     { key: 'stt', label: 'STT', render: (_item, index) => index + 1 },
     { key: 'code', label: 'Mã Danh Mục', render: item => item.code },
     { key: 'name', label: 'Tên Danh Mục', render: item => item.name },
+    ...(activeTab === 'hanghoa' ? [{
+      key: 'materialNorms',
+      label: 'Định Mức Nguyên Phụ Liệu',
+      render: (item: CategoryItem) => {
+        const norms = Array.isArray(item.materialNorms) ? item.materialNorms : [];
+        return norms.length > 0
+          ? <div style={{ display: 'grid', gap: '3px', minWidth: '220px' }}>{norms.map(norm => (
+            <span key={`${norm.materialId}-${norm.materialCode}-${norm.materialName}`}>
+              {norm.materialName}: <strong>{Number(norm.normPerUnit).toLocaleString('vi-VN')} {norm.unit}</strong> / sản phẩm
+            </span>
+          ))}</div>
+          : <span style={{ color: '#64748b' }}>Chưa cấu hình</span>;
+      }
+    }] : []),
     { key: 'note', label: 'Ghi Chú', render: item => item.note },
     {
       key: 'actions',
@@ -428,6 +486,7 @@ export default function CategoryManager() {
               </div>
             </div>
           ) : (
+            <div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginBottom: '12px' }}>
               {activeTab !== 'chikhac' && (
                 <div>
@@ -475,6 +534,45 @@ export default function CategoryManager() {
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Ghi Chú:</label>
                 <input type="text" placeholder="Nhập ghi chú..." value={note} onChange={e => setNote(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }} />
               </div>
+            </div>
+            {activeTab === 'hanghoa' && (
+              <section style={{ background: '#fff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '12px', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <strong style={{ color: '#1d4ed8', fontSize: '13px' }}>Định mức nguyên phụ liệu / 1 sản phẩm</strong>
+                  <button type="button" onClick={() => setMaterialNormRows(rows => [...rows, { materialId: null, materialCode: '', materialName: '', query: '', unit: 'kg', normPerUnit: '' }])} style={{ border: 0, borderRadius: '5px', background: '#2563eb', color: '#fff', padding: '7px 10px', fontWeight: 'bold', cursor: 'pointer' }}>+ Thêm nguyên vật liệu</button>
+                </div>
+                {materialNormRows.map((row, rowIndex) => {
+                  const suggestions = materialNormOptions.filter(material =>
+                    `${material.code} ${material.name}`.toLowerCase().includes(row.query.trim().toLowerCase())
+                  ).slice(0, 12);
+                  return (
+                    <div key={`${rowIndex}-${row.materialCode}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 2fr) minmax(100px, .7fr) minmax(140px, .8fr) 42px', gap: '8px', marginTop: '8px' }}>
+                      <div style={{ position: 'relative' }}>
+                        <input type="search" list={`material-norm-options-${rowIndex}`} value={row.query} placeholder="Chọn hoặc nhập nguyên vật liệu..." onChange={event => setMaterialNormRows(rows => rows.map((item, index) => index === rowIndex ? { ...item, query: event.target.value, materialName: event.target.value, materialId: null, materialCode: '' } : item))} style={{ width: '100%', padding: '8px', border: '1px solid #94a3b8', borderRadius: '5px', boxSizing: 'border-box' }} />
+                        {suggestions.length > 0 && (
+                          <datalist id={`material-norm-options-${rowIndex}`}>
+                            {suggestions.map(material => <option key={material.id} value={`${material.code ? `${material.code} - ` : ''}${material.name}`} />)}
+                          </datalist>
+                        )}
+                        {row.query && suggestions.length > 0 && (
+                          <div style={{ position: 'absolute', zIndex: 20, left: 0, right: 0, top: '100%', background: '#fff', border: '1px solid #94a3b8', borderRadius: '5px', maxHeight: '150px', overflowY: 'auto' }}>
+                            {suggestions.map(material => (
+                              <button type="button" key={material.id} onMouseDown={event => event.preventDefault()} onClick={() => setMaterialNormRows(rows => rows.map((item, index) => index === rowIndex ? { ...item, materialId: material.id, materialCode: material.code, materialName: material.name, query: `${material.code ? `${material.code} - ` : ''}${material.name}`, unit: material.unit || item.unit } : item))} style={{ width: '100%', display: 'block', border: 0, borderBottom: '1px solid #e2e8f0', background: '#fff', padding: '8px', textAlign: 'left', cursor: 'pointer' }}>{material.name}{material.unit ? ` · ${material.unit}` : ''}</button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <select value={row.unit} onChange={event => setMaterialNormRows(rows => rows.map((item, index) => index === rowIndex ? { ...item, unit: event.target.value } : item))} style={{ width: '100%', padding: '8px', border: '1px solid #94a3b8', borderRadius: '5px' }}>
+                        {[...new Set(['kg', 'lọn', 'bó', 'cái', 'mét', 'cuộn', 'tấm', 'thùng', 'bao', ...materialNormOptions.map(item => item.unit).filter(Boolean), row.unit].filter(Boolean))].map(option => <option key={String(option)} value={String(option)}>{String(option)}</option>)}
+                      </select>
+                      <input type="number" min="0" step="any" value={row.normPerUnit} onChange={event => setMaterialNormRows(rows => rows.map((item, index) => index === rowIndex ? { ...item, normPerUnit: event.target.value } : item))} placeholder="VD: 0.7" style={{ width: '100%', padding: '8px', border: '1px solid #94a3b8', borderRadius: '5px', boxSizing: 'border-box' }} />
+                      <button type="button" aria-label="Xóa dòng nguyên vật liệu" onClick={() => setMaterialNormRows(rows => rows.filter((_item, index) => index !== rowIndex))} style={{ border: 0, borderRadius: '5px', background: '#fee2e2', color: '#b91c1c', fontSize: '17px', fontWeight: 'bold', cursor: 'pointer' }}>−</button>
+                    </div>
+                  );
+                })}
+                {materialNormRows.length === 0 && <small style={{ color: '#64748b' }}>Chưa cấu hình nguyên phụ liệu cho mã hàng này.</small>}
+              </section>
+            )}
             </div>
           )}
 

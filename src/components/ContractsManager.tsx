@@ -373,6 +373,12 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   const [dueDate, setDueDate] = useState<string>(minDateString);
   const [contractImage, setContractImage] = useState<string>('');
   const [note, setNote] = useState<string>('');
+  const [contractQty, setContractQty] = useState<string>('0');
+  const [isContractQtyManuallyEdited, setIsContractQtyManuallyEdited] = useState(false);
+  const [exportLogs, setExportLogs] = useState<ActualExportLog[]>([]);
+  const [newDate, setNewDate] = useState<string>(minDateString);
+  const [newQty, setNewQty] = useState<string>('');
+  const [newNote, setNewNote] = useState<string>('');
 
   useEffect(() => {
     if (activeTab !== 'PARENT') return;
@@ -381,8 +387,9 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       let changed = false;
       const nextRows = rows.map(row => {
       const normPerUnit = Number(row.normPerUnit) || 0;
+      if (row.quantityManuallyEdited) return row;
       if (contractQuantity <= 0) {
-        if (row.quantityManuallyEdited || row.quantity === '') return row;
+        if (row.quantity === '') return row;
         changed = true;
         return { ...row, quantity: '' };
       }
@@ -405,13 +412,35 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     `${row.id}:${row.normPerUnit}`
   ).join('|')]);
 
+  useEffect(() => {
+    if (activeTab !== 'SUB') return;
+    const contractQuantity = Number(contractQty) || 0;
+    setSubContractMaterials(rows => {
+      let changed = false;
+      const nextRows = rows.map(row => {
+        const normPerUnit = Number(row.normPerUnit) || 0;
+        if (row.quantityManuallyEdited) return row;
+        if (contractQuantity <= 0) {
+          if (row.quantity === '') return row;
+          changed = true;
+          return { ...row, quantity: '' };
+        }
+        if (normPerUnit <= 0) return row;
+        const calculatedQuantity = contractQuantity * normPerUnit;
+        const nextQuantity = Number.isFinite(calculatedQuantity) && calculatedQuantity > 0
+          ? String(Number(calculatedQuantity.toFixed(6)))
+          : '';
+        if (row.quantity === nextQuantity) return row;
+        changed = true;
+        return { ...row, quantity: nextQuantity, quantityManuallyEdited: false };
+      });
+      return changed ? nextRows : rows;
+    });
+  }, [activeTab, contractQty, subContractMaterials.map(row =>
+    `${row.id}:${row.normPerUnit}`
+  ).join('|')]);
+
   // Số lượng HĐ Tổ Đan & Tiến độ nhận khung
-  const [contractQty, setContractQty] = useState<string>('0');
-  const [isContractQtyManuallyEdited, setIsContractQtyManuallyEdited] = useState(false);
-  const [exportLogs, setExportLogs] = useState<ActualExportLog[]>([]);
-  const [newDate, setNewDate] = useState<string>(minDateString);
-  const [newQty, setNewQty] = useState<string>('');
-  const [newNote, setNewNote] = useState<string>('');
 
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   const [subContractSlipData, setSubContractSlipData] = useState<SubContractSlipData | null>(null);
@@ -599,6 +628,49 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       .map(code => String(code || '').trim())
       .filter(Boolean)
   ));
+  const applyProductMaterialNorms = useCallback((
+    code: string,
+    setRows: React.Dispatch<React.SetStateAction<AccompanyingMaterialFormRow[]>>,
+    preserveExistingRows = false,
+    contractQuantity = 0
+  ) => {
+    const matchedProduct = productItems.find(
+      (item: CategoryItem) => String(item.code || '').trim().toLowerCase() === code.trim().toLowerCase()
+    );
+    const norms = Array.isArray(matchedProduct?.materialNorms) ? matchedProduct.materialNorms : [];
+    if (!norms.length) {
+      if (!preserveExistingRows) setRows([createAccompanyingMaterialRow()]);
+      return;
+    }
+    setRows(norms.map(norm => {
+      const material = materialItems.find(item =>
+        item.id === norm.materialId ||
+        item.code === norm.materialCode ||
+        item.name === norm.materialName
+      );
+      const quantity = (Number(contractQuantity) || 0) * (Number(norm.normPerUnit) || 0);
+      return {
+        id: createUniqueId('inherited-material-'),
+        materialId: material?.id ?? norm.materialId ?? 0,
+        materialCode: material?.code || norm.materialCode,
+        materialName: material?.name || norm.materialName,
+        query: `${norm.materialCode ? `${norm.materialCode} - ` : ''}${norm.materialName}`.trim(),
+        unit: norm.unit || material?.unit || 'kg',
+        normPerUnit: String(norm.normPerUnit),
+        quantity: Number.isFinite(quantity) && quantity > 0 ? String(Number(quantity.toFixed(6))) : '',
+        unitPrice: String(getLatestMaterialUnitPrice(material || {
+          id: norm.materialId,
+          code: norm.materialCode,
+          name: norm.materialName,
+          note: '',
+          unit: norm.unit
+        }, slips, expenses) || ''),
+        isDropdownOpen: false,
+        quantityManuallyEdited: false
+      };
+    }));
+  }, [activeTab, contractQty, quantity, productItems, materialItems, slips, expenses]);
+
   const handleProductCodeSelect = (codeStr: string) => {
     try {
       const safeCode = typeof codeStr === 'string' ? codeStr : String(codeStr || '');
@@ -613,6 +685,11 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       const matchedProduct = productItems.find(
         (p: any) => p && String(p.code || p.id || '').trim().toLowerCase() === cleanCode
       );
+      if (matchedProduct) {
+        applyProductMaterialNorms(String(matchedProduct.code || safeCode), setParentContractMaterials, false, Number(quantity) || 0);
+      } else {
+        setParentContractMaterials([createAccompanyingMaterialRow()]);
+      }
       const matchedContract = contractItems.find(
         (c: any) => c && c.contractType === 'PARENT' &&
           String(c.productCode || '').trim().toLowerCase() === cleanCode
@@ -657,6 +734,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
         setBoQuantity('');
       }
       const cleanCode = safeCode.trim().toLowerCase();
+      applyProductMaterialNorms(safeCode, setSubContractMaterials, false, Number(contractQty) || 0);
       const matchedParent = contractItems.find(
         (contract: any) =>
           contract &&
@@ -1425,7 +1503,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
           materialName: material.materialName,
           query: `${material.materialCode} - ${material.materialName}`,
           unit: material.unit,
-          normPerUnit: '',
+          normPerUnit: String(Number(material.normPerUnit) || ''),
           quantity: String(material.quantity),
           unitPrice: String(Number(material.unitPrice) || 0),
           isDropdownOpen: false,
@@ -2081,6 +2159,20 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                     aria-label="Định mức nguyên phụ liệu"
                     placeholder="VD: 0.7"
                     value={row.normPerUnit}
+                    onChange={event => setSubContractMaterials(rows => rows.map(item =>
+                      item.id === row.id
+                        ? { ...item, normPerUnit: event.target.value, quantityManuallyEdited: false }
+                        : item
+                    ))}
+                    style={{ width: '100%', padding: '9px', border: '1px solid #94a3b8', borderRadius: '5px', boxSizing: 'border-box' }}
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    aria-label="Định mức nguyên phụ liệu"
+                    placeholder="VD: 0.7"
+                    value={row.normPerUnit}
                     onChange={event => setParentContractMaterials(rows => rows.map(item =>
                       item.id === row.id
                         ? { ...item, normPerUnit: event.target.value, quantityManuallyEdited: false }
@@ -2292,6 +2384,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
               materialCode: material?.code || row.materialCode,
               materialName: material?.name || row.materialName,
               quantity: Number(row.quantity),
+              normPerUnit: Number(row.normPerUnit) || 0,
               unitPrice: Number(row.unitPrice) || 0,
               amount: Number(row.quantity) * (Number(row.unitPrice) || 0),
               unit: row.unit
@@ -2728,9 +2821,10 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                 + Thêm dòng
               </button>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 2fr) minmax(90px, .7fr) minmax(100px, .8fr) minmax(120px, 1fr) minmax(140px, 1fr) 42px', gap: '8px', marginBottom: '6px', color: '#475569', fontSize: '12px', fontWeight: 'bold' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 2fr) minmax(90px, .7fr) minmax(110px, .8fr) minmax(100px, .8fr) minmax(120px, 1fr) minmax(140px, 1fr) 42px', gap: '8px', marginBottom: '6px', color: '#475569', fontSize: '12px', fontWeight: 'bold' }}>
               <span>Nguyên vật liệu</span>
               <span>Đơn vị tính</span>
+              <span>Định mức / sản phẩm</span>
               <span>Số lượng</span>
               <span>Đơn giá (VNĐ)</span>
               <span>Thành tiền (VNĐ)</span>
@@ -2742,7 +2836,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                 material && matchesMaterialNameSearch(material, String(row.query || ''))
               );
               return (
-                <div key={row.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 2fr) minmax(90px, .7fr) minmax(100px, .8fr) minmax(120px, 1fr) minmax(140px, 1fr) 42px', gap: '8px', alignItems: 'start', marginTop: '8px' }}>
+                <div key={row.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 2fr) minmax(90px, .7fr) minmax(110px, .8fr) minmax(100px, .8fr) minmax(120px, 1fr) minmax(140px, 1fr) 42px', gap: '8px', alignItems: 'start', marginTop: '8px' }}>
                   <div style={{ position: 'relative' }}>
                     <input
                       type="search"
@@ -2812,7 +2906,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                     placeholder="Nhập số lượng"
                     value={row.quantity}
                     onChange={event => setSubContractMaterials(rows => rows.map(item =>
-                      item.id === row.id ? { ...item, quantity: event.target.value } : item
+                      item.id === row.id ? { ...item, quantity: event.target.value, quantityManuallyEdited: true } : item
                     ))}
                     style={{ width: '100%', padding: '9px', border: '1px solid #94a3b8', borderRadius: '5px', boxSizing: 'border-box' }}
                   />

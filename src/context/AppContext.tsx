@@ -14,6 +14,13 @@ export interface CategoryItem {
   note: string;
   unit?: string;
   lowStockLimit?: number;
+  materialNorms?: Array<{
+    materialId: number;
+    materialCode: string;
+    materialName: string;
+    unit: string;
+    normPerUnit: number;
+  }>;
 }
 
 export interface VehicleCategoryItem {
