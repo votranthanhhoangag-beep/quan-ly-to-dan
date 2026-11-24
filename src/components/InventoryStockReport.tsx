@@ -2485,9 +2485,9 @@ export default function InventoryStockReport() {
   const repairSettlementPreview = Math.max(0, repairLabourTotal - repairMaterialTotal - repairAdvanceTotal);
   return (
     <div style={{ display: 'grid', gap: '18px' }}>
-      <nav aria-label="Điều hướng Báo cáo NXT và sửa khoán" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '9px', backgroundColor: '#f8fafc' }}>
+      <nav aria-label="Điều hướng Báo cáo NXT Hàng Đan và sửa khoán" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '9px', backgroundColor: '#f8fafc' }}>
         {([
-          ['stock', 'Báo Cáo Nhập - Xuất - Tồn'],
+          ['stock', 'Báo Cáo NXT Hàng Đan'],
           ['repair-export', 'Phiếu Xuất Sửa Khoán'],
           ['repair-receipt', 'Phiếu Nhập Hàng Sửa']
         ] as const).map(([tab, label]) => (
@@ -2515,7 +2515,7 @@ export default function InventoryStockReport() {
       <section className="report-panel" style={{ padding: '16px', border: '1px solid #cbd5e1', borderRadius: '9px', backgroundColor: '#fff' }}>
         <div className="report-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
           <div>
-            <h3 style={{ margin: 0, color: '#1e293b', fontSize: '16px' }}>📊 Báo Cáo Nhập - Xuất - Tồn</h3>
+            <h3 style={{ margin: 0, color: '#1e293b', fontSize: '16px' }}>📊 Báo Cáo NXT Hàng Đan</h3>
             <small style={{ color: '#64748b' }}>Số liệu Nhập/Xuất theo tháng; tồn đầu là số dư trước tháng được chọn.</small>
           </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 700 }}>

@@ -924,7 +924,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     String(slip.type).includes('KS') || String(slip.type).includes('KHUNG')
       ? 'Báo cáo NXT Khung Sơn'
       : String(slip.type).includes('SUA_KHOAN')
-        ? 'Báo cáo NXT & Sửa Khoán'
+        ? 'Báo cáo NXT Hàng Đan & Sửa Khoán'
         : 'Phiếu Kho';
   const isMaterialExpense = (expense: ExpenseItem) =>
     Array.isArray(expense.items) && expense.items.some(item => item.sourceType === 'Nguyên liệu');
