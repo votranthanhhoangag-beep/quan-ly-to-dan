@@ -45,6 +45,26 @@ const fieldAliases = [
   { field: 'unit', labels: ['đơn vị tính mặc định', 'đơn vị tính', 'đơn vị'] },
   { field: 'normPerUnit', labels: ['định mức nguyên vật liệu', 'định mức trên sản phẩm', 'định mức mỗi sản phẩm', 'định mức sản phẩm', 'định mức'] },
   { field: 'materialName', labels: ['nguyên vật liệu', 'nguyên phụ liệu'] },
+  { field: 'receivedQuantity', labels: ['sl nhận hôm nay', 'số lượng nhận hôm nay', 'sl thực nhận', 'số lượng thực nhận', 'số lượng nhận', 'nhận hôm nay'] },
+  { field: 'quantity', labels: ['số lượng', 'số bộ', 'số cái', 'sl'] },
+  { field: 'unitPrice', labels: ['đơn giá', 'giá'] },
+  { field: 'deposit', labels: ['tiền cọc', 'đặt cọc', 'số tiền cọc', 'cọc'] },
+  { field: 'paidAmount', labels: ['đã trả', 'tiền trả', 'số tiền trả', 'thanh toán'] },
+  { field: 'totalAmount', labels: ['thành tiền', 'tổng tiền', 'tổng cộng'] },
+  { field: 'remainingAmount', labels: ['số tiền còn lại', 'còn lại'] },
+  { field: 'contractNo', labels: ['số hợp đồng', 'hđ cty', 'hđ tổ đan', 'số hđ'] },
+  { field: 'companyName', labels: ['tên công ty', 'công ty', 'nhà cung cấp', 'đối tác'] },
+  { field: 'groupName', labels: ['tên tổ đan', 'tổ đan'] },
+  { field: 'personName', labels: ['tên thợ', 'người nhận', 'người giao', 'người sửa', 'hộ đan'] },
+  { field: 'phone', labels: ['số điện thoại', 'điện thoại', 'sdt'] },
+  { field: 'zalo', labels: ['zalo', 'số zalo'] },
+  { field: 'date', labels: ['ngày tháng', 'ngày'] },
+  { field: 'dueDate', labels: ['hạn đan', 'hạn nhận', 'hạn giao', 'hạn'] },
+  { field: 'lowStockLimit', labels: ['hạn mức tồn kho tối thiểu', 'hạn mức tồn kho', 'tồn kho tối thiểu'] },
+  { field: 'vehicleName', labels: ['tên xe'] },
+  { field: 'plateNo', labels: ['biển số xe', 'biển số'] },
+  { field: 'modelYear', labels: ['đời xe', 'năm sản xuất'] },
+  { field: 'note', labels: ['ghi chú', 'lưu ý', 'nội dung'] },
   { field: 'companyName', labels: ['tên công ty', 'công ty'] },
   { field: 'groupName', labels: ['tên tổ đan', 'tổ đan'] },
   { field: 'quantity', labels: ['số lượng nhận hôm nay', 'sl nhận hôm nay', 'số lượng thực nhận', 'sl thực nhận', 'số lượng', 'số bộ', 'số cái', 'sl'] },
@@ -120,6 +140,12 @@ const getFormFields = (form: HTMLFormElement): FormField[] =>
     if ((field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) && field.readOnly) return false;
     if (field instanceof HTMLInputElement &&
       ['hidden', 'button', 'submit', 'reset', 'image', 'file', 'checkbox', 'radio'].includes(field.type)) return false;
+    const description = getFieldDescriptionParts(field)
+      .map(part => normalizeVoiceText(part.text))
+      .join(' ');
+    if (
+      /(tu dong|tu nhay|tu sinh|he thong|thanh tien|tong tien|con lai|khong the sua|read only)/iu.test(description)
+    ) return false;
     return window.getComputedStyle(field).display !== 'none' && window.getComputedStyle(field).visibility !== 'hidden';
   });
 
@@ -132,6 +158,36 @@ const matchFormField = (form: HTMLFormElement, label: string) => {
     return matches.length ? [{ field, score: Math.max(...matches) }] : [];
   });
   return candidates.sort((first, second) => second.score - first.score)[0]?.field;
+};
+
+const openDatalistSuggestions = (field: FormField, query?: string) => {
+  if (!(field instanceof HTMLInputElement)) return false;
+  const listId = field.getAttribute('list');
+  if (!listId) return false;
+  const datalist = document.getElementById(listId);
+  if (!(datalist instanceof HTMLDataListElement)) return false;
+  const options = Array.from(datalist.options);
+  if (query?.trim()) {
+    const normalizedQuery = normalizeProductSearch(query);
+    const exact = options.find(option =>
+      normalizeProductSearch(option.value) === normalizedQuery ||
+      normalizeProductSearch(option.textContent || '') === normalizedQuery
+    );
+    const partial = options.find(option =>
+      normalizeProductSearch(option.value).includes(normalizedQuery) ||
+      normalizeProductSearch(option.textContent || '').includes(normalizedQuery)
+    );
+    const match = exact || partial;
+    if (match) dispatchFieldValue(field, match.value);
+  }
+  if ('showPicker' in field) {
+    try {
+      (field as HTMLInputElement & { showPicker: () => void }).showPicker();
+    } catch {
+      // Browsers may reject showPicker until a direct user gesture.
+    }
+  }
+  return true;
 };
 
 const matchCurrentOrFirstField = (
@@ -385,6 +441,7 @@ export default function VoiceFillControl({ onTranscript, onFieldFocus, onNavigat
       lastFocusedFieldRef.current = target;
       setFocusedFieldName(describeField(target));
       onFieldFocusRef.current?.(fieldCue.field);
+      openDatalistSuggestions(target);
       setSummary(`Đang chọn ô ${describeField(target)}.`);
       return;
     }
@@ -399,6 +456,7 @@ export default function VoiceFillControl({ onTranscript, onFieldFocus, onNavigat
         lastFocusedFieldRef.current = productCodeField;
         setFocusedFieldName(describeField(productCodeField));
         onFieldFocusRef.current?.('productCode', fieldCue.value);
+        openDatalistSuggestions(productCodeField, fieldCue.value);
       }
     }
 
