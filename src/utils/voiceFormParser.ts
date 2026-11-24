@@ -1,7 +1,9 @@
 export interface VoiceFormFields {
   productCode?: string;
   productName?: string;
+  companyName?: string;
   quantity?: number;
+  normPerUnit?: number;
   unit?: 'Bộ' | 'Cái';
   unitPrice?: number;
   totalAmount?: number;
@@ -31,7 +33,9 @@ const numberWords: Record<string, number> = {
 const fieldLabels: Array<{ field: keyof VoiceFormFields; labels: string[] }> = [
   { field: 'productCode', labels: ['mã sản phẩm', 'mã hàng', 'mã', 'code'] },
   { field: 'productName', labels: ['tên sản phẩm', 'tên hàng'] },
-  { field: 'quantity', labels: ['số lượng', 'số bộ', 'số cái', 'sl'] },
+  { field: 'companyName', labels: ['tên công ty', 'công ty'] },
+  { field: 'normPerUnit', labels: ['định mức trên sản phẩm', 'định mức mỗi sản phẩm', 'định mức sản phẩm', 'định mức'] },
+  { field: 'quantity', labels: ['số lượng nhận hôm nay', 'sl nhận hôm nay', 'số lượng thực nhận', 'sl thực nhận', 'số lượng', 'số bộ', 'số cái', 'sl'] },
   { field: 'unitPrice', labels: ['đơn giá', 'giá'] },
   { field: 'paidAmount', labels: ['số tiền trả', 'tiền trả', 'đã trả'] },
   { field: 'totalAmount', labels: ['thành tiền', 'tổng tiền', 'tổng cộng'] },
@@ -163,11 +167,14 @@ export const parseVietnameseFormSpeech = (transcript: string): VoiceFormFields =
   const productCode = raw.productCode?.replace(/\s+/g, '').match(/[a-z0-9][a-z0-9-]*(?:\/\d+)?/i)?.[0];
   if (productCode) result.productCode = productCode.toUpperCase();
   if (raw.productName) result.productName = raw.productName;
+  if (raw.companyName) result.companyName = raw.companyName;
 
   const quantity = parseNumberField(raw.quantity);
   if (quantity !== undefined) {
     result.quantity = quantity;
   }
+  const normPerUnit = parseNumberField(raw.normPerUnit);
+  if (normPerUnit !== undefined) result.normPerUnit = normPerUnit;
   const unitHint = [raw.quantity, raw.unitPrice, raw.totalAmount]
     .find(value => value && /(?:bộ|cái)/i.test(value));
   if (unitHint?.toLocaleLowerCase('vi').includes('bộ')) result.unit = 'Bộ';

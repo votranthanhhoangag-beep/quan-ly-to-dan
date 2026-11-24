@@ -1919,7 +1919,50 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#1d4ed8', margin: 0 }}>
               {editingId ? '✏️ Cập Nhật HĐ CTY' : '➕ Tạo HĐ CTY Mới'}
             </h3>
-            <button type="button" onClick={resetForm} style={{ padding: '6px 14px', backgroundColor: '#10b981', color: '#fff', fontWeight: 'bold', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '13px' }}>➕ Làm Mới</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <VoiceFillControl onTranscript={transcript => {
+                const parsed = parseVietnameseFormSpeech(transcript);
+                const filledFields: string[] = [];
+                if (parsed.companyName) {
+                  setCompanyName(parsed.companyName);
+                  if (!editingId) setParentContractNo(autoGenerateParentNo(parsed.companyName));
+                  filledFields.push('Công ty');
+                }
+                if (parsed.productCode) {
+                  handleProductCodeSelect(parsed.productCode);
+                  filledFields.push(`Mã hàng ${parsed.productCode}`);
+                }
+                if (parsed.productName) {
+                  setProductName(parsed.productName);
+                  filledFields.push('Tên hàng');
+                }
+                if (parsed.quantity !== undefined) {
+                  setQuantity(String(parsed.quantity));
+                  filledFields.push(`Số lượng ${parsed.quantity}`);
+                }
+                const quantityForPrice = parsed.quantity ?? Number(quantity);
+                const spokenUnitPrice = parsed.unitPrice ??
+                  (parsed.totalAmount !== undefined && quantityForPrice > 0
+                    ? Math.round(parsed.totalAmount / quantityForPrice)
+                    : undefined);
+                if (spokenUnitPrice !== undefined) {
+                  setUnitPrice(String(spokenUnitPrice));
+                  filledFields.push(parsed.unitPrice !== undefined ? 'Đơn giá' : 'Đơn giá suy ra từ thành tiền');
+                }
+                if (parsed.deposit !== undefined) {
+                  setRequiredDeposit(String(Math.round(parsed.deposit)));
+                  filledFields.push('Tiền cọc');
+                }
+                if (parsed.note) {
+                  setNote(parsed.note);
+                  filledFields.push('Ghi chú');
+                }
+                return filledFields.length
+                  ? `Đã điền: ${filledFields.join(', ')}. Vui lòng kiểm tra trước khi lưu.`
+                  : 'Chưa nhận ra trường cần điền. Hãy nói công ty, mã hàng, số lượng, đơn giá hoặc ghi chú.';
+              }} />
+              <button type="button" onClick={resetForm} style={{ padding: '6px 14px', backgroundColor: '#10b981', color: '#fff', fontWeight: 'bold', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '13px' }}>➕ Làm Mới</button>
+            </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
@@ -1939,6 +1982,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                     type="text"
                     required
                     autoComplete="off"
+                    aria-label="Mã hàng"
                     placeholder="Mã..."
                     value={productCode}
                     onFocus={() => setIsProductCodeDropdownOpen(true)}
@@ -1969,6 +2013,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                 </div>
                 <input
                   type="text"
+                  aria-label="Tên hàng"
                   placeholder="Tên sản phẩm tự nhảy..."
                   value={productName}
                   onChange={e => setProductName(e.target.value)}
