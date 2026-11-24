@@ -20,6 +20,13 @@ const parseDecimalInput = (value: unknown): number => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const normalizeProductSearch = (value: unknown) => String(value ?? '')
+  .toLocaleLowerCase('vi')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/đ/g, 'd')
+  .replace(/[^a-z0-9]/g, '');
+
 interface AccompanyingMaterial {
   materialId: number;
   materialCode: string;
@@ -330,6 +337,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   const [frameDepositAmount, setFrameDepositAmount] = useState<string>('');
   const [frameDepositMethod, setFrameDepositMethod] = useState<'TIEN_MAT' | 'CHUYEN_KHOAN'>('CHUYEN_KHOAN');
   const [isProductCodeDropdownOpen, setIsProductCodeDropdownOpen] = useState(false);
+  const [productCodeDropdownQuery, setProductCodeDropdownQuery] = useState('');
 
   // State HĐ CTY
   const [companyName, setCompanyName] = useState<string>('');
@@ -629,14 +637,14 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     [contractItems]
   );
 
-  const uniqueProductCodeList = Array.from(new Set<string>(
+  const uniqueProductCodeList = useMemo(() => Array.from(new Set<string>(
     [
       ...productItems.map((p: CategoryItem) => p?.code || p?.id),
       ...contractItems.map((c: any) => c?.productCode)
     ]
       .map(code => String(code || '').trim())
       .filter(Boolean)
-  ));
+  )), [productItems, contractItems]);
   const applyProductMaterialNorms = useCallback((
     code: string,
     setRows: React.Dispatch<React.SetStateAction<AccompanyingMaterialFormRow[]>>,
@@ -788,11 +796,18 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       handleSubProductCodeSelect(code);
     }
     else handleProductCodeSelect(code);
+    setProductCodeDropdownQuery(code);
     setIsProductCodeDropdownOpen(false);
     } catch (error) {
       console.error('Không thể chọn mã hàng:', error);
       window.alert('Không thể chọn mã hàng. Vui lòng thử lại.');
     }
+  };
+
+  const openProductCodeSuggestions = (field: string, query?: string) => {
+    if (field !== 'productCode') return;
+    setProductCodeDropdownQuery(query ?? productCode);
+    setIsProductCodeDropdownOpen(true);
   };
 
   useEffect(() => {
@@ -1111,6 +1126,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   const resetForm = () => {
     clearDraft();
     setIsProductCodeDropdownOpen(false);
+    setProductCodeDropdownQuery('');
     setSubContractSlipData(null);
     setFrameExportContract(null);
     setCompanyName('');
@@ -1320,12 +1336,21 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     return availableCodes;
   }, [editingId, contractItems, parentProductCodeList, slips]);
 
-  const productCodeOptions = activeTab === 'SUB'
-    ? availableSubContractProductCodes
-    : uniqueProductCodeList;
-  const filteredProductCodeOptions = productCodeOptions.filter(code =>
-    typeof code === 'string' && code.toLowerCase().includes(String(productCode || '').trim().toLowerCase())
+  const productCodeOptions = useMemo(
+    () => activeTab === 'SUB' ? availableSubContractProductCodes : uniqueProductCodeList,
+    [activeTab, availableSubContractProductCodes, uniqueProductCodeList]
   );
+  const filteredProductCodeOptions = useMemo(() => {
+    const query = normalizeProductSearch(productCodeDropdownQuery);
+    if (!query) return productCodeOptions;
+    return productCodeOptions.filter(code => {
+      if (normalizeProductSearch(code).includes(query)) return true;
+      const matchedProduct = productItems.find(item =>
+        normalizeProductSearch(item?.code || item?.id) === normalizeProductSearch(code)
+      );
+      return normalizeProductSearch(matchedProduct?.name || matchedProduct?.productName).includes(query);
+    });
+  }, [productCodeOptions, productCodeDropdownQuery, productItems]);
   const selectedSubContractCodeIsExhausted = Boolean(
     activeTab === 'SUB' &&
     !editingId &&
@@ -1960,7 +1985,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                 return filledFields.length
                   ? `Đã điền: ${filledFields.join(', ')}. Vui lòng kiểm tra trước khi lưu.`
                   : 'Chưa nhận ra trường cần điền. Hãy nói công ty, mã hàng, số lượng, đơn giá hoặc ghi chú.';
-              }} />
+              }} onFieldFocus={openProductCodeSuggestions} />
               <button type="button" onClick={resetForm} style={{ padding: '6px 14px', backgroundColor: '#10b981', color: '#fff', fontWeight: 'bold', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '13px' }}>➕ Làm Mới</button>
             </div>
           </div>
@@ -1977,7 +2002,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>Mã Hàng (Có sổ xuống) & Tên Hàng:</label>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <div style={{ width: '45%' }}>
+                <div style={{ width: '45%', position: 'relative' }}>
                   <input
                     type="text"
                     required
@@ -1985,16 +2010,21 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                     aria-label="Mã hàng"
                     placeholder="Mã..."
                     value={productCode}
-                    onFocus={() => setIsProductCodeDropdownOpen(true)}
-                    onBlur={() => setIsProductCodeDropdownOpen(false)}
+                    aria-expanded={isProductCodeDropdownOpen}
+                    onFocus={() => {
+                      setProductCodeDropdownQuery(productCode);
+                      setIsProductCodeDropdownOpen(true);
+                    }}
+                    onBlur={() => window.setTimeout(() => setIsProductCodeDropdownOpen(false), 150)}
                     onChange={e => {
+                      setProductCodeDropdownQuery(e.target.value);
                       handleProductCodeSelect(e.target.value);
                       setIsProductCodeDropdownOpen(true);
                     }}
                     style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '2px solid #2563eb', fontWeight: 'bold', boxSizing: 'border-box' }}
                   />
                   {isProductCodeDropdownOpen && (!isDataLoaded || filteredProductCodeOptions.length > 0) && (
-                    <div role="listbox" style={{ maxHeight: '200px', overflowY: 'auto', backgroundColor: '#fff', border: '1px solid #94a3b8', borderRadius: '6px', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.12)' }}>
+                    <div data-voice-suggestions="product-code" role="listbox" aria-label="Gợi ý mã hàng" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, maxHeight: '200px', overflowY: 'auto', backgroundColor: '#fff', border: '1px solid #94a3b8', borderRadius: '6px', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.12)' }}>
                       {!isDataLoaded ? <div style={{ padding: '9px 12px', color: '#64748b', fontSize: '12px' }}>Đang tải mã hàng...</div> : filteredProductCodeOptions.map(code => (
                         <button
                           key={code}
@@ -2005,7 +2035,15 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                           onClick={() => selectProductCodeOption(code)}
                           style={{ display: 'block', width: '100%', padding: '9px 12px', border: 0, borderBottom: '1px solid #e2e8f0', backgroundColor: '#fff', color: '#1e293b', textAlign: 'left', cursor: 'pointer', fontWeight: '600' }}
                         >
-                          {code}
+                          {code}{(() => {
+                            const matchedProduct = productItems.find(item =>
+                              normalizeProductSearch(item?.code || item?.id) === normalizeProductSearch(code)
+                            );
+                            const name = matchedProduct && 'productName' in matchedProduct
+                              ? matchedProduct.productName || matchedProduct.name
+                              : matchedProduct?.name;
+                            return name ? ` · ${name}` : '';
+                          })()}
                         </button>
                       ))}
                     </div>
@@ -2581,7 +2619,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                 return filledFields.length
                   ? `Đã điền: ${filledFields.join(', ')}.${detailsToReview.length ? ` Vui lòng ${detailsToReview.join(', ')} trong bảng size.` : ''} Vui lòng kiểm tra trước khi lưu.`
                   : 'Chưa nhận ra trường cần điền. Hãy nói rõ mã hàng, số lượng, đơn giá, tên tổ hoặc ghi chú.';
-              }} />
+              }} onFieldFocus={openProductCodeSuggestions} />
               <button type="button" onClick={resetForm} style={{ padding: '6px 14px', backgroundColor: '#10b981', color: '#fff', fontWeight: 'bold', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '13px' }}>➕ Làm Mới</button>
             </div>
           </div>
@@ -2589,23 +2627,29 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '6px', color: '#7c3aed' }}>1. Mã Hàng (Có sổ xuống):</label>
-              <div>
+              <div style={{ position: 'relative' }}>
                 <input
                   type="text"
                   required
                   autoComplete="off"
+                  aria-label="Mã hàng"
                   placeholder="Gõ hoặc chọn mã hàng..."
                   value={productCode}
-                  onFocus={() => setIsProductCodeDropdownOpen(true)}
-                  onBlur={() => setIsProductCodeDropdownOpen(false)}
+                  aria-expanded={isProductCodeDropdownOpen}
+                  onFocus={() => {
+                    setProductCodeDropdownQuery(productCode);
+                    setIsProductCodeDropdownOpen(true);
+                  }}
+                  onBlur={() => window.setTimeout(() => setIsProductCodeDropdownOpen(false), 150)}
                   onChange={e => {
+                    setProductCodeDropdownQuery(e.target.value);
                     handleSubProductCodeSelect(e.target.value);
                     setIsProductCodeDropdownOpen(true);
                   }}
                   style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '2px solid #7c3aed', fontSize: '14px', fontWeight: 'bold', backgroundColor: '#fff', boxSizing: 'border-box' }}
                 />
                 {isProductCodeDropdownOpen && (!isDataLoaded || filteredProductCodeOptions.length > 0) && (
-                  <div role="listbox" style={{ maxHeight: '200px', overflowY: 'auto', backgroundColor: '#fff', border: '1px solid #94a3b8', borderRadius: '6px', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.12)' }}>
+                  <div data-voice-suggestions="product-code" role="listbox" aria-label="Gợi ý mã hàng" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, maxHeight: '200px', overflowY: 'auto', backgroundColor: '#fff', border: '1px solid #94a3b8', borderRadius: '6px', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.12)' }}>
                     {!isDataLoaded ? <div style={{ padding: '9px 12px', color: '#64748b', fontSize: '12px' }}>Đang tải mã hàng...</div> : filteredProductCodeOptions.map(code => (
                       <button
                         key={code}
@@ -2616,7 +2660,15 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                         onClick={() => selectProductCodeOption(code)}
                         style={{ display: 'block', width: '100%', padding: '9px 12px', border: 0, borderBottom: '1px solid #e2e8f0', backgroundColor: '#fff', color: '#1e293b', textAlign: 'left', cursor: 'pointer', fontWeight: '600' }}
                       >
-                        {code}
+                        {code}{(() => {
+                          const matchedProduct = productItems.find(item =>
+                            normalizeProductSearch(item?.code || item?.id) === normalizeProductSearch(code)
+                          );
+                          const name = matchedProduct && 'productName' in matchedProduct
+                            ? matchedProduct.productName || matchedProduct.name
+                            : matchedProduct?.name;
+                          return name ? ` · ${name}` : '';
+                        })()}
                       </button>
                     ))}
                   </div>

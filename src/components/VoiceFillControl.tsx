@@ -33,6 +33,7 @@ type FormField = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 
 interface VoiceFillControlProps {
   onTranscript: (transcript: string) => string;
+  onFieldFocus?: (field: string, query?: string) => void;
 }
 
 const fieldAliases = [
@@ -56,6 +57,8 @@ const normalizeVoiceText = (value: string) => value
   .replace(/[^a-z0-9\s]/g, ' ')
   .replace(/\s+/g, ' ')
   .trim();
+
+const normalizeProductSearch = (value: string) => normalizeVoiceText(value).replace(/\s/g, '');
 
 const getForm = (element: HTMLElement | null) => element?.closest('form') || null;
 
@@ -166,7 +169,7 @@ const isNavigationCommand = (transcript: string) => {
   return null;
 };
 
-export default function VoiceFillControl({ onTranscript }: VoiceFillControlProps) {
+export default function VoiceFillControl({ onTranscript, onFieldFocus }: VoiceFillControlProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const onTranscriptRef = useRef(onTranscript);
@@ -248,6 +251,31 @@ export default function VoiceFillControl({ onTranscript }: VoiceFillControlProps
     }
 
     const form = getForm(rootRef.current);
+    const selectionMatch = /^chọn\s+(.+)$/iu.exec(text);
+    if (selectionMatch && form) {
+      const requested = selectionMatch[1].trim();
+      const normalizedRequest = normalizeVoiceText(requested);
+      const ordinalMatch = /^dòng\s+(\d+)$/u.exec(normalizedRequest);
+      const options = Array.from(form.querySelectorAll<HTMLElement>('[role="option"]'));
+      const selectedOption = ordinalMatch
+        ? options[Number(ordinalMatch[1]) - 1]
+        : options.find(option => {
+          const optionText = normalizeProductSearch(option.textContent || '');
+          const query = normalizeProductSearch(requested.replace(/^(?:mã hàng|mã)\s+/iu, ''));
+          return query && optionText.includes(query);
+        });
+      if (selectedOption) {
+        const selectedLabel = selectedOption.textContent?.trim() || requested;
+        selectedOption.click();
+        setSummary(`Đã chọn gợi ý ${selectedLabel}.`);
+        return;
+      }
+
+      onFieldFocus?.('productCode', requested.replace(/^(?:mã hàng|mã)\s+/iu, ''));
+      setSummary('Chưa thấy gợi ý phù hợp. Đang mở danh sách theo từ khóa; hãy thử chọn lại hoặc nói rõ mã hàng.');
+      return;
+    }
+
     const fieldCue = extractFieldCue(text);
     if (form && fieldCue && !fieldCue.value) {
       const target = matchFormField(form, fieldCue.label);
@@ -261,12 +289,25 @@ export default function VoiceFillControl({ onTranscript }: VoiceFillControlProps
       focusFormField(target);
       lastFocusedFieldRef.current = target;
       setFocusedFieldName(describeField(target));
+      onFieldFocus?.(fieldCue.field);
       setSummary(`Đang chọn ô ${describeField(target)}.`);
       return;
     }
 
     const result = onTranscriptRef.current(text);
     setSummary(result);
+    if (form && fieldCue?.value && ['productCode', 'productName'].includes(fieldCue.field)) {
+      const productCodeField = matchFormField(form, 'mã hàng');
+      if (productCodeField) {
+        form.querySelectorAll('[data-voice-active-field="true"]').forEach(item => {
+          item.removeAttribute('data-voice-active-field');
+        });
+        focusFormField(productCodeField);
+        lastFocusedFieldRef.current = productCodeField;
+        setFocusedFieldName(describeField(productCodeField));
+        onFieldFocus?.('productCode', fieldCue.value);
+      }
+    }
     if (result.startsWith('Chưa nhận ra') && form) {
       if (fieldCue) {
         const target = matchFormField(form, fieldCue.label);
