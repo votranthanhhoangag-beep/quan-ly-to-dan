@@ -100,6 +100,13 @@ type QualityStockBucket = Record<StockQuality, Map<string, StockCounts>>;
 
 type InventoryReportTab = 'stock' | 'repair-export' | 'repair-receipt';
 
+const normalizeProductSearch = (value: unknown) => String(value ?? '')
+  .toLocaleLowerCase('vi')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/đ/g, 'd')
+  .replace(/[^a-z0-9]/g, '');
+
 const getStockQuality = (value: unknown, fallback: StockQuality): StockQuality => {
   if (!value || typeof value !== 'object') return fallback;
   const record = value as Record<string, unknown>;
@@ -416,6 +423,8 @@ export default function InventoryStockReport() {
   const [repairWorkerName, setRepairWorkerName] = useState('');
   const [repairWorkerZalo, setRepairWorkerZalo] = useState('');
   const [lines, setLines] = useState<RepairFormLine[]>([createRepairLine()]);
+  const [repairProductCodeDropdownLineId, setRepairProductCodeDropdownLineId] = useState<string | null>(null);
+  const [repairProductCodeDropdownQuery, setRepairProductCodeDropdownQuery] = useState('');
   const [accompanyingMaterials, setAccompanyingMaterials] = useState<AccompanyingMaterialFormRow[]>([
     createAccompanyingMaterialRow()
   ]);
@@ -524,8 +533,35 @@ export default function InventoryStockReport() {
     slips.forEach(slip => {
       if (slip.productCode) names.set(slip.productCode.trim().toLowerCase(), slip.productName || '');
     });
+    defectiveGoodsImportSlips.forEach(slip => {
+      if (slip.productCode) names.set(slip.productCode.trim().toLowerCase(), slip.productName || '');
+    });
     return names;
-  }, [products, contracts, slips]);
+  }, [products, contracts, slips, defectiveGoodsImportSlips]);
+  const repairProductCodeOptions = useMemo(() => {
+    const options = new Map<string, { code: string; name: string }>();
+    const addOption = (codeValue: unknown, nameValue: unknown) => {
+      const code = String(codeValue || '').trim();
+      if (!code) return;
+      const key = code.toLocaleLowerCase('vi');
+      const current = options.get(key);
+      const name = String(nameValue || '').trim();
+      options.set(key, { code, name: current?.name || name });
+    };
+    products.forEach(product => addOption(product.code, product.name));
+    contracts.forEach(contract => addOption(contract.productCode, contract.productName));
+    slips.forEach(slip => addOption(slip.productCode, slip.productName));
+    defectiveGoodsImportSlips.forEach(slip => addOption(slip.productCode, slip.productName));
+    return Array.from(options.values());
+  }, [products, contracts, slips, defectiveGoodsImportSlips]);
+  const filteredRepairProductCodeOptions = useMemo(() => {
+    const query = normalizeProductSearch(repairProductCodeDropdownQuery);
+    if (!query) return repairProductCodeOptions;
+    return repairProductCodeOptions.filter(option =>
+      normalizeProductSearch(option.code).includes(query) ||
+      normalizeProductSearch(option.name).includes(query)
+    );
+  }, [repairProductCodeDropdownQuery, repairProductCodeOptions]);
   const defectiveRepairSources = useMemo(() => {
     const gradedSourceKeys = getGradedDefectiveSourceKeys(knittingExportSlips);
     const receiptSources = new Map<string, DefectiveRepairSource>();
@@ -604,6 +640,13 @@ export default function InventoryStockReport() {
 
   const updateLine = (id: string, updates: Partial<RepairFormLine>) => {
     setLines(current => current.map(line => line.id === id ? { ...line, ...updates } : line));
+  };
+
+  const getFocusedRepairLine = () => {
+    const activeElement = document.activeElement;
+    if (!(activeElement instanceof HTMLElement)) return undefined;
+    const lineId = activeElement.closest<HTMLElement>('[data-repair-product-line-id]')?.dataset.repairProductLineId;
+    return lines.find(line => line.id === lineId);
   };
 
   const isRepairLineFromSource = (line: RepairStockLine | RepairFormLine, source: DefectiveRepairSource) =>
@@ -1929,6 +1972,8 @@ export default function InventoryStockReport() {
     setRepairWorkerName('');
     setRepairWorkerZalo('');
     setLines([createRepairLine()]);
+    setRepairProductCodeDropdownLineId(null);
+    setRepairProductCodeDropdownQuery('');
     setAccompanyingMaterials([createAccompanyingMaterialRow()]);
     setEditingSlipId(null);
     setError('');
@@ -2589,11 +2634,13 @@ export default function InventoryStockReport() {
               setRepairWorkerName(parsed.personName || parsed.groupName || '');
               filledFields.push('Người nhận sửa');
             }
+            const focusedLine = getFocusedRepairLine();
             const targetLine = parsed.productCode
               ? lines.find(line => line.productCode.trim().toLowerCase() === parsed.productCode?.toLowerCase()) ||
+                focusedLine ||
                 lines.find(line => !line.productCode.trim()) ||
                 lines[0]
-              : lines[0];
+              : focusedLine || lines[0];
             if (targetLine) {
               let productCodeForLine = targetLine.productCode;
               if (parsed.productCode) {
@@ -2656,6 +2703,13 @@ export default function InventoryStockReport() {
               : detailsToReview.length
                 ? `Đã nhận diện giọng nói, nhưng ${detailsToReview.join(', ')}. Vui lòng chọn quy cách trong form.`
                 : 'Chưa nhận ra trường cần điền. Nói tên thợ, mã hàng, số lượng, đơn giá hoặc ghi chú.';
+          }} onFieldFocus={(field, query) => {
+            if (field !== 'productCode') return;
+            const focusedLine = getFocusedRepairLine();
+            const targetLine = focusedLine || lines.find(line => !line.productCode.trim()) || lines[0];
+            if (!targetLine) return;
+            setRepairProductCodeDropdownLineId(targetLine.id);
+            setRepairProductCodeDropdownQuery(query ?? targetLine.productCode);
           }} />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
             <label style={{ display: 'grid', gap: '5px', fontSize: '12px', fontWeight: 700 }}>Tên thợ / Người sửa khoán
@@ -2915,10 +2969,52 @@ export default function InventoryStockReport() {
               ), 0);
             const amount = bundleAmount + sizeAmount;
             return (
-              <div key={line.id} style={{ display: 'grid', gap: '9px', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '7px', backgroundColor: '#fff' }}>
+              <div key={line.id} data-repair-product-line-id={line.id} style={{ display: 'grid', gap: '9px', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '7px', backgroundColor: '#fff' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '9px', alignItems: 'end' }}>
-                  <label style={{ display: 'grid', gap: '5px', fontSize: '12px', fontWeight: 700 }}>Mã hàng
-                    <input list="repair-stock-product-codes" required value={line.productCode} onChange={event => updateRepairLineCode(line, event.target.value)} style={inputStyle} />
+                  <label style={{ display: 'grid', gap: '5px', fontSize: '12px', fontWeight: 700, position: 'relative', zIndex: repairProductCodeDropdownLineId === line.id ? 50 : undefined }}>Mã hàng
+                    <input
+                      aria-label="Mã hàng"
+                      aria-expanded={repairProductCodeDropdownLineId === line.id}
+                      required
+                      value={line.productCode}
+                      onFocus={() => {
+                        setRepairProductCodeDropdownLineId(line.id);
+                        setRepairProductCodeDropdownQuery(line.productCode);
+                      }}
+                      onBlur={() => window.setTimeout(() => {
+                        setRepairProductCodeDropdownLineId(current => current === line.id ? null : current);
+                      }, 300)}
+                      onChange={event => {
+                        const query = event.target.value;
+                        setRepairProductCodeDropdownLineId(line.id);
+                        setRepairProductCodeDropdownQuery(query);
+                        updateRepairLineCode(line, query);
+                      }}
+                      style={inputStyle}
+                    />
+                    {repairProductCodeDropdownLineId === line.id && filteredRepairProductCodeOptions.length > 0 && (
+                      <div data-voice-suggestions="product-code" role="listbox" aria-label="Gợi ý mã hàng" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 60, maxHeight: '200px', overflowY: 'auto', backgroundColor: '#fff', border: '1px solid #94a3b8', borderRadius: '6px', boxShadow: '0 4px 12px rgba(15, 23, 42, .16)' }}>
+                        {filteredRepairProductCodeOptions.map(option => (
+                          <button
+                            key={option.code}
+                            type="button"
+                            role="option"
+                            data-product-code={option.code}
+                            data-product-name={option.name}
+                            aria-selected={option.code.toLocaleLowerCase('vi') === line.productCode.trim().toLocaleLowerCase('vi')}
+                            onMouseDown={event => event.preventDefault()}
+                            onClick={() => {
+                              updateRepairLineCode(line, option.code);
+                              setRepairProductCodeDropdownQuery(option.code);
+                              setRepairProductCodeDropdownLineId(null);
+                            }}
+                            style={{ display: 'block', width: '100%', padding: '9px 10px', border: 0, borderBottom: '1px solid #e2e8f0', backgroundColor: '#fff', color: '#1e293b', textAlign: 'left', cursor: 'pointer', fontWeight: 600 }}
+                          >
+                            {option.code}{option.name ? ` · ${option.name}` : ''}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </label>
                   <label style={{ display: 'grid', gap: '5px', fontSize: '12px', fontWeight: 700 }}>Tên hàng
                     <input readOnly value={productNames.get(line.productCode.trim().toLowerCase()) || line.productName} style={inputStyle} />
@@ -3084,14 +3180,6 @@ export default function InventoryStockReport() {
               </div>
             );
           })}
-          <datalist id="repair-stock-product-codes">
-            {[...new Set([
-              ...(products || []).map(product => product.code),
-              ...contracts.map(contract => contract.productCode),
-              ...slips.map(slip => slip.productCode),
-              ...defectiveGoodsImportSlips.map(slip => slip.productCode)
-            ].filter(Boolean))].map(code => <option key={code} value={code} />)}
-          </datalist>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
             <label style={{ display: 'grid', gap: '5px', fontSize: '12px', fontWeight: 700 }}>Ghi chú / Lý do lỗi
               <textarea rows={2} value={reason} onChange={event => setReason(event.target.value)} style={{ ...inputStyle, resize: 'vertical' }} />

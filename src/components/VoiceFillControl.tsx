@@ -34,11 +34,17 @@ type FormField = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 interface VoiceFillControlProps {
   onTranscript: (transcript: string) => string;
   onFieldFocus?: (field: string, query?: string) => void;
+  onNavigation?: (action: 'next' | 'previous' | 'clear') => string;
 }
 
 const fieldAliases = [
   { field: 'productCode', labels: ['mã sản phẩm', 'mã hàng', 'mã'] },
   { field: 'productName', labels: ['tên sản phẩm', 'tên hàng'] },
+  { field: 'categoryCode', labels: ['mã danh mục', 'mã'] },
+  { field: 'categoryName', labels: ['tên danh mục', 'tên'] },
+  { field: 'unit', labels: ['đơn vị tính mặc định', 'đơn vị tính', 'đơn vị'] },
+  { field: 'normPerUnit', labels: ['định mức nguyên vật liệu', 'định mức trên sản phẩm', 'định mức mỗi sản phẩm', 'định mức sản phẩm', 'định mức'] },
+  { field: 'materialName', labels: ['nguyên vật liệu', 'nguyên phụ liệu'] },
   { field: 'companyName', labels: ['tên công ty', 'công ty'] },
   { field: 'groupName', labels: ['tên tổ đan', 'tổ đan'] },
   { field: 'quantity', labels: ['số lượng nhận hôm nay', 'sl nhận hôm nay', 'số lượng thực nhận', 'sl thực nhận', 'số lượng', 'số bộ', 'số cái', 'sl'] },
@@ -60,6 +66,17 @@ const normalizeVoiceText = (value: string) => value
 
 const normalizeProductSearch = (value: string) => normalizeVoiceText(value).replace(/\s/g, '');
 
+const findProductSuggestions = (options: HTMLElement[], query: string, ordinal?: number) => {
+  if (ordinal !== undefined) {
+    const option = options[ordinal - 1];
+    return option ? [option] : [];
+  }
+  const normalizedQuery = normalizeProductSearch(query);
+  return normalizedQuery
+    ? options.filter(option => normalizeProductSearch(option.textContent || '').includes(normalizedQuery))
+    : [];
+};
+
 const getForm = (element: HTMLElement | null) => element?.closest('form') || null;
 
 const getFieldDescriptionParts = (field: FormField) => {
@@ -75,6 +92,18 @@ const getFieldDescriptionParts = (field: FormField) => {
     { text: [field.getAttribute('name'), field.id].filter(Boolean).join(' '), priority: 2 },
     { text: parentText, priority: 1 }
   ].filter(part => part.text.trim());
+};
+
+const isProductCodeField = (field: FormField) => getFieldDescriptionParts(field)
+  .some(part => normalizeVoiceText(part.text).includes('ma hang'));
+
+const findExactProductSuggestion = (options: HTMLElement[], query: string) => {
+  const normalizedQuery = normalizeProductSearch(query);
+  if (!normalizedQuery) return [];
+  return options.filter(option =>
+    normalizeProductSearch(option.dataset.productCode || '') === normalizedQuery ||
+    normalizeProductSearch(option.dataset.productName || '') === normalizedQuery
+  );
 };
 
 const describeField = (field: FormField) => {
@@ -103,6 +132,19 @@ const matchFormField = (form: HTMLFormElement, label: string) => {
     return matches.length ? [{ field, score: Math.max(...matches) }] : [];
   });
   return candidates.sort((first, second) => second.score - first.score)[0]?.field;
+};
+
+const matchCurrentOrFirstField = (
+  form: HTMLFormElement,
+  label: string,
+  currentField: FormField | null
+) => {
+  const normalizedLabel = normalizeVoiceText(label);
+  const currentMatches = currentField && form.contains(currentField) &&
+    getFieldDescriptionParts(currentField).some(part =>
+      normalizeVoiceText(part.text).includes(normalizedLabel)
+    );
+  return currentMatches ? currentField : matchFormField(form, label);
 };
 
 const focusFormField = (field: FormField) => {
@@ -169,10 +211,12 @@ const isNavigationCommand = (transcript: string) => {
   return null;
 };
 
-export default function VoiceFillControl({ onTranscript, onFieldFocus }: VoiceFillControlProps) {
+export default function VoiceFillControl({ onTranscript, onFieldFocus, onNavigation }: VoiceFillControlProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const onTranscriptRef = useRef(onTranscript);
+  const onFieldFocusRef = useRef(onFieldFocus);
+  const onNavigationRef = useRef(onNavigation);
   const lastFocusedFieldRef = useRef<FormField | null>(null);
   const lastHandledTranscriptRef = useRef('');
   const [isListening, setIsListening] = useState(false);
@@ -184,6 +228,14 @@ export default function VoiceFillControl({ onTranscript, onFieldFocus }: VoiceFi
   useEffect(() => {
     onTranscriptRef.current = onTranscript;
   }, [onTranscript]);
+
+  useEffect(() => {
+    onFieldFocusRef.current = onFieldFocus;
+  }, [onFieldFocus]);
+
+  useEffect(() => {
+    onNavigationRef.current = onNavigation;
+  }, [onNavigation]);
 
   useEffect(() => {
     const form = getForm(rootRef.current);
@@ -214,7 +266,9 @@ export default function VoiceFillControl({ onTranscript, onFieldFocus }: VoiceFi
 
   const applyNavigation = (action: 'next' | 'previous' | 'clear') => {
     const form = getForm(rootRef.current);
-    if (!form) return 'Không tìm thấy biểu mẫu để điều hướng.';
+    if (!form) {
+      return onNavigationRef.current?.(action) || 'Không tìm thấy biểu mẫu để điều hướng.';
+    }
 
     const fields = getFormFields(form);
     const currentField = lastFocusedFieldRef.current;
@@ -251,34 +305,75 @@ export default function VoiceFillControl({ onTranscript, onFieldFocus }: VoiceFi
     }
 
     const form = getForm(rootRef.current);
-    const selectionMatch = /^chọn\s+(.+)$/iu.exec(text);
+    const selectionMatch = /^(?:chọn|chon)\s+(.+)$/iu.exec(text);
     if (selectionMatch && form) {
       const requested = selectionMatch[1].trim();
       const normalizedRequest = normalizeVoiceText(requested);
-      const ordinalMatch = /^dòng\s+(\d+)$/u.exec(normalizedRequest);
-      const options = Array.from(form.querySelectorAll<HTMLElement>('[role="option"]'));
-      const selectedOption = ordinalMatch
-        ? options[Number(ordinalMatch[1]) - 1]
-        : options.find(option => {
-          const optionText = normalizeProductSearch(option.textContent || '');
-          const query = normalizeProductSearch(requested.replace(/^(?:mã hàng|mã)\s+/iu, ''));
-          return query && optionText.includes(query);
-        });
+      const ordinalMatch = /^dong\s+(\d+)$/u.exec(normalizedRequest);
+      const options = Array.from(form.querySelectorAll<HTMLElement>(
+        '[data-voice-suggestions="product-code"] [role="option"]'
+      ));
+      const query = requested.replace(/^(?:(?:mã hàng|ma hang)|mã|ma)\s+/iu, '');
+      const matchingOptions = findProductSuggestions(
+        options,
+        query,
+        ordinalMatch ? Number(ordinalMatch[1]) : undefined
+      );
+      const selectedOption = matchingOptions.length === 1 ? matchingOptions[0] : undefined;
       if (selectedOption) {
         const selectedLabel = selectedOption.textContent?.trim() || requested;
         selectedOption.click();
         setSummary(`Đã chọn gợi ý ${selectedLabel}.`);
         return;
       }
+      if (matchingOptions.length > 1) {
+        setSummary(`Có ${matchingOptions.length} gợi ý phù hợp. Hãy nói “chọn dòng 1” hoặc chạm chọn.`);
+        return;
+      }
 
-      onFieldFocus?.('productCode', requested.replace(/^(?:mã hàng|mã)\s+/iu, ''));
-      setSummary('Chưa thấy gợi ý phù hợp. Đang mở danh sách theo từ khóa; hãy thử chọn lại hoặc nói rõ mã hàng.');
+      const productCodeField = matchCurrentOrFirstField(form, 'mã hàng', lastFocusedFieldRef.current);
+      if (productCodeField) {
+        form.querySelectorAll('[data-voice-active-field="true"]').forEach(item => {
+          item.removeAttribute('data-voice-active-field');
+        });
+        focusFormField(productCodeField);
+        lastFocusedFieldRef.current = productCodeField;
+        setFocusedFieldName(describeField(productCodeField));
+      }
+      const filterQuery = ordinalMatch
+        ? undefined
+        : requested.replace(/^(?:(?:mã hàng|ma hang)|mã|ma)\s+/iu, '');
+      onFieldFocusRef.current?.('productCode', filterQuery);
+      setSummary('Đang mở danh sách gợi ý để chọn…');
+      window.setTimeout(() => {
+        const refreshedForm = getForm(rootRef.current);
+        const refreshedOptions = refreshedForm
+          ? Array.from(refreshedForm.querySelectorAll<HTMLElement>(
+            '[data-voice-suggestions="product-code"] [role="option"]'
+          ))
+          : [];
+        const refreshedMatches = findProductSuggestions(
+          refreshedOptions,
+          filterQuery || '',
+          ordinalMatch ? Number(ordinalMatch[1]) : undefined
+        );
+        const matchingOption = refreshedMatches.length === 1 ? refreshedMatches[0] : undefined;
+        if (matchingOption) {
+          const selectedLabel = matchingOption.textContent?.trim() || requested;
+          matchingOption.click();
+          setSummary(`Đã chọn gợi ý ${selectedLabel}.`);
+        } else if (refreshedMatches.length > 1) {
+          setSummary(`Có ${refreshedMatches.length} gợi ý phù hợp. Hãy nói “chọn dòng 1” hoặc chạm chọn.`);
+        } else {
+          setSummary('Chưa thấy gợi ý phù hợp. Hãy thử từ khóa khác hoặc chạm vào một dòng trong danh sách.');
+        }
+      }, 0);
       return;
     }
 
     const fieldCue = extractFieldCue(text);
     if (form && fieldCue && !fieldCue.value) {
-      const target = matchFormField(form, fieldCue.label);
+      const target = matchCurrentOrFirstField(form, fieldCue.label, lastFocusedFieldRef.current);
       if (!target) {
         setSummary(`Không tìm thấy ô ${fieldCue.label} trong biểu mẫu này.`);
         return;
@@ -289,15 +384,13 @@ export default function VoiceFillControl({ onTranscript, onFieldFocus }: VoiceFi
       focusFormField(target);
       lastFocusedFieldRef.current = target;
       setFocusedFieldName(describeField(target));
-      onFieldFocus?.(fieldCue.field);
+      onFieldFocusRef.current?.(fieldCue.field);
       setSummary(`Đang chọn ô ${describeField(target)}.`);
       return;
     }
 
-    const result = onTranscriptRef.current(text);
-    setSummary(result);
     if (form && fieldCue?.value && ['productCode', 'productName'].includes(fieldCue.field)) {
-      const productCodeField = matchFormField(form, 'mã hàng');
+      const productCodeField = matchCurrentOrFirstField(form, 'mã hàng', lastFocusedFieldRef.current);
       if (productCodeField) {
         form.querySelectorAll('[data-voice-active-field="true"]').forEach(item => {
           item.removeAttribute('data-voice-active-field');
@@ -305,12 +398,50 @@ export default function VoiceFillControl({ onTranscript, onFieldFocus }: VoiceFi
         focusFormField(productCodeField);
         lastFocusedFieldRef.current = productCodeField;
         setFocusedFieldName(describeField(productCodeField));
-        onFieldFocus?.('productCode', fieldCue.value);
+        onFieldFocusRef.current?.('productCode', fieldCue.value);
       }
     }
+
+    const result = onTranscriptRef.current(text);
+    setSummary(result);
     if (result.startsWith('Chưa nhận ra') && form) {
+      const currentField = fieldCue
+        ? matchCurrentOrFirstField(form, fieldCue.label, lastFocusedFieldRef.current)
+        : lastFocusedFieldRef.current;
+      if (currentField && form.contains(currentField) && isProductCodeField(currentField) &&
+        onFieldFocusRef.current) {
+        const query = fieldCue?.value || text;
+        form.querySelectorAll('[data-voice-active-field="true"]').forEach(item => {
+          item.removeAttribute('data-voice-active-field');
+        });
+        focusFormField(currentField);
+        lastFocusedFieldRef.current = currentField;
+        setFocusedFieldName(describeField(currentField));
+        onFieldFocusRef.current('productCode', query);
+        setSummary('Đang lọc gợi ý mã hàng…');
+        window.setTimeout(() => {
+          const refreshedForm = getForm(rootRef.current);
+          const refreshedOptions = refreshedForm
+            ? Array.from(refreshedForm.querySelectorAll<HTMLElement>(
+              '[data-voice-suggestions="product-code"] [role="option"]'
+            ))
+            : [];
+          const exactMatches = findExactProductSuggestion(refreshedOptions, query);
+          if (exactMatches.length === 1) {
+            const selectedLabel = exactMatches[0].textContent?.trim() || query;
+            exactMatches[0].click();
+            setSummary(`Đã chọn gợi ý ${selectedLabel}.`);
+          } else if (exactMatches.length > 1) {
+            setSummary(`Có ${exactMatches.length} gợi ý trùng khớp. Hãy chọn trực tiếp hoặc nói “chọn dòng 1”.`);
+          } else {
+            setSummary('Danh sách đã được lọc. Chạm chọn mã phù hợp hoặc nói “chọn [mã hàng]”.');
+          }
+        }, 0);
+        return;
+      }
+
       if (fieldCue) {
-        const target = matchFormField(form, fieldCue.label);
+        const target = matchCurrentOrFirstField(form, fieldCue.label, lastFocusedFieldRef.current);
         if (target && dispatchFieldValue(target, fieldCue.value)) {
           form.querySelectorAll('[data-voice-active-field="true"]').forEach(item => {
             item.removeAttribute('data-voice-active-field');

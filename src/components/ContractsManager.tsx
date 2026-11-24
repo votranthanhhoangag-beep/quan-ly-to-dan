@@ -27,6 +27,12 @@ const normalizeProductSearch = (value: unknown) => String(value ?? '')
   .replace(/đ/g, 'd')
   .replace(/[^a-z0-9]/g, '');
 
+const getProductDisplayName = (item?: CategoryItem) => {
+  if (!item) return '';
+  const name = 'productName' in item ? item.productName : item.name;
+  return typeof name === 'string' ? name : '';
+};
+
 interface AccompanyingMaterial {
   materialId: number;
   materialCode: string;
@@ -132,9 +138,12 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       : [],
     [contracts]
   );
-  const productItems: CategoryItem[] = Array.isArray(products)
-    ? products.filter((item: unknown): item is CategoryItem => Boolean(item) && typeof item === 'object')
-    : [];
+  const productItems: CategoryItem[] = useMemo(
+    () => Array.isArray(products)
+      ? products.filter((item: unknown): item is CategoryItem => Boolean(item) && typeof item === 'object')
+      : [],
+    [products]
+  );
   const materialItems: CategoryItem[] = Array.isArray(materials)
     ? materials.filter((item: unknown): item is CategoryItem => Boolean(item) && typeof item === 'object')
     : [];
@@ -645,6 +654,12 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       .map(code => String(code || '').trim())
       .filter(Boolean)
   )), [productItems, contractItems]);
+  const productNameByCode = useMemo(() => new Map(
+    productItems.map(item => [
+      normalizeProductSearch(item?.code || item?.id),
+      getProductDisplayName(item)
+    ])
+  ), [productItems]);
   const applyProductMaterialNorms = useCallback((
     code: string,
     setRows: React.Dispatch<React.SetStateAction<AccompanyingMaterialFormRow[]>>,
@@ -1345,12 +1360,13 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     if (!query) return productCodeOptions;
     return productCodeOptions.filter(code => {
       if (normalizeProductSearch(code).includes(query)) return true;
-      const matchedProduct = productItems.find(item =>
-        normalizeProductSearch(item?.code || item?.id) === normalizeProductSearch(code)
-      );
-      return normalizeProductSearch(matchedProduct?.name || matchedProduct?.productName).includes(query);
+      return normalizeProductSearch(productNameByCode.get(normalizeProductSearch(code)) || '').includes(query);
     });
-  }, [productCodeOptions, productCodeDropdownQuery, productItems]);
+  }, [productCodeOptions, productCodeDropdownQuery, productNameByCode]);
+  const getProductCodeOptionLabel = (code: string) => {
+    const name = productNameByCode.get(normalizeProductSearch(code));
+    return name ? `${code} · ${name}` : code;
+  };
   const selectedSubContractCodeIsExhausted = Boolean(
     activeTab === 'SUB' &&
     !editingId &&
@@ -2015,7 +2031,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                       setProductCodeDropdownQuery(productCode);
                       setIsProductCodeDropdownOpen(true);
                     }}
-                    onBlur={() => window.setTimeout(() => setIsProductCodeDropdownOpen(false), 150)}
+                    onBlur={() => window.setTimeout(() => setIsProductCodeDropdownOpen(false), 300)}
                     onChange={e => {
                       setProductCodeDropdownQuery(e.target.value);
                       handleProductCodeSelect(e.target.value);
@@ -2030,20 +2046,14 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                           key={code}
                           type="button"
                           role="option"
+                          data-product-code={code}
+                          data-product-name={productNameByCode.get(normalizeProductSearch(code)) || ''}
                           aria-selected={code.toLowerCase() === productCode.trim().toLowerCase()}
                           onMouseDown={e => e.preventDefault()}
                           onClick={() => selectProductCodeOption(code)}
                           style={{ display: 'block', width: '100%', padding: '9px 12px', border: 0, borderBottom: '1px solid #e2e8f0', backgroundColor: '#fff', color: '#1e293b', textAlign: 'left', cursor: 'pointer', fontWeight: '600' }}
                         >
-                          {code}{(() => {
-                            const matchedProduct = productItems.find(item =>
-                              normalizeProductSearch(item?.code || item?.id) === normalizeProductSearch(code)
-                            );
-                            const name = matchedProduct && 'productName' in matchedProduct
-                              ? matchedProduct.productName || matchedProduct.name
-                              : matchedProduct?.name;
-                            return name ? ` · ${name}` : '';
-                          })()}
+                          {getProductCodeOptionLabel(code)}
                         </button>
                       ))}
                     </div>
@@ -2640,7 +2650,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                     setProductCodeDropdownQuery(productCode);
                     setIsProductCodeDropdownOpen(true);
                   }}
-                  onBlur={() => window.setTimeout(() => setIsProductCodeDropdownOpen(false), 150)}
+                  onBlur={() => window.setTimeout(() => setIsProductCodeDropdownOpen(false), 300)}
                   onChange={e => {
                     setProductCodeDropdownQuery(e.target.value);
                     handleSubProductCodeSelect(e.target.value);
@@ -2655,20 +2665,14 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                         key={code}
                         type="button"
                         role="option"
+                        data-product-code={code}
+                        data-product-name={productNameByCode.get(normalizeProductSearch(code)) || ''}
                         aria-selected={code.toLowerCase() === productCode.trim().toLowerCase()}
                         onMouseDown={e => e.preventDefault()}
                         onClick={() => selectProductCodeOption(code)}
                         style={{ display: 'block', width: '100%', padding: '9px 12px', border: 0, borderBottom: '1px solid #e2e8f0', backgroundColor: '#fff', color: '#1e293b', textAlign: 'left', cursor: 'pointer', fontWeight: '600' }}
                       >
-                        {code}{(() => {
-                          const matchedProduct = productItems.find(item =>
-                            normalizeProductSearch(item?.code || item?.id) === normalizeProductSearch(code)
-                          );
-                          const name = matchedProduct && 'productName' in matchedProduct
-                            ? matchedProduct.productName || matchedProduct.name
-                            : matchedProduct?.name;
-                          return name ? ` · ${name}` : '';
-                        })()}
+                        {getProductCodeOptionLabel(code)}
                       </button>
                     ))}
                   </div>

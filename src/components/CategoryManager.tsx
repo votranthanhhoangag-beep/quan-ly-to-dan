@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { saveDataStore } from '../services/supabaseDataService';
 import { formatVehicleExpiryDate as formatVehicleDate } from '../utils/vehicleExpiry';
 import { recordVehicleMaintenance } from '../utils/vehicleMaintenance';
+import VoiceFillControl from './VoiceFillControl';
+import { parseVietnameseNumber, parseVietnameseFormSpeech } from '../utils/voiceFormParser';
 
 const formatVehicleDateInput = (value: string) => {
   const digits = value.replace(/\D/g, '').slice(0, 8);
@@ -29,6 +31,43 @@ const parseVehicleDate = (value: string) => {
 const getTodayISODate = () => {
   const today = new Date();
   return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+};
+
+const normalizeVoiceCommand = (value: string) => value
+  .toLocaleLowerCase('vi')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/đ/g, 'd')
+  .replace(/[^a-z0-9\s]/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim();
+
+const extractSpokenFieldValue = (transcript: string, labels: string[]) => {
+  const normalizedTranscript = normalizeVoiceCommand(transcript);
+  const normalizedLabels = labels.map(normalizeVoiceCommand).sort((a, b) => b.length - a.length);
+  for (const label of normalizedLabels) {
+    const match = new RegExp(`(?:^|\\s)${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*(?::|là)?\\s*(.+)$`, 'iu').exec(normalizedTranscript);
+    if (match?.[1]) return match[1].trim();
+  }
+  return '';
+};
+
+const formatSpokenDate = (transcript: string) => {
+  const direct = transcript.match(/(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})/);
+  if (direct) return `${direct[1].padStart(2, '0')}/${direct[2].padStart(2, '0')}/${direct[3]}`;
+  const compact = transcript.match(/(\d{8})/);
+  if (compact) {
+    const digits = compact[1];
+    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+  }
+  const spoken = transcript.match(/(\d{1,2})\s*(?:ngày|tháng)\s*(\d{1,2})(?:\s*(?:tháng|năm)\s*(\d{4})|\s*năm\s*(\d{4}))/i);
+  if (spoken) {
+    const day = spoken[1];
+    const month = spoken[2];
+    const year = spoken[3] || spoken[4];
+    if (year) return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+  }
+  return '';
 };
 
 export default function CategoryManager() {
@@ -370,7 +409,7 @@ export default function CategoryManager() {
       label: 'Thao Tác',
       render: item => (
         <div style={{ textAlign: 'center' }}>
-          <button onClick={() => handleOpenForm(item)} style={{ background: '#f59e0b', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', marginRight: '4px' }}>Sửa</button>
+          <button data-category-row-action="edit" onClick={() => handleOpenForm(item)} style={{ background: '#f59e0b', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', marginRight: '4px' }}>Sửa</button>
           <button onClick={() => handleDelete(item.id)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>Xóa</button>
         </div>
       )
@@ -379,16 +418,216 @@ export default function CategoryManager() {
   const visibleCategoryColumns = activeTab === 'chikhac'
     ? categoryColumns.filter(column => column.key !== 'code')
     : categoryColumns;
-  const categoryList = [...(
+  const categoryList = useMemo(() => [...(
     activeTab === 'hanghoa' ? products
       : activeTab === 'nguyenvatlieu' ? materials
         : activeTab === 'chiphi' ? expensesCat
-          : otherExpensesCat
-  )]
-    .sort((first, second) =>
-      first.name.localeCompare(second.name, 'vi', { sensitivity: 'base', numeric: true }) ||
-      first.code.localeCompare(second.code, 'vi', { sensitivity: 'base', numeric: true })
+          : activeTab === 'xe' ? [] : otherExpensesCat
+  )].sort((first, second) =>
+    first.name.localeCompare(second.name, 'vi', { sensitivity: 'base', numeric: true }) ||
+    first.code.localeCompare(second.code, 'vi', { sensitivity: 'base', numeric: true })
+  ), [activeTab, products, materials, expensesCat, otherExpensesCat]);
+
+  const switchCategoryTab = (tab: typeof activeTab) => {
+    setShowModal(false);
+    setEditingId(null);
+    setActiveTab(tab);
+  };
+
+  const handleCategoryVoiceNavigation = (action: 'next' | 'previous' | 'clear') => {
+    if (action === 'clear') return 'Không có ô nhập liệu đang chọn trong danh sách.';
+    const actions = Array.from(document.querySelectorAll<HTMLElement>(
+      '[data-category-row-action="edit"], [data-category-row-action="vehicle-edit"]'
+    ));
+    if (!actions.length) return 'Danh sách hiện không có mục để điều hướng.';
+    const currentIndex = actions.findIndex(actionElement => actionElement === document.activeElement);
+    const nextIndex = action === 'next'
+      ? currentIndex < 0 ? 0 : (currentIndex + 1) % actions.length
+      : currentIndex < 1 ? actions.length - 1 : currentIndex - 1;
+    actions[nextIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    actions[nextIndex].focus();
+    return `Đã chọn mục dòng ${nextIndex + 1} trong danh sách.`;
+  };
+
+  const handleCategoryVoiceTranscript = (transcript: string) => {
+    const command = normalizeVoiceCommand(transcript);
+    const parsed = parseVietnameseFormSpeech(transcript);
+
+    if (/(?:them|tao).*(?:muc|danh muc)|them moi|them muc moi/i.test(command)) {
+      handleOpenForm();
+      return 'Đã mở form thêm mục mới.';
+    }
+
+    const tabMatch: Array<[typeof activeTab, string[]]> = [
+      ['hanghoa', ['hang hoa', 'hàng hoá', 'mat hang', 'san pham']],
+      ['nguyenvatlieu', ['nguyen vat lieu', 'nvl', 'vat lieu']],
+      ['chiphi', ['chi phi']],
+      ['xe', ['xe bon banh', 'xe 4 banh', 'xe']],
+      ['chikhac', ['chi khac', 'chi khac']]
+    ];
+    const matchedTab = tabMatch.find(([, labels]) =>
+      labels.some(label => command.includes(normalizeVoiceCommand(label)))
     );
+    if (matchedTab) {
+      switchCategoryTab(matchedTab[0]);
+      return `Đã chuyển sang danh mục ${matchedTab[1][0]}.`;
+    }
+
+    const editOrdinal = /^sua\s*(?:dong|muc)\s*(\d+)$/iu.exec(command);
+    if (editOrdinal) {
+      const index = Number(editOrdinal[1]) - 1;
+      const item = activeTab === 'xe'
+        ? vehicles[index]
+        : categoryList[index];
+      if (item) {
+        handleOpenForm(item);
+        return `Đã mở sửa mục dòng ${index + 1}.`;
+      }
+      return 'Không tìm thấy dòng mục cần sửa.';
+    }
+
+    const editName = /^(?:sửa|sua)\s+(.+)$/iu.exec(transcript);
+    if (editName) {
+      const search = normalizeVoiceCommand(editName[1]);
+      const item = activeTab === 'xe'
+        ? vehicles.find(vehicle =>
+          normalizeVoiceCommand(`${vehicle.vehicleName} ${vehicle.plateNo}`).includes(search))
+        : categoryList.find(category =>
+          normalizeVoiceCommand(`${category.code} ${category.name}`).includes(search));
+      if (item) {
+        handleOpenForm(item);
+        return `Đã mở form sửa ${item && 'name' in item ? item.name : ('vehicleName' in item ? item.vehicleName : '')}.`;
+      }
+    }
+
+    if (!showModal) {
+      return 'Hãy nói “thêm mục mới” hoặc tên danh mục cần chuyển tab.';
+    }
+
+    if (/^(?:huy|dong)\s*(?:form|noi dung)?$|^(?:huy bo|thoat)$/iu.test(command)) {
+      setShowModal(false);
+      return 'Đã đóng form danh mục.';
+    }
+
+    const fieldValue = (labels: string[]) => extractSpokenFieldValue(transcript, labels);
+
+    if (activeTab === 'xe') {
+      const vehicleNameValue = fieldValue(['tên xe', 'ten xe']);
+      if (vehicleNameValue) setVehicleName(vehicleNameValue);
+      const modelValue = fieldValue(['đời xe', 'doi xe', 'năm sản xuất']);
+      if (modelValue) setModelYear(modelValue);
+      const plateValue = fieldValue(['biển số xe', 'bien so', 'biển số']);
+      if (plateValue) setPlateNo(plateValue.toUpperCase());
+      const insuranceValue = formatSpokenDate(transcript);
+      if (/hạn bảo hiểm|han bao hiem|bảo hiểm|bao hiem/i.test(transcript) && insuranceValue) {
+        setInsuranceExpiry(insuranceValue);
+      }
+      const registrationValue = formatSpokenDate(transcript);
+      if (/hạn đăng kiểm|han dang kiem|đăng kiểm|dang kiem/i.test(transcript) && registrationValue) {
+        setRegistrationExpiry(registrationValue);
+      }
+      const maintenanceValue = fieldValue(['định mức km', 'định mức km bảo dưỡng', 'km thay nhớt']);
+      if (maintenanceValue) {
+        const number = parseVietnameseNumber(maintenanceValue);
+        if (number !== undefined) setMaintenanceIntervalKm(String(number));
+      }
+      const latestKmValue = fieldValue(['số km lần bảo dưỡng gần nhất', 'km gần nhất', 'km bảo dưỡng']);
+      if (latestKmValue) {
+        const number = parseVietnameseNumber(latestKmValue);
+        if (number !== undefined) setLastOilChangeKm(number);
+      }
+
+      const filledVehicleFields = [
+        vehicleNameValue ? 'Tên xe' : '',
+        modelValue ? 'Đời xe' : '',
+        plateValue ? 'Biển số xe' : '',
+        /hạn bảo hiểm|han bao hiem/i.test(transcript) && insuranceValue ? 'Hạn bảo hiểm' : '',
+        /hạn đăng kiểm|han dang kiem/i.test(transcript) && registrationValue ? 'Hạn đăng kiểm' : '',
+        maintenanceValue ? 'Định mức km' : '',
+        latestKmValue ? 'Km bảo dưỡng gần nhất' : ''
+      ].filter(Boolean);
+      return filledVehicleFields.length
+        ? `Đã điền: ${filledVehicleFields.join(', ')}.`
+        : 'Chưa nhận ra trường xe. Hãy nói tên xe, đời xe, biển số xe, hạn bảo hiểm hoặc định mức km.';
+    }
+
+    const codeValue = fieldValue(['mã danh mục', 'ma danh muc', 'mã']);
+    if (codeValue && activeTab !== 'chikhac') setCode(codeValue.toUpperCase());
+    const nameValue = fieldValue(['tên danh mục', 'ten danh muc', 'tên']);
+    if (nameValue) setName(nameValue);
+    const unitValue = fieldValue(['đơn vị tính mặc định', 'đơn vị tính', 'đơn vị', 'don vi']);
+    if (unitValue) setUnit(unitValue);
+    const noteValue = fieldValue(['ghi chú', 'ghi chu', 'lưu ý']);
+    if (noteValue) setNote(noteValue);
+    const lowStockValue = fieldValue(['hạn mức tồn kho tối thiểu', 'hạn mức tồn kho', 'tồn kho tối thiểu']);
+    if (lowStockValue) {
+      const number = parseVietnameseNumber(lowStockValue);
+      if (number !== undefined) setLowStockLimit(String(number));
+    }
+
+    const filledFields: string[] = [];
+    if (codeValue && activeTab !== 'chikhac') filledFields.push('Mã danh mục');
+    if (nameValue) filledFields.push('Tên danh mục');
+    if (unitValue) filledFields.push('Đơn vị');
+    if (noteValue) filledFields.push('Ghi chú');
+    if (lowStockValue) filledFields.push('Hạn mức tồn kho');
+
+    if (activeTab === 'hanghoa') {
+      const normValue = fieldValue(['định mức trên sản phẩm', 'định mức mỗi sản phẩm', 'định mức sản phẩm', 'định mức']);
+      const parsedNorm = normValue ? parseVietnameseNumber(normValue) : parsed.normPerUnit;
+      const normUnitValue = fieldValue(['đơn vị tính nguyên vật liệu', 'đơn vị nguyên vật liệu', 'đơn vị']);
+      const materialValue = fieldValue(['nguyên vật liệu', 'nguyên phụ liệu']);
+      if (normValue || normUnitValue || materialValue || parsed.normPerUnit !== undefined) {
+        setMaterialNormRows(rows => {
+          const index = rows.findIndex(row => !row.materialName.trim() || row === rows[0]) >= 0
+            ? rows.findIndex(row => !row.materialName.trim())
+            : 0;
+          const targetIndex = index >= 0 ? index : 0;
+          const current = rows[targetIndex] || {
+            materialId: null,
+            materialCode: '',
+            materialName: '',
+            query: '',
+            unit: 'kg',
+            normPerUnit: ''
+          };
+          let next = { ...current };
+
+          if (materialValue) {
+            const search = normalizeVoiceCommand(materialValue);
+            const matched = materialNormOptions.find(material =>
+              normalizeVoiceCommand(`${material.code || ''} ${material.name}`).includes(search) ||
+              normalizeVoiceCommand(material.name).includes(search)
+            );
+            if (matched) {
+              next = {
+                ...next,
+                materialId: matched.id,
+                materialCode: matched.code,
+                materialName: matched.name,
+                query: `${matched.code ? `${matched.code} - ` : ''}${matched.name}`,
+                unit: normUnitValue || matched.unit || next.unit
+              };
+            } else {
+              next = { ...next, materialId: null, materialCode: '', materialName: materialValue, query: materialValue };
+            }
+          }
+          if (normUnitValue) next.unit = normUnitValue;
+          if (parsedNorm !== undefined) next.normPerUnit = String(parsedNorm);
+
+          if (rows.length === 0) return [next];
+          return rows.map((row, rowIndex) => rowIndex === targetIndex ? next : row);
+        });
+        if (normValue || parsed.normPerUnit !== undefined) filledFields.push('Định mức nguyên vật liệu');
+        if (materialValue) filledFields.push('Nguyên vật liệu');
+        if (normUnitValue) filledFields.push('Đơn vị nguyên vật liệu');
+      }
+    }
+
+    return filledFields.length
+      ? `Đã điền: ${filledFields.join(', ')}.`
+      : 'Chưa nhận ra trường danh mục. Hãy nói rõ mã, tên, đơn vị, định mức hoặc ghi chú.';
+  };
 
   return (
     <div style={{ background: '#fff', padding: '16px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
@@ -396,6 +635,12 @@ export default function CategoryManager() {
         <h2 style={{ fontSize: '16px', fontWeight: 'bold', color: '#0f172a', margin: 0 }}>
           📑 Quản Lý Danh Mục (Hàng Hóa, NVL, Chi Phí, Xe 4 Bánh & Chi Khác)
         </h2>
+        {!showModal && (
+          <VoiceFillControl
+            onTranscript={handleCategoryVoiceTranscript}
+            onNavigation={handleCategoryVoiceNavigation}
+          />
+        )}
         <button
           onClick={() => handleOpenForm()}
           style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}
@@ -444,25 +689,28 @@ export default function CategoryManager() {
           <h3 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '12px', color: '#1e293b' }}>
             {editingId ? '✏️ Chỉnh Sửa' : '➕ Thêm Mới'} {activeTab === 'xe' ? 'Xe 4 Bánh' : 'Danh Mục'}
           </h3>
+          <div style={{ marginBottom: '12px' }}>
+            <VoiceFillControl onTranscript={handleCategoryVoiceTranscript} />
+          </div>
 
           {activeTab === 'xe' ? (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '12px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Tên Xe:</label>
-                <input type="text" required placeholder="VD: Xe Tải Isuzu..." value={vehicleName} onChange={e => setVehicleName(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }} />
+                <input aria-label="Tên xe" type="text" required placeholder="VD: Xe Tải Isuzu..." value={vehicleName} onChange={e => setVehicleName(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }} />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Đời Xe:</label>
-                <input type="text" placeholder="VD: 2022..." value={modelYear} onChange={e => setModelYear(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }} />
+                <input aria-label="Đời xe" type="text" placeholder="VD: 2022..." value={modelYear} onChange={e => setModelYear(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }} />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Biển Số Xe:</label>
-                <input type="text" required placeholder="VD: 66A-123.45..." value={plateNo} onChange={e => setPlateNo(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px', fontWeight: 'bold' }} />
+                <input aria-label="Biển số xe" type="text" required placeholder="VD: 66A-123.45..." value={plateNo} onChange={e => setPlateNo(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px', fontWeight: 'bold' }} />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Hạn Bảo Hiểm:</label>
                 <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: '6px' }}>
-                  <input type="text" inputMode="numeric" required placeholder="DD/MM/YYYY" value={insuranceExpiry} onChange={e => setInsuranceExpiry(formatVehicleDateInput(e.target.value))} aria-invalid={Boolean(insuranceExpiryError)} style={{ width: '100%', minWidth: 0, padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: `1px solid ${insuranceExpiryError ? '#dc2626' : '#cbd5e1'}`, fontSize: '12px' }} />
+                  <input aria-label="Hạn bảo hiểm" type="text" inputMode="numeric" required placeholder="DD/MM/YYYY" value={insuranceExpiry} onChange={e => setInsuranceExpiry(formatVehicleDateInput(e.target.value))} aria-invalid={Boolean(insuranceExpiryError)} style={{ width: '100%', minWidth: 0, padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: `1px solid ${insuranceExpiryError ? '#dc2626' : '#cbd5e1'}`, fontSize: '12px' }} />
                   <input type="date" aria-label="Chọn ngày hết hạn bảo hiểm" value={parsedInsuranceExpiry || ''} onChange={e => setInsuranceExpiry(formatVehicleDate(e.target.value))} style={{ width: '36px', padding: '5px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
                 </div>
                 <small style={{ display: 'block', marginTop: '4px', color: '#64748b' }}>Nhập DDMMYYYY, hệ thống tự thêm dấu /. Ngày phải từ hôm nay trở đi.</small>
@@ -471,7 +719,7 @@ export default function CategoryManager() {
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Hạn Đăng Kiểm:</label>
                 <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: '6px' }}>
-                  <input type="text" inputMode="numeric" required placeholder="DD/MM/YYYY" value={registrationExpiry} onChange={e => setRegistrationExpiry(formatVehicleDateInput(e.target.value))} aria-invalid={Boolean(registrationExpiryError)} style={{ width: '100%', minWidth: 0, padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: `1px solid ${registrationExpiryError ? '#dc2626' : '#cbd5e1'}`, fontSize: '12px' }} />
+                  <input aria-label="Hạn đăng kiểm" type="text" inputMode="numeric" required placeholder="DD/MM/YYYY" value={registrationExpiry} onChange={e => setRegistrationExpiry(formatVehicleDateInput(e.target.value))} aria-invalid={Boolean(registrationExpiryError)} style={{ width: '100%', minWidth: 0, padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: `1px solid ${registrationExpiryError ? '#dc2626' : '#cbd5e1'}`, fontSize: '12px' }} />
                   <input type="date" aria-label="Chọn ngày hết hạn đăng kiểm" value={parsedRegistrationExpiry || ''} onChange={e => setRegistrationExpiry(formatVehicleDate(e.target.value))} style={{ width: '36px', padding: '5px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
                 </div>
                 <small style={{ display: 'block', marginTop: '4px', color: '#64748b' }}>Nhập DDMMYYYY, hệ thống tự thêm dấu /. Ngày phải từ hôm nay trở đi.</small>
@@ -479,11 +727,11 @@ export default function CategoryManager() {
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Định Mức Km Thay Nhớt / Bảo Dưỡng:</label>
-                <input type="number" min="1" step="1" placeholder="Ví dụ: 5000" value={maintenanceIntervalKm} onChange={e => setMaintenanceIntervalKm(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }} />
+                <input aria-label="Định mức km bảo dưỡng" type="number" min="1" step="1" placeholder="Ví dụ: 5000" value={maintenanceIntervalKm} onChange={e => setMaintenanceIntervalKm(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }} />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Số Km Lần Bảo Dưỡng Gần Nhất:</label>
-                <input type="number" min="0" step="any" value={lastOilChangeKm} onChange={e => setLastOilChangeKm(Number(e.target.value) || 0)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }} />
+                <input aria-label="Số km lần bảo dưỡng gần nhất" type="number" min="0" step="any" value={lastOilChangeKm} onChange={e => setLastOilChangeKm(Number(e.target.value) || 0)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }} />
               </div>
             </div>
           ) : (
@@ -492,17 +740,18 @@ export default function CategoryManager() {
               {activeTab !== 'chikhac' && (
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Mã Danh Mục:</label>
-                  <input type="text" required placeholder="VD: HH-001..." value={code} onChange={e => setCode(e.target.value)} autoCorrect="off" autoCapitalize="off" spellCheck={false} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }} />
+                  <input aria-label="Mã danh mục" type="text" required placeholder="VD: HH-001..." value={code} onChange={e => setCode(e.target.value)} autoCorrect="off" autoCapitalize="off" spellCheck={false} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }} />
                 </div>
               )}
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Tên Danh Mục:</label>
-                <input type="text" required placeholder="Nhập tên..." value={name} onChange={e => setName(e.target.value)} autoCorrect="off" autoCapitalize="off" spellCheck={false} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }} />
+                <input aria-label="Tên danh mục" type="text" required placeholder="Nhập tên..." value={name} onChange={e => setName(e.target.value)} autoCorrect="off" autoCapitalize="off" spellCheck={false} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }} />
               </div>
               {activeTab === 'nguyenvatlieu' && (
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Hạn Mức Tồn Kho Tối Thiểu:</label>
                   <input
+                    aria-label="Hạn mức tồn kho tối thiểu"
                     type="number"
                     min="0"
                     step="any"
@@ -517,6 +766,7 @@ export default function CategoryManager() {
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Đơn Vị Tính Mặc Định:</label>
                   <input
+                    aria-label="Đơn vị tính mặc định"
                     type="text"
                     list="category-unit-options"
                     placeholder="VD: kg, cái, bộ..."
@@ -533,7 +783,7 @@ export default function CategoryManager() {
               )}
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Ghi Chú:</label>
-                <input type="text" placeholder="Nhập ghi chú..." value={note} onChange={e => setNote(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }} />
+                <input aria-label="Ghi chú" type="text" placeholder="Nhập ghi chú..." value={note} onChange={e => setNote(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }} />
               </div>
             </div>
             {activeTab === 'hanghoa' && (
@@ -549,7 +799,7 @@ export default function CategoryManager() {
                   return (
                     <div key={`${rowIndex}-${row.materialCode}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 2fr) minmax(100px, .7fr) minmax(140px, .8fr) 42px', gap: '8px', marginTop: '8px' }}>
                       <div style={{ position: 'relative' }}>
-                        <input type="search" list={`material-norm-options-${rowIndex}`} value={row.query} placeholder="Chọn hoặc nhập nguyên vật liệu..." onChange={event => setMaterialNormRows(rows => rows.map((item, index) => index === rowIndex ? { ...item, query: event.target.value, materialName: event.target.value, materialId: null, materialCode: '' } : item))} style={{ width: '100%', padding: '8px', border: '1px solid #94a3b8', borderRadius: '5px', boxSizing: 'border-box' }} />
+                        <input aria-label="Nguyên vật liệu" data-category-norm-row={rowIndex} type="search" list={`material-norm-options-${rowIndex}`} value={row.query} placeholder="Chọn hoặc nhập nguyên vật liệu..." onChange={event => setMaterialNormRows(rows => rows.map((item, index) => index === rowIndex ? { ...item, query: event.target.value, materialName: event.target.value, materialId: null, materialCode: '' } : item))} style={{ width: '100%', padding: '8px', border: '1px solid #94a3b8', borderRadius: '5px', boxSizing: 'border-box' }} />
                         {suggestions.length > 0 && (
                           <datalist id={`material-norm-options-${rowIndex}`}>
                             {suggestions.map(material => <option key={material.id} value={`${material.code ? `${material.code} - ` : ''}${material.name}`} />)}
@@ -563,10 +813,10 @@ export default function CategoryManager() {
                           </div>
                         )}
                       </div>
-                      <select value={row.unit} onChange={event => setMaterialNormRows(rows => rows.map((item, index) => index === rowIndex ? { ...item, unit: event.target.value } : item))} style={{ width: '100%', padding: '8px', border: '1px solid #94a3b8', borderRadius: '5px' }}>
+                      <select aria-label="Đơn vị nguyên vật liệu" value={row.unit} onChange={event => setMaterialNormRows(rows => rows.map((item, index) => index === rowIndex ? { ...item, unit: event.target.value } : item))} style={{ width: '100%', padding: '8px', border: '1px solid #94a3b8', borderRadius: '5px' }}>
                         {[...new Set(['kg', 'lọn', 'bó', 'cái', 'mét', 'cuộn', 'tấm', 'thùng', 'bao', ...materialNormOptions.map(item => item.unit).filter(Boolean), row.unit].filter(Boolean))].map(option => <option key={String(option)} value={String(option)}>{String(option)}</option>)}
                       </select>
-                      <input type="text" inputMode="decimal" value={row.normPerUnit} onChange={event => setMaterialNormRows(rows => rows.map((item, index) => index === rowIndex ? { ...item, normPerUnit: event.target.value } : item))} placeholder="VD: 0.7" style={{ width: '100%', padding: '8px', border: '1px solid #94a3b8', borderRadius: '5px', boxSizing: 'border-box' }} />
+                      <input aria-label="Định mức nguyên vật liệu" type="text" inputMode="decimal" value={row.normPerUnit} onChange={event => setMaterialNormRows(rows => rows.map((item, index) => index === rowIndex ? { ...item, normPerUnit: event.target.value } : item))} placeholder="VD: 0.7" style={{ width: '100%', padding: '8px', border: '1px solid #94a3b8', borderRadius: '5px', boxSizing: 'border-box' }} />
                       <button type="button" aria-label="Xóa dòng nguyên vật liệu" onClick={() => setMaterialNormRows(rows => rows.filter((_item, index) => index !== rowIndex))} style={{ border: 0, borderRadius: '5px', background: '#fee2e2', color: '#b91c1c', fontSize: '17px', fontWeight: 'bold', cursor: 'pointer' }}>−</button>
                     </div>
                   );
@@ -657,7 +907,7 @@ export default function CategoryManager() {
                       </button>
                     </td>
                     <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center' }}>
-                      <button onClick={() => handleOpenForm(v)} style={{ background: '#f59e0b', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', marginRight: '4px' }}>Sửa</button>
+                      <button data-category-row-action="vehicle-edit" onClick={() => handleOpenForm(v)} style={{ background: '#f59e0b', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', marginRight: '4px' }}>Sửa</button>
                       <button onClick={() => handleDelete(v.id)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>Xóa</button>
                     </td>
                   </tr>
@@ -706,7 +956,7 @@ export default function CategoryManager() {
                       </td>
                       <td className="whitespace-nowrap" style={{ padding: '10px', color: '#64748b', verticalAlign: 'middle' }}>{item.note}</td>
                       <td className="whitespace-nowrap" style={{ padding: '10px', textAlign: 'center', verticalAlign: 'middle' }}>
-                        <button onClick={() => handleOpenForm(item)} style={{ background: '#f59e0b', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', marginRight: '4px' }}>Sửa</button>
+                        <button data-category-row-action="edit" onClick={() => handleOpenForm(item)} style={{ background: '#f59e0b', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', marginRight: '4px' }}>Sửa</button>
                         <button onClick={() => handleDelete(item.id)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>Xóa</button>
                       </td>
                     </tr>
