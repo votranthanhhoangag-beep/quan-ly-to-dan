@@ -70,6 +70,21 @@ const formatSpokenDate = (transcript: string) => {
   return '';
 };
 
+const parseMaterialNormSpeech = (transcript: string) => {
+  const normalized = normalizeVoiceCommand(transcript);
+  const materialMatch = /(?:nguyen vat lieu|nguyen phu lieu|vat lieu)\s+(.+?)(?=\s+(?:dinh muc|don vi)\s+|$)/iu.exec(normalized);
+  const normMatch = /(?:dinh muc(?: tren san pham| moi san pham| san pham)?|dm)\s+(.+?)(?=\s+(?:nguyen vat lieu|nguyen phu lieu|don vi)\s+|$)/iu.exec(normalized);
+  const unitMatch = /(?:don vi tinh nguyen vat lieu|don vi nguyen vat lieu|don vi)\s+(.+?)(?=\s+(?:dinh muc|nguyen vat lieu|nguyen phu lieu)\s+|$)/iu.exec(normalized);
+  const materialText = materialMatch?.[1]?.replace(/\b(?:dinh muc|don vi)\b.*$/iu, '').trim();
+  const normText = normMatch?.[1]?.replace(/\b(?:nguyen vat lieu|nguyen phu lieu|don vi)\b.*$/iu, '').trim();
+  const unitText = unitMatch?.[1]?.replace(/\b(?:dinh muc|nguyen vat lieu|nguyen phu lieu)\b.*$/iu, '').trim();
+  return {
+    material: materialText || '',
+    norm: normText || '',
+    unit: unitText || ''
+  };
+};
+
 export default function CategoryManager() {
   const { user, hasPermission } = useAuth();
   const {
@@ -573,10 +588,11 @@ export default function CategoryManager() {
     if (lowStockValue) filledFields.push('Hạn mức tồn kho');
 
     if (activeTab === 'hanghoa') {
-      const normValue = fieldValue(['định mức trên sản phẩm', 'định mức mỗi sản phẩm', 'định mức sản phẩm', 'định mức']);
+      const splitNorm = parseMaterialNormSpeech(transcript);
+      const normValue = splitNorm.norm || fieldValue(['định mức trên sản phẩm', 'định mức mỗi sản phẩm', 'định mức sản phẩm', 'định mức']);
       const parsedNorm = normValue ? parseVietnameseNumber(normValue) : parsed.normPerUnit;
-      const normUnitValue = fieldValue(['đơn vị tính nguyên vật liệu', 'đơn vị nguyên vật liệu', 'đơn vị']);
-      const materialValue = fieldValue(['nguyên vật liệu', 'nguyên phụ liệu']);
+      const normUnitValue = splitNorm.unit || fieldValue(['đơn vị tính nguyên vật liệu', 'đơn vị nguyên vật liệu']);
+      const materialValue = splitNorm.material || fieldValue(['nguyên vật liệu', 'nguyên phụ liệu']);
       if (normValue || normUnitValue || materialValue || parsed.normPerUnit !== undefined) {
         setMaterialNormRows(rows => {
           const index = rows.findIndex(row => !row.materialName.trim() || row === rows[0]) >= 0
@@ -635,48 +651,48 @@ export default function CategoryManager() {
         <h2 style={{ fontSize: '16px', fontWeight: 'bold', color: '#0f172a', margin: 0 }}>
           📑 Quản Lý Danh Mục (Hàng Hóa, NVL, Chi Phí, Xe 4 Bánh & Chi Khác)
         </h2>
-        {!showModal && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <VoiceFillControl
             onTranscript={handleCategoryVoiceTranscript}
             onNavigation={handleCategoryVoiceNavigation}
           />
-        )}
-        <button
-          onClick={() => handleOpenForm()}
-          style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}
-        >
-          + Thêm Mục Mới
-        </button>
+          <button
+            onClick={() => handleOpenForm()}
+            style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}
+          >
+            + Thêm Mục Mới
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <button
-          onClick={() => setActiveTab('hanghoa')}
+          onClick={() => switchCategoryTab('hanghoa')}
           style={{ background: activeTab === 'hanghoa' ? '#2563eb' : '#f1f5f9', color: activeTab === 'hanghoa' ? '#fff' : '#334155', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}
         >
           📦 Hàng Hóa ({products?.length || 0})
         </button>
         <button
-          onClick={() => setActiveTab('nguyenvatlieu')}
+          onClick={() => switchCategoryTab('nguyenvatlieu')}
           style={{ background: activeTab === 'nguyenvatlieu' ? '#2563eb' : '#f1f5f9', color: activeTab === 'nguyenvatlieu' ? '#fff' : '#334155', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}
         >
           🌾 Nguyên Vật Liệu ({materials?.length || 0})
         </button>
         <button
-          onClick={() => setActiveTab('chiphi')}
+          onClick={() => switchCategoryTab('chiphi')}
           style={{ background: activeTab === 'chiphi' ? '#2563eb' : '#f1f5f9', color: activeTab === 'chiphi' ? '#fff' : '#334155', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}
         >
           💸 Chi Phí ({expensesCat?.length || 0})
         </button>
         <button
-          onClick={() => setActiveTab('xe')}
+          onClick={() => switchCategoryTab('xe')}
           style={{ background: activeTab === 'xe' ? '#0284c7' : '#f1f5f9', color: activeTab === 'xe' ? '#fff' : '#334155', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}
         >
           🚗 Xe 4 Bánh ({vehicles?.length || 0})
         </button>
         <button
-          onClick={() => setActiveTab('chikhac')}
+          onClick={() => switchCategoryTab('chikhac')}
           style={{ background: activeTab === 'chikhac' ? '#2563eb' : '#f1f5f9', color: activeTab === 'chikhac' ? '#fff' : '#334155', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}
         >
           🧾 Chi Khác ({otherExpensesCat?.length || 0})
