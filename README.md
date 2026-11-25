@@ -1,5 +1,15 @@
 # React + TypeScript + Vite
 
+## ERP Lục Bình: Trợ lý giọng nói
+
+In the signed-in app, select **Trợ lý giọng nói · Ngủ** and allow microphone access to enable hands-free use. The assistant listens for **“Trợ lý ơi”** or **“Lục Bình ơi”**, then listens for a command after its spoken greeting. Say **“Ngưng”**, **“Tạm dừng”**, or **“Thôi không thao tác nữa”** to return it to wake-word mode; select the button again to turn it off.
+
+Supported commands include opening a visible management/report screen, filling a visible field by its label (for example, **“Điền số lượng 300”** or **“Ghi chú...”**), and choosing a matching value from a native or custom dropdown (for example, **“Chọn tổ đan...”**). The assistant speaks a confirmation after each command. Microphone and speech features require a browser that supports the Web Speech APIs; microphone access generally requires HTTPS or localhost.
+
+## Mobile layout
+
+On screens narrower than 761 px, use the menu button to open the navigation drawer. Account actions are grouped under **Tài khoản**, while wide data tables scroll horizontally within their panels.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

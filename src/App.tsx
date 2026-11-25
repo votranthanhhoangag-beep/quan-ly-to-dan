@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import CategoryManager from './components/CategoryManager';
@@ -30,6 +30,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import Unauthorized from './pages/Unauthorized';
 import Register from './pages/Register';
 import { analyzeAiAssistant } from './utils/aiAssistantAnalyzer';
+import { GlobalVoiceButton, GlobalVoiceProvider } from './components/GlobalVoiceProvider';
 
 type MenuItem = { id: string; label: string; permission: Permission };
 
@@ -39,153 +40,6 @@ const routeByTab: Record<string, string> = {
   expenses: '/phieu-chi',
   userManagement: '/quan-ly-user'
 };
-
-interface SpeechRecognitionResultLike {
-  0?: { transcript: string };
-}
-
-interface SpeechRecognitionEventLike {
-  results: ArrayLike<SpeechRecognitionResultLike>;
-}
-
-interface SpeechRecognitionLike {
-  lang: string;
-  interimResults: boolean;
-  maxAlternatives: number;
-  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
-  onerror: ((event: { error: string }) => void) | null;
-  onend: (() => void) | null;
-  start: () => void;
-  stop: () => void;
-}
-
-type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
-
-const normalizeVoiceCommand = (value: string) => value
-  .toLocaleLowerCase('vi')
-  .normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '')
-  .replace(/đ/g, 'd')
-  .replace(/[^a-z0-9\s]/g, ' ')
-  .replace(/\s+/g, ' ')
-  .trim();
-
-function VoiceCommandControl({
-  menuItems,
-  onNavigate
-}: {
-  menuItems: MenuItem[];
-  onNavigate: (tabId: string) => void;
-}) {
-  const [isListening, setIsListening] = useState(false);
-  const [status, setStatus] = useState('');
-  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
-
-  const startListening = () => {
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-      setStatus('Đã dừng nghe.');
-      return;
-    }
-
-    const speechWindow = window as Window & {
-      SpeechRecognition?: SpeechRecognitionConstructor;
-      webkitSpeechRecognition?: SpeechRecognitionConstructor;
-    };
-    const Recognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
-    if (!Recognition) {
-      setStatus('Trình duyệt này chưa hỗ trợ nhận diện giọng nói.');
-      return;
-    }
-
-    const recognition = new Recognition();
-    recognition.lang = 'vi-VN';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-    recognition.onresult = event => {
-      const transcript = event.results[0]?.[0]?.transcript?.trim();
-      if (!transcript) {
-        setStatus('Không nhận diện được nội dung. Vui lòng thử lại.');
-        return;
-      }
-
-      const command = normalizeVoiceCommand(transcript);
-      const destinations: Record<string, string[]> = {
-        dashboard: ['dashboard', 'trang chu', 'tong quan'],
-        categories: ['danh muc', 'quan ly danh muc'],
-        contracts: ['hop dong', 'quan ly hop dong', 'quan ly hd dan'],
-        inventory: ['phieu nhap', 'quan ly phieu nhap', 'ton kho'],
-        exportFrame: ['nhan hang dan', 'nhan hang tu to dan'],
-        knittingExport: ['xuat hang dan'],
-        defectiveGoodsImport: ['hang loi', 'nhap hang loai'],
-        inventoryStockReport: ['bao cao nxt', 'bao cao ton kho'],
-        expenses: ['phieu chi', 'quan ly phieu chi'],
-        vehicles: ['quan ly xe', 'xe va km', 'nhat trinh xe'],
-        tax: ['doanh thu', 'chi phi', 'thue', 'van hanh'],
-        systemSettings: ['cau hinh he thong', 'cai dat he thong']
-      };
-      const destination = Object.entries(destinations).find(([, phrases]) =>
-        phrases.some(phrase => command.includes(phrase))
-      );
-
-      if (destination) {
-        const [tabId] = destination;
-        const tab = menuItems.find(item => item.id === tabId);
-        onNavigate(tabId);
-        setStatus(`Đã chuyển đến ${tab?.label.replace(/^[^ ]+ /u, '') || 'màn hình yêu cầu'}.`);
-        window.setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('erp:voice-command', { detail: transcript }));
-        }, 350);
-        return;
-      }
-
-      window.dispatchEvent(new CustomEvent('erp:voice-command', { detail: transcript }));
-      setStatus(`Đã nhận lệnh: “${transcript}”`);
-    };
-    recognition.onerror = event => {
-      setIsListening(false);
-      setStatus(event.error === 'not-allowed'
-        ? 'Không có quyền sử dụng micro. Hãy cấp quyền trong trình duyệt.'
-        : `Không thể nhận diện giọng nói (${event.error}).`);
-    };
-    recognition.onend = () => {
-      setIsListening(false);
-      recognitionRef.current = null;
-    };
-    recognitionRef.current = recognition;
-
-    try {
-      recognition.start();
-      setIsListening(true);
-      setStatus('Đang nghe...');
-    } catch (error) {
-      recognitionRef.current = null;
-      setIsListening(false);
-      setStatus(error instanceof Error ? `Không thể bật micro: ${error.message}` : 'Không thể bật micro.');
-    }
-  };
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: '10px' }}>
-      {status && (
-        <span role="status" aria-live="polite" style={{ color: isListening ? '#b91c1c' : '#475569', fontSize: '13px', fontWeight: isListening ? 800 : 600 }}>
-          {status}
-        </span>
-      )}
-      <button
-        type="button"
-        onClick={startListening}
-        aria-label={isListening ? 'Dừng điều khiển bằng giọng nói' : 'Bắt đầu điều khiển bằng giọng nói'}
-        aria-pressed={isListening}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', minHeight: '40px', padding: '8px 13px', border: 0, borderRadius: '8px', backgroundColor: isListening ? '#dc2626' : '#1d4ed8', color: '#fff', fontWeight: 800, cursor: 'pointer', boxShadow: '0 2px 6px rgba(15, 23, 42, 0.15)' }}
-      >
-        <span aria-hidden="true">🎙️</span>
-        {isListening ? 'Đang nghe...' : 'Tìm kiếm bằng giọng nói'}
-      </button>
-    </div>
-  );
-}
 
 function VehicleExpiryBadge() {
   const { vehicles = [] } = useApp();
@@ -446,6 +300,8 @@ function AppContent({ initialTab }: { initialTab: string }) {
   const [depositEditContractId, setDepositEditContractId] = useState<string | number | null>(null);
   const [assistantEditContractId, setAssistantEditContractId] = useState<string | number | null>(null);
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isMobileAccountMenuOpen, setIsMobileAccountMenuOpen] = useState(false);
   const assistantReminders = useMemo(
     () => analyzeAiAssistant({ contracts, slips, depositSlips, knittingExportSlips }),
     [contracts, depositSlips, knittingExportSlips, slips]
@@ -476,9 +332,22 @@ function AppContent({ initialTab }: { initialTab: string }) {
   const navigateToTab = (tabId: string) => {
     if (tabId === 'inventory') setInventoryInitialTab('FRAME_STOCK');
     setSelectedTab(tabId);
+    setIsMobileSidebarOpen(false);
     const route = routeByTab[tabId];
     if (route) navigate(route);
   };
+
+  useEffect(() => {
+    const handleVoiceNavigation = (event: Event) => {
+      const request = (event as CustomEvent<{ tabId: string; accepted: boolean }>).detail;
+      if (!request || typeof request.tabId !== 'string') return;
+      if (!visibleMenuItems.some(item => item.id === request.tabId)) return;
+      request.accepted = true;
+      navigateToTab(request.tabId);
+    };
+    window.addEventListener('erp:voice-navigation', handleVoiceNavigation);
+    return () => window.removeEventListener('erp:voice-navigation', handleVoiceNavigation);
+  }, [visibleMenuItems, navigateToTab]);
 
   const openAssistantReminder = (reminder: ReturnType<typeof analyzeAiAssistant>[number]) => {
     setIsAssistantOpen(false);
@@ -586,7 +455,15 @@ function AppContent({ initialTab }: { initialTab: string }) {
         {/* ========================================== */}
         {/* THANH MENU DỌC BÊN TRÁI (SIDEBAR BÊN TRÁI) */}
         {/* ========================================== */}
-        <aside className="erp-sidebar" style={{ width: '260px', backgroundColor: '#0f172a', color: '#ffffff', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', flexShrink: 0, borderRight: '1px solid #e5e7eb', boxShadow: '4px 0 12px rgba(0,0,0,0.15)', zIndex: 10 }}>
+        {isMobileSidebarOpen && (
+          <button
+            type="button"
+            className="erp-mobile-menu-backdrop"
+            aria-label="Đóng menu điều hướng"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
+        )}
+        <aside className={`erp-sidebar${isMobileSidebarOpen ? ' is-open' : ''}`} aria-label="Menu điều hướng" style={{ width: '260px', backgroundColor: '#0f172a', color: '#ffffff', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', flexShrink: 0, borderRight: '1px solid #e5e7eb', boxShadow: '4px 0 12px rgba(0,0,0,0.15)', zIndex: 10 }}>
           <SystemBranding />
 
           {/* Danh Sách Nút Bấm Menu Dọc */}
@@ -633,32 +510,53 @@ function AppContent({ initialTab }: { initialTab: string }) {
         {/* ========================================== */}
         <main className="erp-main w-full max-w-full" style={{ flex: '1 1 0%', minWidth: 0, width: '100%', maxWidth: '100%', padding: '24px', backgroundColor: '#f8fafc', boxSizing: 'border-box', overflowX: 'clip' }}>
           <div className="erp-content-shell w-full max-w-full" style={{ width: '100%', maxWidth: '100%', minWidth: 0, overflowX: 'clip' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '18px' }}>
-              <strong style={{ color: '#334155', fontSize: '14px' }}>
+            <header className="erp-topbar">
+              <button
+                type="button"
+                className="erp-mobile-menu-button"
+                onClick={() => setIsMobileSidebarOpen(true)}
+                aria-label="Mở menu điều hướng"
+                aria-expanded={isMobileSidebarOpen}
+              >
+                ☰
+              </button>
+              <strong className="erp-page-title" style={{ color: '#334155', fontSize: '14px' }}>
                 {visibleMenuItems.find(item => item.id === activeTab)?.label.replace(/^[^ ]+ /u, '') || 'ERP Lục Bình'}
               </strong>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <div className="erp-header-actions">
                 <SyncStatusIndicator />
                 <AssistantHeaderButton
                   count={assistantReminders.length}
                   onClick={() => setIsAssistantOpen(true)}
                 />
-                <span style={{ color: '#475569', fontSize: '12px', fontWeight: 700 }}>
+                <span className="erp-user-label" style={{ color: '#475569', fontSize: '12px', fontWeight: 700 }}>
                   {user?.username} · {roleLabels[user?.role || 'kho_to_dan']}
                 </span>
-                <button type="button" onClick={reloadData} disabled={isRefreshing} style={{ padding: '7px 10px', border: '1px solid #cbd5e1', borderRadius: '6px', backgroundColor: '#fff', color: '#334155', fontWeight: 700, cursor: isRefreshing ? 'wait' : 'pointer' }}>
+                <button
+                  type="button"
+                  className="erp-mobile-actions-toggle"
+                  onClick={() => setIsMobileAccountMenuOpen(open => !open)}
+                  aria-expanded={isMobileAccountMenuOpen}
+                  aria-label="Mở menu tài khoản"
+                >
+                  Tài khoản
+                </button>
+                <button type="button" className="erp-header-account-action" onClick={reloadData} disabled={isRefreshing} style={{ padding: '7px 10px', border: '1px solid #cbd5e1', borderRadius: '6px', backgroundColor: '#fff', color: '#334155', fontWeight: 700, cursor: isRefreshing ? 'wait' : 'pointer' }}>
                   {isRefreshing ? 'Đang tải...' : 'Làm mới'}
                 </button>
-                <button type="button" onClick={() => void signOut()} style={{ padding: '7px 10px', border: '1px solid #cbd5e1', borderRadius: '6px', backgroundColor: '#fff', color: '#334155', fontWeight: 700, cursor: 'pointer' }}>Đăng xuất</button>
-                <VoiceCommandControl
-                  menuItems={visibleMenuItems}
-                  onNavigate={tabId => {
-                    navigateToTab(tabId);
-                    if (tabId === 'inventory') setInventoryInitialTab('NK_KHUNG');
-                  }}
-                />
+                <button type="button" className="erp-header-account-action" onClick={() => void signOut()} style={{ padding: '7px 10px', border: '1px solid #cbd5e1', borderRadius: '6px', backgroundColor: '#fff', color: '#334155', fontWeight: 700, cursor: 'pointer' }}>Đăng xuất</button>
+                <GlobalVoiceButton />
+                {isMobileAccountMenuOpen && (
+                  <div className="erp-mobile-account-menu">
+                    <span>{user?.username} · {roleLabels[user?.role || 'kho_to_dan']}</span>
+                    <button type="button" onClick={() => { setIsMobileAccountMenuOpen(false); reloadData(); }} disabled={isRefreshing}>
+                      {isRefreshing ? 'Đang tải...' : 'Làm mới'}
+                    </button>
+                    <button type="button" onClick={() => void signOut()}>Đăng xuất</button>
+                  </div>
+                )}
               </div>
-            </div>
+            </header>
             {activeTab === 'dashboard' && (
               <div style={{ display: 'grid', gap: '18px' }}>
                 <AssistantDashboardCard
@@ -741,19 +639,21 @@ function AuthenticatedApp() {
     <AuthProvider>
       <AuthGate>
         <AppProvider>
-          <Routes>
-            <Route path="/unauthorized" element={<Unauthorized />} />
-            <Route element={<ProtectedRoute />}>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<RoutedAppContent initialTab="dashboard" />} />
-              <Route path="/ho-so-dan" element={<RoutedAppContent initialTab="contracts" />} />
-              <Route path="/phieu-chi" element={<RoutedAppContent initialTab="expenses" />} />
-              <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-                <Route path="/quan-ly-user" element={<RoutedAppContent initialTab="userManagement" />} />
+          <GlobalVoiceProvider>
+            <Routes>
+              <Route path="/unauthorized" element={<Unauthorized />} />
+              <Route element={<ProtectedRoute />}>
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/dashboard" element={<RoutedAppContent initialTab="dashboard" />} />
+                <Route path="/ho-so-dan" element={<RoutedAppContent initialTab="contracts" />} />
+                <Route path="/phieu-chi" element={<RoutedAppContent initialTab="expenses" />} />
+                <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+                  <Route path="/quan-ly-user" element={<RoutedAppContent initialTab="userManagement" />} />
+                </Route>
               </Route>
-            </Route>
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </GlobalVoiceProvider>
         </AppProvider>
       </AuthGate>
     </AuthProvider>

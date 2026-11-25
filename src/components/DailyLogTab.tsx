@@ -218,7 +218,7 @@ export default function DailyLogTab() {
                       <h3 className="break-words text-sm font-semibold text-slate-900">{log.title}</h3>
                     </div>
                     {log.description && <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">{log.description}</p>}
-                    <p className="mt-2 break-all text-xs text-slate-500">{log.user_email}</p>
+                    <p className="mt-2 break-words text-xs text-slate-500">{log.user_email}</p>
                   </div>
                 </li>
               );

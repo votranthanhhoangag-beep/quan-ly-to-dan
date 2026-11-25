@@ -639,7 +639,7 @@ export default function DashboardView() {
       <section aria-label="Tiến độ hợp đồng" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '12px' }}>
         <article style={{ ...cardStyle, backgroundColor: '#eff6ff', borderColor: '#bfdbfe' }}>
           <div style={{ color: '#1d4ed8', fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em' }}>HĐ CTY CHƯA NHẬN CỌC</div>
-          <div style={{ marginTop: '10px', color: '#1e3a8a', fontSize: '25px', fontWeight: 800 }}>{formatNumber(parentContractCount)}</div>
+          <div className="erp-dashboard-stat text-2xl sm:text-3xl" style={{ marginTop: '10px', color: '#1e3a8a', fontWeight: 800 }}>{formatNumber(parentContractCount)}</div>
           <div style={{ marginTop: '4px', color: '#475569', fontSize: '13px' }}>Tổng số hợp đồng chưa nhận cọc · {formatNumber(totalParentQty)} sản phẩm</div>
           <div style={{ marginTop: '14px', color: '#334155', fontSize: '13px' }}>
             Đã nhận khung: <strong>{formatNumber(matchedReceivedFrames)}</strong> / {formatNumber(totalParentQty)}
@@ -654,7 +654,7 @@ export default function DashboardView() {
 
         <article style={{ ...cardStyle, backgroundColor: '#faf5ff', borderColor: '#e9d5ff' }}>
           <div style={{ color: '#7e22ce', fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em' }}>HĐ TỔ ĐAN CHƯA NHẬN CỌC</div>
-          <div style={{ marginTop: '10px', color: '#581c87', fontSize: '25px', fontWeight: 800 }}>{formatNumber(displaySubContracts.length)}</div>
+          <div className="erp-dashboard-stat text-2xl sm:text-3xl" style={{ marginTop: '10px', color: '#581c87', fontWeight: 800 }}>{formatNumber(displaySubContracts.length)}</div>
           <div style={{ marginTop: '4px', color: '#475569', fontSize: '13px' }}>Tổng số hợp đồng chưa nhận cọc · {formatNumber(totalSubQty)} sản phẩm</div>
           <div style={{ marginTop: '14px', color: '#334155', fontSize: '13px' }}>
             Đã xuất/nhận khung: <strong>{formatNumber(totalSubReceived)}</strong> / {formatNumber(totalSubQty)}
@@ -682,7 +682,7 @@ export default function DashboardView() {
               </span>
             )}
           </div>
-          <div style={{ marginTop: '10px', color: '#075985', fontSize: '26px', fontWeight: 800 }}>{formatNumber(totalReceivedFrames)}</div>
+          <div className="erp-dashboard-stat text-2xl sm:text-3xl" style={{ marginTop: '10px', color: '#075985', fontWeight: 800 }}>{formatNumber(totalReceivedFrames)}</div>
           <div style={{ marginTop: '2px', color: '#475569', fontSize: '13px' }}>Tổng số khung nhập kho theo phiếu KS</div>
           <small style={{ display: 'block', marginTop: '6px', color: '#64748b' }}>
             Khung đối chiếu được với HĐ CTY chưa nhận cọc: {formatNumber(matchedReceivedFrames)}
@@ -915,7 +915,7 @@ export default function DashboardView() {
           ].filter(group => group.rows.length > 0).map(group => (
             <div key={group.label} style={{ padding: '12px', borderRadius: '8px', backgroundColor: group.backgroundColor }}>
               <small style={{ color: group.color, fontWeight: 800 }}>{group.label}</small>
-              <div style={{ marginTop: '4px', color: group.color, fontSize: '22px', fontWeight: 800 }}>{formatNumber(group.rows.length)}</div>
+              <div className="erp-dashboard-stat text-2xl sm:text-3xl" style={{ marginTop: '4px', color: group.color, fontWeight: 800 }}>{formatNumber(group.rows.length)}</div>
               <small style={{ color: group.color }}>Còn nợ: {formatCurrency(group.rows.reduce((sum, item) => sum + item.summary.outstanding, 0))}</small>
             </div>
           ))}
@@ -966,7 +966,7 @@ export default function DashboardView() {
               <small style={{ color: '#166534', fontWeight: 800 }}>DOANH THU THỰC TẾ (ĐẠT)</small>
               <span style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#15803d', padding: '2px 7px', borderRadius: '999px', fontWeight: 700, flexShrink: 0 }}>Thực tế</span>
             </div>
-            <div style={{ marginTop: '7px', color: '#15803d', fontSize: '22px', fontWeight: 800, wordBreak: 'break-word' }}>{formatCurrency(totalRealizedRevenue)}</div>
+            <div className="erp-dashboard-stat text-2xl sm:text-3xl" style={{ marginTop: '7px', color: '#15803d', fontWeight: 800, wordBreak: 'break-word' }}>{formatCurrency(totalRealizedRevenue)}</div>
             <small style={{ display: 'block', marginTop: '4px', color: '#166534', wordBreak: 'break-word' }}>
               Đã xuất đạt: <strong>{formatNumber(totalGoodExportQuantity)}</strong> sản phẩm
             </small>
@@ -977,7 +977,7 @@ export default function DashboardView() {
               <small style={{ color: '#1e40af', fontWeight: 800 }}>DOANH THU DỰ KIẾN (HĐ CTY)</small>
               <span style={{ fontSize: '11px', backgroundColor: '#dbeafe', color: '#1d4ed8', padding: '2px 7px', borderRadius: '999px', fontWeight: 700, flexShrink: 0 }}>Dự kiến</span>
             </div>
-            <div style={{ marginTop: '7px', color: '#1d4ed8', fontSize: '22px', fontWeight: 800, wordBreak: 'break-word' }}>{formatCurrency(companyContractValue)}</div>
+            <div className="erp-dashboard-stat text-2xl sm:text-3xl" style={{ marginTop: '7px', color: '#1d4ed8', fontWeight: 800, wordBreak: 'break-word' }}>{formatCurrency(companyContractValue)}</div>
             <small style={{ display: 'block', marginTop: '4px', color: '#1e40af', wordBreak: 'break-word' }}>
               Tổng HĐ Cty: <strong>{formatNumber(totalFinancialParentQty)}</strong> sản phẩm
             </small>
@@ -988,7 +988,7 @@ export default function DashboardView() {
               <small style={{ color: '#9f1239', fontWeight: 800 }}>CHI PHÍ KHOÁN TỔ ĐAN</small>
               <span style={{ fontSize: '11px', backgroundColor: '#ffe4e6', color: '#be123c', padding: '2px 7px', borderRadius: '999px', fontWeight: 700, flexShrink: 0 }}>HĐ Tổ Đan</span>
             </div>
-            <div style={{ marginTop: '7px', color: '#be123c', fontSize: '22px', fontWeight: 800, wordBreak: 'break-word' }}>{formatCurrency(weavingContractValue)}</div>
+            <div className="erp-dashboard-stat text-2xl sm:text-3xl" style={{ marginTop: '7px', color: '#be123c', fontWeight: 800, wordBreak: 'break-word' }}>{formatCurrency(weavingContractValue)}</div>
             <small style={{ display: 'block', marginTop: '4px', color: '#9f1239', wordBreak: 'break-word' }}>
               Tổng khoán: <strong>{formatNumber(totalFinancialSubQty)}</strong> sản phẩm
             </small>
@@ -1001,7 +1001,7 @@ export default function DashboardView() {
                 {companyContractValue > 0 ? `${Math.round((totalRealizedRevenue / companyContractValue) * 100)}% HĐ` : '0%'}
               </span>
             </div>
-            <div style={{ marginTop: '7px', color: actualNetRevenue >= 0 ? '#7e22ce' : '#c2410c', fontSize: '22px', fontWeight: 800, wordBreak: 'break-word' }}>
+            <div className="erp-dashboard-stat text-2xl sm:text-3xl" style={{ marginTop: '7px', color: actualNetRevenue >= 0 ? '#7e22ce' : '#c2410c', fontWeight: 800, wordBreak: 'break-word' }}>
               {formatCurrency(totalRealizedRevenue)}
             </div>
             <small style={{ display: 'block', marginTop: '4px', color: '#64748b', wordBreak: 'break-word' }}>
