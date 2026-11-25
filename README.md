@@ -2,9 +2,9 @@
 
 ## ERP Lục Bình: Trợ lý giọng nói
 
-In the signed-in app, select **Trợ lý giọng nói · Ngủ** and allow microphone access to enable hands-free use. The assistant listens for **“Trợ lý ơi”** or **“Lục Bình ơi”**, then listens for a command after its spoken greeting. Say **“Ngưng”**, **“Tạm dừng”**, or **“Thôi không thao tác nữa”** to return it to wake-word mode; select the button again to turn it off.
+In the signed-in app, select **Trợ lý giọng nói · Tắt** and allow microphone access to enable hands-free use. The assistant enters **Chờ gọi “Trợ lý”** and begins listening for **“Trợ lý”** or **“Trợ lý ơi”**. It replies aloud, then enters command mode. Say **“Ngưng”**, **“Tạm dừng”**, **“Thôi không thao tác”**, or **“Ngủ đi”** to return to wake-name mode; select the Header button to turn it off completely.
 
-Supported commands include opening a visible management/report screen, filling a visible field by its label (for example, **“Điền số lượng 300”** or **“Ghi chú...”**), and choosing a matching value from a native or custom dropdown (for example, **“Chọn tổ đan...”**). The assistant speaks a confirmation after each command. Microphone and speech features require a browser that supports the Web Speech APIs; microphone access generally requires HTTPS or localhost.
+Supported commands include opening a management/report screen (for example, **“Mở Dashboard”** or **“Mở Quản lý phiếu chi”**), switching a visible tab with **“Chọn tab [tên]”** or **“Xem [tên]”**, clicking visible actions such as **“Thêm mục mới”** and **“Lưu”**, filling a visible field by its label (for example, **“Điền số lượng 300”**), and selecting a matching native or custom dropdown value (for example, **“Chọn tổ đan [tên]”**). Vietnamese numbers such as **“500 ngàn”** and **“2 triệu rưỡi”** are supported. The assistant speaks a confirmation after each command and shows the heard command and result in the form voice status. Microphone and speech features require a browser that supports the Web Speech APIs; microphone access generally requires HTTPS or localhost.
 
 ## Mobile layout
 

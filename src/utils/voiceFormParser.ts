@@ -72,6 +72,7 @@ export const parseVietnameseNumber = (input: string): number | undefined => {
   let total = 0;
   let section = 0;
   let pending: number | undefined;
+  let lastScale = 0;
   let found = false;
 
   for (const token of tokens) {
@@ -119,6 +120,13 @@ export const parseVietnameseNumber = (input: string): number | undefined => {
       total += (section + (pending ?? 0)) * scale;
       section = 0;
       pending = undefined;
+      lastScale = scale;
+      found = true;
+      continue;
+    }
+    if (word === 'ruoi' && lastScale) {
+      total += lastScale / 2;
+      lastScale = 0;
       found = true;
     }
   }

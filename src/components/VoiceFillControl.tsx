@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { parseVietnameseNumber } from '../utils/voiceFormParser';
+import { useGlobalVoice } from './GlobalVoiceProvider';
 
 interface SpeechRecognitionAlternativeLike {
   transcript: string;
@@ -268,6 +269,7 @@ const isNavigationCommand = (transcript: string) => {
 };
 
 export default function VoiceFillControl({ onTranscript, onFieldFocus, onNavigation }: VoiceFillControlProps) {
+  const globalVoice = useGlobalVoice();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const onTranscriptRef = useRef(onTranscript);
@@ -319,6 +321,13 @@ export default function VoiceFillControl({ onTranscript, onFieldFocus, onNavigat
     recognitionRef.current = null;
     lastFocusedFieldRef.current?.removeAttribute('data-voice-active-field');
   }, []);
+
+  useEffect(() => {
+    if (!globalVoice?.enabled) return;
+    recognitionRef.current?.stop();
+    recognitionRef.current = null;
+    setIsListening(false);
+  }, [globalVoice?.enabled]);
 
   const applyNavigation = (action: 'next' | 'previous' | 'clear') => {
     const form = getForm(rootRef.current);
@@ -589,34 +598,59 @@ export default function VoiceFillControl({ onTranscript, onFieldFocus, onNavigat
   return (
     <div ref={rootRef} style={{ display: 'grid', gap: '6px', minWidth: 0, maxWidth: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-        <button
-          type="button"
-          onClick={isListening ? stopListening : startListening}
-          aria-pressed={isListening}
-          style={{
-            padding: '7px 10px',
-            border: 0,
-            borderRadius: '6px',
-            backgroundColor: isListening ? '#dc2626' : '#0f766e',
-            color: '#fff',
-            fontWeight: 700,
-            cursor: 'pointer',
-            animation: isListening ? 'voice-fill-pulse 1.2s ease-in-out infinite' : undefined
-          }}
-        >
-          {isListening ? '⏹ Dừng nghe' : '🎙 Nói để điền'}
-        </button>
-        <button type="button" onClick={() => quickMove('previous')} aria-label="Chuyển tới ô trước" style={quickButtonStyle}>← Ô trước</button>
-        <button type="button" onClick={() => quickMove('next')} aria-label="Chuyển tới ô tiếp theo" style={quickButtonStyle}>Ô tiếp →</button>
-        <span style={{ color: isListening ? '#b91c1c' : '#475569', fontSize: '11px', fontWeight: 700 }}>
-          vi-VN · {isListening ? 'Đang nghe' : 'Đã dừng'}{focusedFieldName ? ` · Ô: ${focusedFieldName}` : ''}
+        {!globalVoice?.enabled && (
+          <>
+            <button
+              type="button"
+              onClick={isListening ? stopListening : startListening}
+              aria-pressed={isListening}
+              style={{
+                padding: '7px 10px',
+                border: 0,
+                borderRadius: '6px',
+                backgroundColor: isListening ? '#dc2626' : '#0f766e',
+                color: '#fff',
+                fontWeight: 700,
+                cursor: 'pointer',
+                animation: isListening ? 'voice-fill-pulse 1.2s ease-in-out infinite' : undefined
+              }}
+            >
+              {isListening ? '⏹ Dừng nghe' : '🎙 Nói để điền'}
+            </button>
+            <button type="button" onClick={() => quickMove('previous')} aria-label="Chuyển tới ô trước" style={quickButtonStyle}>← Ô trước</button>
+            <button type="button" onClick={() => quickMove('next')} aria-label="Chuyển tới ô tiếp theo" style={quickButtonStyle}>Ô tiếp →</button>
+          </>
+        )}
+        <span style={{ color: isListening || (globalVoice?.enabled && (globalVoice.mode === 'listening_command' || globalVoice.mode === 'speaking')) ? '#b91c1c' : '#475569', fontSize: '11px', fontWeight: 700, overflowWrap: 'break-word' }}>
+          vi-VN · {globalVoice?.enabled
+            ? globalVoice.mode === 'speaking'
+              ? 'Đang phản hồi'
+              : globalVoice.mode === 'waiting_name'
+                ? 'Chờ gọi “Trợ lý”'
+                : 'Đang nghe lệnh'
+            : isListening ? 'Đang nghe' : 'Đã dừng'}
+          {!globalVoice?.enabled && focusedFieldName ? ` · Ô: ${focusedFieldName}` : ''}
         </span>
       </div>
-      {(isListening || transcript) && (
+      {globalVoice?.enabled || (globalVoice?.heard && globalVoice.result) ? (
+        <>
+          {globalVoice?.heard && (
+            <div aria-live="polite" style={{ color: '#475569', fontSize: '12px', overflowWrap: 'anywhere' }}>
+              Đã nghe: {globalVoice.heard}
+            </div>
+          )}
+          {globalVoice?.result && (
+            <div role="status" style={{ color: '#166534', fontSize: '12px', fontWeight: 600, overflowWrap: 'anywhere' }}>
+              {globalVoice.result}
+            </div>
+          )}
+        </>
+      ) : (isListening || transcript) && (
         <div aria-live="polite" style={{ color: isListening ? '#b91c1c' : '#475569', fontSize: '12px', overflowWrap: 'anywhere' }}>
           {isListening ? transcript || 'Đang chờ bạn nói…' : `Đã nghe: ${transcript}`}
         </div>
       )}
+      {globalVoice?.enabled && globalVoice.error && <div role="status" style={{ color: '#9a3412', fontSize: '12px' }}>{globalVoice.error}</div>}
       {message && <div role="status" style={{ color: '#9a3412', fontSize: '12px' }}>{message}</div>}
       {summary && <div role="status" style={{ color: '#166534', fontSize: '12px', fontWeight: 600 }}>{summary}</div>}
       <style>{`

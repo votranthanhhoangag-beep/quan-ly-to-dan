@@ -375,7 +375,7 @@ main textarea {
   }
 }
 
-@media screen and (max-width: 760px) {
+@media screen and (max-width: 768px) {
   .erp-app-shell {
     flex-direction: column;
   }
@@ -900,12 +900,15 @@ main textarea {
 
     .erp-voice-control {
       flex: 1 1 auto;
+      max-width: 100%;
+      flex-wrap: wrap;
+      overflow-wrap: break-word;
     }
 
     .erp-voice-button span:last-child {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      min-width: 0;
+      overflow-wrap: break-word;
+      white-space: normal;
     }
 }
 
