@@ -48,7 +48,7 @@ const destinations: Array<{ tabId: string; phrases: string[]; label: string }> =
   { tabId: 'auditLogs', phrases: ['lich su thao tac'], label: 'Lịch sử thao tác' }
 ];
 
-const executeCommand = (transcript: string): string | Promise<string> => {
+const runAllVoiceTasks = (transcript: string): string | Promise<string> => {
   const normalized = normalize(transcript);
   const directFillResult = fillOrSelectDirect(transcript);
   if (directFillResult) return directFillResult;
@@ -77,7 +77,7 @@ const executeCommand = (transcript: string): string | Promise<string> => {
 
 export function GlobalVoiceProvider({ children }: { children: ReactNode }) {
   const handleTroLyCommand = useCallback(async (transcript: string) => {
-    const response = await executeCommand(transcript);
+    const response = await runAllVoiceTasks(transcript);
     window.dispatchEvent(new CustomEvent('erp:voice-command', { detail: transcript }));
     return response;
   }, []);

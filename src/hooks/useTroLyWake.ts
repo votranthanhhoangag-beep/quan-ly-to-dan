@@ -21,6 +21,7 @@ interface RecognitionLike {
   continuous: boolean;
   interimResults: boolean;
   maxAlternatives: number;
+  onstart: (() => void) | null;
   onresult: ((event: RecognitionEventLike) => void) | null;
   onerror: ((event: { error: string }) => void) | null;
   onend: (() => void) | null;
@@ -43,8 +44,13 @@ export const normalizeVi = (value: string) => value
   .replace(/\s+/g, ' ')
   .trim();
 
-const wakePhrases = ['tro ly'];
 const stopPhrases = ['ngung', 'tam dung', 'thoi khong thao tac', 'ngu di'];
+
+const extractWakeRemainder = (transcript: string) => {
+  const normalized = normalizeVi(transcript);
+  const match = /^(?:(?:da|oi)\s+)?tro\s+ly(?:\s+oi)?\b\s*(.*)$/u.exec(normalized);
+  return match ? match[1].trim() : null;
+};
 
 export function useTroLyWake({ onCommand }: UseTroLyWakeOptions) {
   const [mode, setMode] = useState<TroLyVoiceMode>('off');
@@ -56,11 +62,15 @@ export function useTroLyWake({ onCommand }: UseTroLyWakeOptions) {
   const recognitionRef = useRef<RecognitionLike | null>(null);
   const restartTimerRef = useRef<number | null>(null);
   const networkRetryIndexRef = useRef(0);
+  const retryAttemptCountRef = useRef(0);
+  const retryScheduledRef = useRef(false);
   const processingRef = useRef(false);
   const onCommandRef = useRef(onCommand);
   const audioContextRef = useRef<AudioContext | null>(null);
   const speakRef = useRef<(text: string, nextMode?: TroLyVoiceMode) => void>(() => undefined);
-  const wakeAndListenRef = useRef<() => void>(() => undefined);
+  const wakeAndListenRef = useRef<(remainder?: string) => void>(() => undefined);
+  const runCommandRef = useRef<(commandText: string) => void>(() => undefined);
+  const pendingWakeCommandRef = useRef('');
 
   useEffect(() => {
     onCommandRef.current = onCommand;
@@ -76,10 +86,14 @@ export function useTroLyWake({ onCommand }: UseTroLyWakeOptions) {
   const scheduleRecognitionRestart = useCallback(() => {
     if (!activeRef.current || modeRef.current === 'speaking') return;
     if (restartTimerRef.current !== null) window.clearTimeout(restartTimerRef.current);
-    const networkDelays = [1200, 2500, 4000];
-    const delay = networkRetryIndexRef.current
-      ? networkDelays[networkRetryIndexRef.current - 1]
-      : 280;
+    if (retryAttemptCountRef.current >= 3) {
+      retryScheduledRef.current = false;
+      setError('Không thể kết nối nhận diện giọng nói sau 3 lần thử. Hãy kiểm tra kết nối rồi bật lại Trợ lý.');
+      return;
+    }
+    retryAttemptCountRef.current += 1;
+    retryScheduledRef.current = true;
+    const delay = [2000, 4000, 8000][retryAttemptCountRef.current - 1];
     restartTimerRef.current = window.setTimeout(() => {
       restartTimerRef.current = null;
       startRecognitionRef.current();
@@ -117,45 +131,50 @@ export function useTroLyWake({ onCommand }: UseTroLyWakeOptions) {
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
 
+    recognition.onstart = () => {
+      networkRetryIndexRef.current = 0;
+      if (retryScheduledRef.current) {
+        retryScheduledRef.current = false;
+      } else {
+        retryAttemptCountRef.current = 0;
+      }
+      setError(current =>
+        current.startsWith('Mất kết nối') || current.startsWith('Đang khởi tạo lại')
+          ? ''
+          : current
+      );
+    };
+
     recognition.onresult = event => {
       for (let index = event.resultIndex; index < event.results.length; index += 1) {
         const resultItem = event.results[index];
         const transcript = resultItem.isFinal ? resultItem[0]?.transcript?.trim() : '';
         if (!transcript) continue;
         networkRetryIndexRef.current = 0;
+        retryAttemptCountRef.current = 0;
+        retryScheduledRef.current = false;
         setError(current => current.startsWith('Mất kết nối') ? '' : current);
         setHeard(transcript);
 
         if (modeRef.current === 'waiting_name') {
-          if (!wakePhrases.some(phrase => normalizeVi(transcript).includes(phrase))) continue;
+          const wakeRemainder = extractWakeRemainder(transcript);
+          if (wakeRemainder === null) continue;
           stopRecognition();
-          wakeAndListenRef.current();
-          break;
+          wakeAndListenRef.current(wakeRemainder || undefined);
+          return;
         }
 
         if (modeRef.current === 'listening_command') {
-          const spoken = normalizeVi(transcript);
+          const wakeRemainder = extractWakeRemainder(transcript);
+          const cleanCommand = wakeRemainder === null ? transcript.trim() : wakeRemainder;
+          if (!cleanCommand) continue;
+          const spoken = normalizeVi(cleanCommand);
           if (stopPhrases.some(phrase => spoken.includes(phrase))) {
             stopRecognition();
             speakRef.current('Dạ, em tạm ngưng.', 'waiting_name');
             break;
           }
-          if (processingRef.current) continue;
-          processingRef.current = true;
-          void Promise.resolve(onCommandRef.current(transcript))
-            .then(response => {
-              setResult(response);
-              speakRef.current(response, 'listening_command');
-            })
-            .catch(commandError => {
-              const message = commandError instanceof Error ? commandError.message : 'Lỗi không xác định.';
-              setError(`Không thể thực hiện lệnh: ${message}`);
-              setResult(`Không thể thực hiện lệnh: ${message}`);
-              speakRef.current('Em gặp lỗi khi thực hiện thao tác. Anh vui lòng thử lại.', 'listening_command');
-            })
-            .finally(() => {
-              processingRef.current = false;
-            });
+          runCommandRef.current(cleanCommand);
           break;
         }
       }
@@ -163,9 +182,10 @@ export function useTroLyWake({ onCommand }: UseTroLyWakeOptions) {
 
     recognition.onerror = event => {
       if (event.error === 'network') {
-        networkRetryIndexRef.current = Math.min(networkRetryIndexRef.current + 1, 3);
-        const delay = [1200, 2500, 4000][networkRetryIndexRef.current - 1];
-        setError(`Mất kết nối nhận diện giọng nói. Đang thử kết nối lại sau ${delay / 1000} giây.`);
+        networkRetryIndexRef.current += 1;
+        const nextAttempt = retryAttemptCountRef.current + 1;
+        const delay = [2000, 4000, 8000][Math.min(nextAttempt - 1, 2)];
+        setError(`Mất kết nối nhận diện giọng nói. Lần thử ${Math.min(nextAttempt, 3)} sau ${delay / 1000} giây.`);
       } else if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         setError('Không có quyền sử dụng micro. Hãy cấp quyền trong trình duyệt rồi bật Trợ lý lại.');
         activeRef.current = false;
@@ -177,6 +197,7 @@ export function useTroLyWake({ onCommand }: UseTroLyWakeOptions) {
 
     recognition.onend = () => {
       if (recognitionRef.current === recognition) recognitionRef.current = null;
+      if (!activeRef.current || modeRef.current === 'speaking') return;
       scheduleRecognitionRestart();
     };
 
@@ -227,6 +248,12 @@ export function useTroLyWake({ onCommand }: UseTroLyWakeOptions) {
 
   const finishSpeech = useCallback((nextMode: TroLyVoiceMode) => {
     updateMode(nextMode);
+    const pendingCommand = pendingWakeCommandRef.current;
+    if (activeRef.current && nextMode === 'listening_command' && pendingCommand) {
+      pendingWakeCommandRef.current = '';
+      runCommandRef.current(pendingCommand);
+      return;
+    }
     if (activeRef.current && nextMode !== 'off') scheduleRecognitionRestart();
   }, [scheduleRecognitionRestart, updateMode]);
 
@@ -252,15 +279,36 @@ export function useTroLyWake({ onCommand }: UseTroLyWakeOptions) {
     synthesis.speak(utterance);
   }, [finishSpeech, stopRecognition, updateMode]);
 
-  const wakeAndListen = useCallback(() => {
+  const wakeAndListen = useCallback((remainder?: string) => {
     playWakeTone();
-    speak('Dạ Trợ lý nghe đây, anh cần làm gì ạ?', 'listening_command');
+    pendingWakeCommandRef.current = remainder?.trim() || '';
+    speak('Trợ lý nghe, anh cần làm gì?', 'listening_command');
   }, [playWakeTone, speak]);
+
+  const runCommand = useCallback((commandText: string) => {
+    if (processingRef.current) return;
+    processingRef.current = true;
+    void Promise.resolve(onCommandRef.current(commandText))
+      .then(response => {
+        setResult(response);
+        speakRef.current(response, 'listening_command');
+      })
+      .catch(commandError => {
+        const message = commandError instanceof Error ? commandError.message : 'Lỗi không xác định.';
+        setError(`Không thể thực hiện lệnh: ${message}`);
+        setResult(`Không thể thực hiện lệnh: ${message}`);
+        speakRef.current('Em gặp lỗi khi thực hiện thao tác. Anh vui lòng thử lại.', 'listening_command');
+      })
+      .finally(() => {
+        processingRef.current = false;
+      });
+  }, []);
 
   useEffect(() => {
     speakRef.current = speak;
     wakeAndListenRef.current = wakeAndListen;
-  }, [speak, wakeAndListen]);
+    runCommandRef.current = runCommand;
+  }, [runCommand, speak, wakeAndListen]);
 
   const toggle = useCallback(() => {
     if (activeRef.current) {
@@ -281,8 +329,8 @@ export function useTroLyWake({ onCommand }: UseTroLyWakeOptions) {
     setResult('');
     activeRef.current = true;
     updateMode('waiting_name');
-    scheduleRecognitionRestart();
-  }, [scheduleRecognitionRestart, stopRecognition, updateMode]);
+    startRecognition();
+  }, [startRecognition, stopRecognition, updateMode]);
 
   useEffect(() => () => {
     activeRef.current = false;
