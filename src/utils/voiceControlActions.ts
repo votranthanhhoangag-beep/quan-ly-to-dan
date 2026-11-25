@@ -12,15 +12,22 @@ export const normalizeVi = (value: string) => value
   .trim();
 
 type VoiceField = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
-let lastFocusedFieldEl: VoiceField | null = null;
+type VoiceFocusTarget = VoiceField | HTMLElement;
+let lastFocusedFieldEl: VoiceFocusTarget | null = null;
 let selectedRowEl: HTMLTableRowElement | null = null;
+
+const isVoiceField = (element: HTMLElement): element is VoiceField =>
+  element instanceof HTMLInputElement ||
+  element instanceof HTMLTextAreaElement ||
+  element instanceof HTMLSelectElement;
 
 if (typeof document !== 'undefined') {
   document.addEventListener('focusin', event => {
     const target = event.target;
     if (target instanceof HTMLInputElement ||
       target instanceof HTMLTextAreaElement ||
-      target instanceof HTMLSelectElement) {
+      target instanceof HTMLSelectElement ||
+      (target instanceof HTMLElement && target.getAttribute('role') === 'combobox')) {
       lastFocusedFieldEl = target;
     }
   });
@@ -45,6 +52,19 @@ const getVisibleFields = (): VoiceField[] => Array.from(
   return true;
 });
 
+const getVisibleFocusTargets = (): VoiceFocusTarget[] => {
+  const targets = Array.from(document.querySelectorAll<HTMLElement>(
+    'input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled]), [role="combobox"]'
+  )).filter(element => {
+    if (!isVisible(element) || element.getAttribute('aria-disabled') === 'true') return false;
+    if (element instanceof HTMLInputElement &&
+      ['button', 'submit', 'reset', 'image', 'file', 'checkbox', 'radio'].includes(element.type)) return false;
+    if ((element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) && element.readOnly) return false;
+    return true;
+  });
+  return targets as VoiceFocusTarget[];
+};
+
 const getFieldLabels = (field: HTMLElement) => [
   field.getAttribute('data-voice-label') || '',
   field.getAttribute('aria-label') || '',
@@ -54,10 +74,32 @@ const getFieldLabels = (field: HTMLElement) => [
     ? Array.from(field.labels).map(label => label.textContent || '')
     : []),
   field.closest('label')?.textContent || '',
+  ...getNearbyFieldLabels(field),
   field.getAttribute('placeholder') || '',
   field.getAttribute('name') || '',
   field.id
 ].map(label => label.replace(/\s+/g, ' ').trim()).filter(Boolean);
+
+const getNearbyFieldLabels = (field: HTMLElement) => {
+  const labels: string[] = [];
+  const previous = field.previousElementSibling?.textContent?.trim() || '';
+  if (previous && previous.length <= 80) labels.push(previous);
+
+  const container = field.parentElement;
+  if (container) {
+    const controls = container.querySelectorAll(
+      'input:not([type="hidden"]), textarea, select, [role="combobox"]'
+    );
+    if (controls.length === 1) {
+      const shortLabels = Array.from(container.querySelectorAll<HTMLElement>(
+        'label, span, small, legend, p'
+      )).map(element => element.textContent?.trim() || '')
+        .filter(text => text.length > 0 && text.length <= 80);
+      labels.push(...shortLabels);
+    }
+  }
+  return labels;
+};
 
 const commonFieldLabels = [
   'số lượng', 'số lượng nhận hôm nay', 'số lượng thực nhận', 'sl thực nhận',
@@ -103,25 +145,44 @@ const findNamedFieldAssignment = (transcript: string, prefixes: string[]) => {
 const findFieldByLabel = (label: string) => {
   const query = normalizeVi(label);
   if (!query) return { field: null, ambiguous: false };
-  const matches = getVisibleFields().flatMap(field => {
-    const labels = getFieldLabels(field).map(fieldLabel => normalizeVi(fieldLabel));
-    const best = labels.reduce((score, fieldLabel) => {
-      if (fieldLabel === query) return Math.max(score, 3);
-      if (fieldLabel.startsWith(query) || query.startsWith(fieldLabel)) return Math.max(score, 2);
-      if (fieldLabel.includes(query)) return Math.max(score, 1);
-      return score;
-    }, 0);
-    return best ? [{ field, score: best }] : [];
+  const queryWords = query.split(' ').filter(Boolean);
+  const matches = getVisibleFocusTargets().flatMap(field => {
+    const labels = getFieldLabels(field).map((text, index) => ({
+      text,
+      normalized: normalizeVi(text),
+      priority: index < 2 ? 30 : index < 4 ? 20 : index < 6 ? 10 : 0
+    })).filter(item => item.normalized);
+    const best = labels.reduce<{ score: number; label: string }>((current, fieldLabel) => {
+      if (fieldLabel.normalized === query) {
+        return current.score < 100 + fieldLabel.priority
+          ? { score: 100 + fieldLabel.priority, label: fieldLabel.text }
+          : current;
+      }
+      if (fieldLabel.normalized.startsWith(query)) {
+        return current.score < 80 + fieldLabel.priority
+          ? { score: 80 + fieldLabel.priority, label: fieldLabel.text }
+          : current;
+      }
+      const allWordsMatch = queryWords.every(word => fieldLabel.normalized.split(' ').includes(word));
+      if (allWordsMatch && current.score < 60 + fieldLabel.priority) {
+        return { score: 60 + fieldLabel.priority, label: fieldLabel.text };
+      }
+      if (fieldLabel.normalized.includes(query) && current.score < 40 + fieldLabel.priority) {
+        return { score: 40 + fieldLabel.priority, label: fieldLabel.text };
+      }
+      return current;
+    }, { score: 0, label });
+    return best.score ? [{ field, score: best.score, label: best.label }] : [];
   }).sort((first, second) => second.score - first.score);
   if (!matches.length) return { field: null, ambiguous: false };
   const best = matches[0].score;
   const bestMatches = matches.filter(match => match.score === best);
   return bestMatches.length === 1
-    ? { field: bestMatches[0].field, ambiguous: false }
+    ? { field: bestMatches[0].field, label: bestMatches[0].label, ambiguous: false }
     : { field: null, ambiguous: true };
 };
 
-const focusField = (field: VoiceField, label: string) => {
+const focusField = (field: VoiceFocusTarget, label: string) => {
   field.scrollIntoView({ behavior: 'smooth', block: 'center' });
   field.focus();
   lastFocusedFieldEl = field;
@@ -170,16 +231,16 @@ const setFieldValue = (field: VoiceField, value: string, label: string) => {
 
 const moveToField = (transcript: string) => {
   const normalizedCommand = normalizeVi(transcript);
-  const match = /^(?:di chuyen toi o|toi o|chuyen toi o|vao o)\s+(.+)$/u.exec(normalizedCommand);
+  const match = /^(?:di chuyen toi o|di chuyen den o|toi o|den o|chuyen toi o|chuyen den o|vao o|qua o|nhay toi o|mo o|chon o)\s+(.+)$/u.exec(normalizedCommand);
   if (!match) return null;
   const requestedLabel = match[1].trim();
-  const { field, ambiguous } = findFieldByLabel(requestedLabel);
+  const { field, label, ambiguous } = findFieldByLabel(requestedLabel);
   if (!field) {
     return ambiguous
       ? `Có nhiều ô khớp với “${requestedLabel}”. Hãy nói rõ tên ô hơn.`
       : `Không tìm thấy ô “${requestedLabel}” đang hiển thị.`;
   }
-  return focusField(field, requestedLabel);
+  return focusField(field, label || requestedLabel);
 };
 
 const findVisibleRow = (query: string) => {
@@ -406,26 +467,28 @@ export const fillOrSelectDirect = (transcript: string): string | null => {
   if (focusCommand) return focusCommand;
   const assignment = findNamedFieldAssignment(transcript, ['điền', 'nhập', 'cập nhật']);
   if (assignment) {
-    const { field, ambiguous } = findFieldByLabel(assignment.label);
-    if (!field) {
-      return ambiguous
+    const match = findFieldByLabel(assignment.label);
+    if (!match.field) {
+      return match.ambiguous
         ? `Có nhiều ô khớp với “${assignment.label}”. Hãy nói rõ tên ô hơn.`
         : `Không tìm thấy ô “${assignment.label}” đang hiển thị.`;
     }
-    return setFieldValue(field, assignment.value, assignment.label);
+    if (!isVoiceField(match.field)) {
+      return focusField(match.field, assignment.label);
+    }
+    return setFieldValue(match.field, assignment.value, assignment.label);
   }
 
   const bareValueMatch = /^(?:điền|nhập)\s+(.+)$/iu.exec(transcript.trim());
   if (!bareValueMatch) return null;
   const activeElement = document.activeElement;
-  const activeField = activeElement instanceof HTMLInputElement ||
-    activeElement instanceof HTMLTextAreaElement ||
-    activeElement instanceof HTMLSelectElement
+  const activeField = activeElement instanceof HTMLElement && isVoiceField(activeElement)
     ? activeElement
     : null;
   const field = activeField && getVisibleFields().includes(activeField)
     ? activeField
-    : lastFocusedFieldEl && getVisibleFields().includes(lastFocusedFieldEl)
+    : lastFocusedFieldEl && isVoiceField(lastFocusedFieldEl) &&
+      getVisibleFields().includes(lastFocusedFieldEl)
       ? lastFocusedFieldEl
       : null;
   if (!field) return 'Hãy chọn ô cần điền hoặc nói “di chuyển tới ô [tên ô]”.';

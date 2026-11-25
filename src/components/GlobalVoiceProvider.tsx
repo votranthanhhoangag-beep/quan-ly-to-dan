@@ -50,6 +50,8 @@ const destinations: Array<{ tabId: string; phrases: string[]; label: string }> =
 
 const executeCommand = (transcript: string): string | Promise<string> => {
   const normalized = normalize(transcript);
+  const directFillResult = fillOrSelectDirect(transcript);
+  if (directFillResult) return directFillResult;
   const rowResult = executeTableRowCommand(transcript);
   if (rowResult) return rowResult;
   const tabResult = clickMatchingTabOrFilter(transcript);
@@ -58,8 +60,6 @@ const executeCommand = (transcript: string): string | Promise<string> => {
   if (buttonResult) return buttonResult;
   const dropdownResult = selectDropdownOption(transcript);
   if (dropdownResult) return dropdownResult;
-  const directFillResult = fillOrSelectDirect(transcript);
-  if (directFillResult) return directFillResult;
   const destination = destinations.find(item => item.phrases.some(phrase =>
     normalized.includes(phrase)
   ));
