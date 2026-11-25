@@ -747,6 +747,10 @@ main textarea {
     overflow-wrap: break-word;
   }
 
+[data-voice-selected-row="true"] > td {
+  background-color: #fef3c7 !important;
+}
+
 .erp-dashboard-stat {
   font-size: clamp(1.5rem, 5vw, 1.875rem) !important;
 }

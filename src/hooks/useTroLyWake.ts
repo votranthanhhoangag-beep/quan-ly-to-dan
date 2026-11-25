@@ -55,6 +55,7 @@ export function useTroLyWake({ onCommand }: UseTroLyWakeOptions) {
   const activeRef = useRef(false);
   const recognitionRef = useRef<RecognitionLike | null>(null);
   const restartTimerRef = useRef<number | null>(null);
+  const networkRetryIndexRef = useRef(0);
   const processingRef = useRef(false);
   const onCommandRef = useRef(onCommand);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -75,10 +76,14 @@ export function useTroLyWake({ onCommand }: UseTroLyWakeOptions) {
   const scheduleRecognitionRestart = useCallback(() => {
     if (!activeRef.current || modeRef.current === 'speaking') return;
     if (restartTimerRef.current !== null) window.clearTimeout(restartTimerRef.current);
+    const networkDelays = [1200, 2500, 4000];
+    const delay = networkRetryIndexRef.current
+      ? networkDelays[networkRetryIndexRef.current - 1]
+      : 280;
     restartTimerRef.current = window.setTimeout(() => {
       restartTimerRef.current = null;
       startRecognitionRef.current();
-    }, 280);
+    }, delay);
   }, []);
 
   const stopRecognition = useCallback(() => {
@@ -117,6 +122,8 @@ export function useTroLyWake({ onCommand }: UseTroLyWakeOptions) {
         const resultItem = event.results[index];
         const transcript = resultItem.isFinal ? resultItem[0]?.transcript?.trim() : '';
         if (!transcript) continue;
+        networkRetryIndexRef.current = 0;
+        setError(current => current.startsWith('Mất kết nối') ? '' : current);
         setHeard(transcript);
 
         if (modeRef.current === 'waiting_name') {
@@ -155,7 +162,11 @@ export function useTroLyWake({ onCommand }: UseTroLyWakeOptions) {
     };
 
     recognition.onerror = event => {
-      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+      if (event.error === 'network') {
+        networkRetryIndexRef.current = Math.min(networkRetryIndexRef.current + 1, 3);
+        const delay = [1200, 2500, 4000][networkRetryIndexRef.current - 1];
+        setError(`Mất kết nối nhận diện giọng nói. Đang thử kết nối lại sau ${delay / 1000} giây.`);
+      } else if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         setError('Không có quyền sử dụng micro. Hãy cấp quyền trong trình duyệt rồi bật Trợ lý lại.');
         activeRef.current = false;
         updateMode('off');
@@ -174,9 +185,14 @@ export function useTroLyWake({ onCommand }: UseTroLyWakeOptions) {
       recognition.start();
     } catch (startError) {
       recognitionRef.current = null;
-      setError(startError instanceof Error ? `Không thể khởi động micro: ${startError.message}` : 'Không thể khởi động micro.');
-      activeRef.current = false;
-      updateMode('off');
+      if (startError instanceof Error && startError.name === 'InvalidStateError') {
+        setError('Đang khởi tạo lại nhận diện giọng nói.');
+        scheduleRecognitionRestart();
+      } else {
+        setError(startError instanceof Error ? `Không thể khởi động micro: ${startError.message}` : 'Không thể khởi động micro.');
+        activeRef.current = false;
+        updateMode('off');
+      }
     }
   }, [scheduleRecognitionRestart, stopRecognition, updateMode]);
 
