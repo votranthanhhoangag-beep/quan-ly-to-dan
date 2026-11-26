@@ -283,7 +283,28 @@ const clickRowAction = (row: HTMLTableRowElement, action: 'sua' | 'xoa') => {
 
 export const executeTableRowCommand = (transcript: string): string | null => {
   const command = normalizeVi(transcript);
-  const rowAction = /^(sua|xoa)(?: ma)?\s+(.+)$/u.exec(command);
+  const explicitDelete = /^xoa\s+(?:dong|muc)(?:\s+(.+))?$/u.exec(command);
+  if (explicitDelete) {
+    const requested = explicitDelete[1]?.replace(/^thu\s+/u, '').trim();
+    if (!requested) return 'Hãy nói rõ số thứ tự hoặc mã/tên dòng cần xóa.';
+    const match = /^\d+$/u.test(requested)
+      ? {
+        row: Array.from(document.querySelectorAll<HTMLTableRowElement>('tbody tr'))
+          .filter(isVisible)[Number(requested) - 1] || null,
+        ambiguous: false
+      }
+      : findVisibleRow(requested);
+    const row = match.row;
+    if (!row) {
+      return match.ambiguous
+        ? `Có nhiều dòng khớp với “${requested}”. Hãy nói rõ mã hoặc tên.`
+        : `Không tìm thấy dòng “${requested}” đang hiển thị.`;
+    }
+    selectTableRow(row, requested);
+    return clickRowAction(row, 'xoa');
+  }
+
+  const rowAction = /^(sua)(?: ma)?\s+(.+)$/u.exec(command);
   if (rowAction) {
     const requested = rowAction[2];
     const { row, ambiguous } = findVisibleRow(requested);
@@ -293,14 +314,14 @@ export const executeTableRowCommand = (transcript: string): string | null => {
         : `Không tìm thấy dòng “${requested}” đang hiển thị.`;
     }
     selectTableRow(row, requested);
-    return clickRowAction(row, rowAction[1] as 'sua' | 'xoa');
+    return clickRowAction(row, 'sua');
   }
 
-  if (command === 'sua' || command === 'xoa') {
+  if (command === 'sua') {
     if (!selectedRowEl || !document.contains(selectedRowEl)) {
       return 'Hãy chọn một dòng trước.';
     }
-    return clickRowAction(selectedRowEl, command);
+    return clickRowAction(selectedRowEl, 'sua');
   }
 
   const rowSelection = /^(?:mo ma|chon dong|tim)\s+(.+)$/u.exec(command);

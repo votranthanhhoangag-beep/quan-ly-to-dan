@@ -214,8 +214,52 @@ const findNamedField = (normalizedCommand: string, rawCommand: string, fields: A
 const navigationCommand = (command: string) => {
   if (/^(?:o )?(?:tiep theo|sau|ke tiep)$/u.test(command)) return 'next';
   if (/^(?:o )?(?:truoc|phia truoc)$/u.test(command)) return 'previous';
-  if (/^(?:xoa|xoa o|xoa truong) (?:o nay|truong nay|nay)$/u.test(command) || command === 'xoa o nay') return 'clear';
   return null;
+};
+
+const clearFieldCommand = (command: string, rawCommand: string, fields: AutoVoiceField[]): LocalVoiceResult | null => {
+  const match = /^xoa(?:\s+(.+))?$/u.exec(command);
+  if (!match) return null;
+  const rawTarget = rawCommand.replace(/^xóa\b/iu, '').trim();
+  let target = match[1] || '';
+  if (/^(?:dong|muc)\b/u.test(target)) return null;
+
+  target = target
+    .replace(/^(?:(?:o|truong|noi dung|chu|gia tri)\s+)+/u, '')
+    .replace(/\s+(?:o nay|nay)$/u, '')
+    .trim();
+
+  const genericTarget = !target || /^(?:o|truong|noi dung|chu|gia tri|nay|o nay|truong nay)$/u.test(target);
+  let field: AutoVoiceField | undefined;
+  if (genericTarget) {
+    field = fields.find(item => item.element === document.activeElement);
+  } else {
+    const namedField = findNamedField(target, target, fields);
+    if (namedField?.ambiguous) {
+      return { handled: true, message: 'Chưa xác định được ô cần xóa — giữ nguyên dữ liệu, hãy nói rõ tên ô.' };
+    }
+    if (namedField && !namedField.value) field = namedField.field;
+  }
+
+  if (!field) {
+    return {
+      handled: true,
+      message: genericTarget
+        ? 'Không có ô nào đang focus — hãy chọn ô hoặc nói “xóa ô [tên ô]”.'
+        : `Không tìm thấy ô “${rawTarget}” đang hiển thị — dữ liệu được giữ nguyên.`
+    };
+  }
+
+  focusField(field);
+  if (field.element instanceof HTMLSelectElement) {
+    field.element.selectedIndex = -1;
+    field.element.dispatchEvent(new Event('change', { bubbles: true }));
+  } else if (!setInputValue(field.element, '')) {
+    return { handled: true, message: `Không thể xóa nội dung ${field.label} — dữ liệu được giữ nguyên.` };
+  }
+  lastAssignmentKey = '';
+  lastAssignmentAt = 0;
+  return { handled: true, message: `Đã xóa nội dung ${field.label} — chờ lệnh tiếp theo.` };
 };
 
 export const processAutoFieldVoiceCommand = (
@@ -224,22 +268,13 @@ export const processAutoFieldVoiceCommand = (
 ): LocalVoiceResult => {
   const rawCommand = transcript.trim().replace(/^(?:nhập|điền|cập nhật|nhap|dien|cap nhat)\s+/iu, '');
   const command = normalize(rawCommand);
+  const clearResult = clearFieldCommand(command, rawCommand, fields);
+  if (clearResult) return clearResult;
   const navigation = navigationCommand(command);
   if (navigation) {
     const now = Date.now();
     if (now - lastNavigationAt < 300) return { handled: true, message: 'Đang xử lý lệnh điều hướng.' };
     lastNavigationAt = now;
-    if (navigation === 'clear') {
-      const field = fields.find(item => item.element === document.activeElement);
-      if (!field) return { handled: true, message: 'Nghe chưa rõ — giữ nguyên ô hiện tại, chờ lệnh tiếp theo.' };
-      if (field.element instanceof HTMLSelectElement) {
-        field.element.selectedIndex = -1;
-        field.element.dispatchEvent(new Event('change', { bubbles: true }));
-      } else {
-        setInputValue(field.element, '');
-      }
-      return { handled: true, message: `Đã xóa ô ${field.label}.` };
-    }
     if (!fields.length) {
       return { handled: true, message: 'Nghe chưa rõ — không có ô nhập liệu đang hiển thị, chờ lệnh tiếp theo.' };
     }
