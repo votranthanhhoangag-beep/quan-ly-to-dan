@@ -7,6 +7,11 @@ import {
   selectDropdownOption
 } from '../utils/voiceControlActions';
 import { useTroLyWake, type TroLyVoiceMode } from '../hooks/useTroLyWake';
+import { useAutoFieldScanner } from '../hooks/useAutoFieldScanner';
+import {
+  getFocusedVoiceFieldLabel,
+  processAutoFieldVoiceCommand
+} from '../utils/autoFieldScanner';
 
 type VoiceMode = TroLyVoiceMode;
 
@@ -76,12 +81,21 @@ const runAllVoiceTasks = (transcript: string): string | Promise<string> => {
 };
 
 export function GlobalVoiceProvider({ children }: { children: ReactNode }) {
+  const fields = useAutoFieldScanner();
   const handleTroLyCommand = useCallback(async (transcript: string) => {
     const response = await runAllVoiceTasks(transcript);
     window.dispatchEvent(new CustomEvent('erp:voice-command', { detail: transcript }));
     return response;
   }, []);
-  const troLy = useTroLyWake({ onCommand: handleTroLyCommand });
+  const handleLocalTranscript = useCallback((transcript: string) =>
+    processAutoFieldVoiceCommand(transcript, fields), [fields]);
+  const getUnrecognizedMessage = useCallback(() =>
+    `Nghe chưa rõ — giữ nguyên ${getFocusedVoiceFieldLabel(fields)}, chờ lệnh tiếp theo.`, [fields]);
+  const troLy = useTroLyWake({
+    onCommand: handleTroLyCommand,
+    onLocalTranscript: handleLocalTranscript,
+    getUnrecognizedMessage
+  });
   const enabled = troLy.mode !== 'off';
 
   return (
@@ -128,6 +142,11 @@ export function GlobalVoiceButton() {
         <span aria-hidden="true">🎙️</span>
         <span>Trợ lý giọng nói · {labels[voice.mode]}</span>
       </button>
+      {voice.result && (
+        <span role="status" aria-live="polite" className="erp-voice-status">
+          {voice.result}
+        </span>
+      )}
       {voice.error && <span className="erp-voice-error" role="status">{voice.error}</span>}
     </div>
   );

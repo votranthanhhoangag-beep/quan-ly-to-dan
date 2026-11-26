@@ -747,6 +747,13 @@ main textarea {
     overflow-wrap: break-word;
   }
 
+.erp-voice-status {
+ max-width: 280px;
+ color: #334155;
+ font-size: 11px;
+ overflow-wrap: anywhere;
+}
+
 [data-voice-selected-row="true"] > td {
   background-color: #fef3c7 !important;
 }

@@ -1,4 +1,5 @@
 import { parseVietnameseNumber } from './voiceFormParser';
+import { isSystemCalculatedVoiceLabel } from './autoFieldScanner';
 
 export { parseVietnameseNumber };
 
@@ -13,25 +14,12 @@ export const normalizeVi = (value: string) => value
 
 type VoiceField = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 type VoiceFocusTarget = VoiceField | HTMLElement;
-let lastFocusedFieldEl: VoiceFocusTarget | null = null;
 let selectedRowEl: HTMLTableRowElement | null = null;
 
 const isVoiceField = (element: HTMLElement): element is VoiceField =>
   element instanceof HTMLInputElement ||
   element instanceof HTMLTextAreaElement ||
   element instanceof HTMLSelectElement;
-
-if (typeof document !== 'undefined') {
-  document.addEventListener('focusin', event => {
-    const target = event.target;
-    if (target instanceof HTMLInputElement ||
-      target instanceof HTMLTextAreaElement ||
-      target instanceof HTMLSelectElement ||
-      (target instanceof HTMLElement && target.getAttribute('role') === 'combobox')) {
-      lastFocusedFieldEl = target;
-    }
-  });
-}
 
 const isVisible = (element: HTMLElement) => {
   const style = window.getComputedStyle(element);
@@ -49,6 +37,7 @@ const getVisibleFields = (): VoiceField[] => Array.from(
   if (field instanceof HTMLInputElement &&
     ['hidden', 'button', 'submit', 'reset', 'image', 'file', 'checkbox', 'radio'].includes(field.type)) return false;
   if ((field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) && field.readOnly) return false;
+  if (getFieldLabels(field).some(isSystemCalculatedVoiceLabel)) return false;
   return true;
 });
 
@@ -60,6 +49,7 @@ const getVisibleFocusTargets = (): VoiceFocusTarget[] => {
     if (element instanceof HTMLInputElement &&
       ['button', 'submit', 'reset', 'image', 'file', 'checkbox', 'radio'].includes(element.type)) return false;
     if ((element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) && element.readOnly) return false;
+    if (getFieldLabels(element).some(isSystemCalculatedVoiceLabel)) return false;
     return true;
   });
   return targets as VoiceFocusTarget[];
@@ -185,12 +175,10 @@ const findFieldByLabel = (label: string) => {
 const focusField = (field: VoiceFocusTarget, label: string) => {
   field.scrollIntoView({ behavior: 'smooth', block: 'center' });
   field.focus();
-  lastFocusedFieldEl = field;
   return `Đã tới ô ${label}.`;
 };
 
 const setFieldValue = (field: VoiceField, value: string, label: string) => {
-  lastFocusedFieldEl = field;
   if (field instanceof HTMLSelectElement) {
     const normalizedValue = normalizeVi(value);
     const options = Array.from(field.options);
@@ -479,19 +467,5 @@ export const fillOrSelectDirect = (transcript: string): string | null => {
     return setFieldValue(match.field, assignment.value, assignment.label);
   }
 
-  const bareValueMatch = /^(?:điền|nhập)\s+(.+)$/iu.exec(transcript.trim());
-  if (!bareValueMatch) return null;
-  const activeElement = document.activeElement;
-  const activeField = activeElement instanceof HTMLElement && isVoiceField(activeElement)
-    ? activeElement
-    : null;
-  const field = activeField && getVisibleFields().includes(activeField)
-    ? activeField
-    : lastFocusedFieldEl && isVoiceField(lastFocusedFieldEl) &&
-      getVisibleFields().includes(lastFocusedFieldEl)
-      ? lastFocusedFieldEl
-      : null;
-  if (!field) return 'Hãy chọn ô cần điền hoặc nói “di chuyển tới ô [tên ô]”.';
-  const label = getFieldLabels(field)[0] || 'đang chọn';
-  return setFieldValue(field, bareValueMatch[1].trim(), label);
+  return null;
 };
