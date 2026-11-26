@@ -33,7 +33,7 @@ const isVisible = (element: HTMLElement) => {
 const getVisibleFields = (): VoiceField[] => Array.from(
   document.querySelectorAll<VoiceField>('input, textarea, select')
 ).filter(field => {
-  if (field.disabled || !isVisible(field)) return false;
+  if (field.disabled || field.hasAttribute('data-voice-ignore') || !isVisible(field)) return false;
   if (field instanceof HTMLInputElement &&
     ['hidden', 'button', 'submit', 'reset', 'image', 'file', 'checkbox', 'radio'].includes(field.type)) return false;
   if ((field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) && field.readOnly) return false;
@@ -45,7 +45,8 @@ const getVisibleFocusTargets = (): VoiceFocusTarget[] => {
   const targets = Array.from(document.querySelectorAll<HTMLElement>(
     'input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled]), [role="combobox"]'
   )).filter(element => {
-    if (!isVisible(element) || element.getAttribute('aria-disabled') === 'true') return false;
+    if (!isVisible(element) || element.hasAttribute('data-voice-ignore') ||
+      element.getAttribute('aria-disabled') === 'true') return false;
     if (element instanceof HTMLInputElement &&
       ['button', 'submit', 'reset', 'image', 'file', 'checkbox', 'radio'].includes(element.type)) return false;
     if ((element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) && element.readOnly) return false;

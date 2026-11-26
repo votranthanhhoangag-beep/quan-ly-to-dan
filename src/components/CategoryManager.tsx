@@ -668,30 +668,40 @@ export default function CategoryManager() {
       {/* Tabs */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <button
+          role="tab"
+          aria-selected={activeTab === 'hanghoa'}
           onClick={() => switchCategoryTab('hanghoa')}
           style={{ background: activeTab === 'hanghoa' ? '#2563eb' : '#f1f5f9', color: activeTab === 'hanghoa' ? '#fff' : '#334155', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}
         >
           📦 Hàng Hóa ({products?.length || 0})
         </button>
         <button
+          role="tab"
+          aria-selected={activeTab === 'nguyenvatlieu'}
           onClick={() => switchCategoryTab('nguyenvatlieu')}
           style={{ background: activeTab === 'nguyenvatlieu' ? '#2563eb' : '#f1f5f9', color: activeTab === 'nguyenvatlieu' ? '#fff' : '#334155', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}
         >
           🌾 Nguyên Vật Liệu ({materials?.length || 0})
         </button>
         <button
+          role="tab"
+          aria-selected={activeTab === 'chiphi'}
           onClick={() => switchCategoryTab('chiphi')}
           style={{ background: activeTab === 'chiphi' ? '#2563eb' : '#f1f5f9', color: activeTab === 'chiphi' ? '#fff' : '#334155', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}
         >
           💸 Chi Phí ({expensesCat?.length || 0})
         </button>
         <button
+          role="tab"
+          aria-selected={activeTab === 'xe'}
           onClick={() => switchCategoryTab('xe')}
           style={{ background: activeTab === 'xe' ? '#0284c7' : '#f1f5f9', color: activeTab === 'xe' ? '#fff' : '#334155', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}
         >
           🚗 Xe 4 Bánh ({vehicles?.length || 0})
         </button>
         <button
+          role="tab"
+          aria-selected={activeTab === 'chikhac'}
           onClick={() => switchCategoryTab('chikhac')}
           style={{ background: activeTab === 'chikhac' ? '#2563eb' : '#f1f5f9', color: activeTab === 'chikhac' ? '#fff' : '#334155', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}
         >

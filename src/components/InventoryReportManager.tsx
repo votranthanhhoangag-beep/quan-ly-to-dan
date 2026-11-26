@@ -1589,19 +1589,19 @@ const handleSaveTransaction = (e: React.FormEvent) => {
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-            {!isWarehouseUser && <button type="button" onClick={() => setActiveTab('ALL')} style={{ padding: '8px 14px', fontWeight: 'bold', fontSize: '13px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: activeTab === 'ALL' ? '#1e293b' : '#f1f5f9', color: activeTab === 'ALL' ? '#fff' : '#475569' }}>
+            {!isWarehouseUser && <button type="button" role="tab" aria-selected={activeTab === 'ALL'} onClick={() => setActiveTab('ALL')} style={{ padding: '8px 14px', fontWeight: 'bold', fontSize: '13px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: activeTab === 'ALL' ? '#1e293b' : '#f1f5f9', color: activeTab === 'ALL' ? '#fff' : '#475569' }}>
               📋 Tất Cả ({countAll})
             </button>}
-            {!isWarehouseUser && <button type="button" onClick={() => { setActiveTab('NK_KHUNG'); setTransType('NK_KHUNG'); setIsSupplementalFrameReceipt(false); setSelectedReturnAllocationKey(''); }} style={{ padding: '8px 14px', fontWeight: 'bold', fontSize: '13px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: activeTab === 'NK_KHUNG' ? '#0284c7' : '#f1f5f9', color: activeTab === 'NK_KHUNG' ? '#fff' : '#475569' }}>
+            {!isWarehouseUser && <button type="button" role="tab" aria-selected={activeTab === 'NK_KHUNG'} onClick={() => { setActiveTab('NK_KHUNG'); setTransType('NK_KHUNG'); setIsSupplementalFrameReceipt(false); setSelectedReturnAllocationKey(''); }} style={{ padding: '8px 14px', fontWeight: 'bold', fontSize: '13px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: activeTab === 'NK_KHUNG' ? '#0284c7' : '#f1f5f9', color: activeTab === 'NK_KHUNG' ? '#fff' : '#475569' }}>
               📥 Nhập KS Cty - Tổ Đan - Nhập KS Trả Lại ({countKhungSon})
             </button>}
-            {!isWarehouseUser && <button type="button" onClick={() => setActiveTab('KS_INCOMPLETE')} style={{ padding: '8px 14px', fontWeight: 'bold', fontSize: '13px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: activeTab === 'KS_INCOMPLETE' ? '#b91c1c' : '#fef2f2', color: activeTab === 'KS_INCOMPLETE' ? '#fff' : '#991b1b' }}>
+            {!isWarehouseUser && <button type="button" role="tab" aria-selected={activeTab === 'KS_INCOMPLETE'} onClick={() => setActiveTab('KS_INCOMPLETE')} style={{ padding: '8px 14px', fontWeight: 'bold', fontSize: '13px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: activeTab === 'KS_INCOMPLETE' ? '#b91c1c' : '#fef2f2', color: activeTab === 'KS_INCOMPLETE' ? '#fff' : '#991b1b' }}>
               ⚠️ Khung Sơn Chưa Nhận Đủ ({incompleteFrameContracts.length})
             </button>}
-            {!isWarehouseUser && <button type="button" onClick={() => setActiveTab('NK')} style={{ padding: '8px 14px', fontWeight: 'bold', fontSize: '13px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: activeTab === 'NK' ? '#16a34a' : '#f1f5f9', color: activeTab === 'NK' ? '#fff' : '#475569' }}>
+            {!isWarehouseUser && <button type="button" role="tab" aria-selected={activeTab === 'NK'} onClick={() => setActiveTab('NK')} style={{ padding: '8px 14px', fontWeight: 'bold', fontSize: '13px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: activeTab === 'NK' ? '#16a34a' : '#f1f5f9', color: activeTab === 'NK' ? '#fff' : '#475569' }}>
               📥 Nhập Khung Từ CTY ({countNK})
             </button>}
-            <button type="button" onClick={() => setActiveTab('FRAME_STOCK')} style={{ padding: '8px 14px', fontWeight: 'bold', fontSize: '13px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: activeTab === 'FRAME_STOCK' ? '#7c3aed' : '#f1f5f9', color: activeTab === 'FRAME_STOCK' ? '#fff' : '#475569' }}>
+            <button type="button" role="tab" aria-selected={activeTab === 'FRAME_STOCK'} onClick={() => setActiveTab('FRAME_STOCK')} style={{ padding: '8px 14px', fontWeight: 'bold', fontSize: '13px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: activeTab === 'FRAME_STOCK' ? '#7c3aed' : '#f1f5f9', color: activeTab === 'FRAME_STOCK' ? '#fff' : '#475569' }}>
               📊 Báo Cáo NXT Khung Sơn
             </button>
           </div>

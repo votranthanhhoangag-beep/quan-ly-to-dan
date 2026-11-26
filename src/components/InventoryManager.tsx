@@ -798,13 +798,13 @@ export const InventoryManager: React.FC<Props> = ({ onNavigateToTab }) => {
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-            <button type="button" onClick={() => setActiveTab('ALL')} style={{ padding: '8px 14px', fontWeight: 'bold', fontSize: '13px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: activeTab === 'ALL' ? '#1e293b' : '#f1f5f9', color: activeTab === 'ALL' ? '#fff' : '#475569' }}>
+            <button type="button" role="tab" aria-selected={activeTab === 'ALL'} onClick={() => setActiveTab('ALL')} style={{ padding: '8px 14px', fontWeight: 'bold', fontSize: '13px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: activeTab === 'ALL' ? '#1e293b' : '#f1f5f9', color: activeTab === 'ALL' ? '#fff' : '#475569' }}>
               📋 Tất Cả ({countAll})
             </button>
-            <button type="button" onClick={() => setActiveTab('NK_KHUNG')} style={{ padding: '8px 14px', fontWeight: 'bold', fontSize: '13px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: activeTab === 'NK_KHUNG' ? '#0284c7' : '#f1f5f9', color: activeTab === 'NK_KHUNG' ? '#fff' : '#475569' }}>
+            <button type="button" role="tab" aria-selected={activeTab === 'NK_KHUNG'} onClick={() => setActiveTab('NK_KHUNG')} style={{ padding: '8px 14px', fontWeight: 'bold', fontSize: '13px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: activeTab === 'NK_KHUNG' ? '#0284c7' : '#f1f5f9', color: activeTab === 'NK_KHUNG' ? '#fff' : '#475569' }}>
               📥 Nhập KS Từ Tổ Đan / Trả Khung Lỗi ({countKhungSon})
             </button>
-            <button type="button" onClick={() => setActiveTab('NK')} style={{ padding: '8px 14px', fontWeight: 'bold', fontSize: '13px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: activeTab === 'NK' ? '#16a34a' : '#f1f5f9', color: activeTab === 'NK' ? '#fff' : '#475569' }}>
+            <button type="button" role="tab" aria-selected={activeTab === 'NK'} onClick={() => setActiveTab('NK')} style={{ padding: '8px 14px', fontWeight: 'bold', fontSize: '13px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: activeTab === 'NK' ? '#16a34a' : '#f1f5f9', color: activeTab === 'NK' ? '#fff' : '#475569' }}>
               📥 Nhập Khung Từ CTY ({countNK})
             </button>
           </div>

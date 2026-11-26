@@ -31,6 +31,10 @@ interface RecognitionLike {
 
 type RecognitionConstructor = new () => RecognitionLike;
 
+const DEFAULT_WAKE_WORD = 'trợ lý';
+const WAKE_WORD_STORAGE_KEY = 'erp.voice.wakeWord';
+const WAKE_ACKNOWLEDGEMENT = 'Trợ lý nghe rõ, mời anh ra lệnh.';
+
 interface UseTroLyWakeOptions {
   onCommand: (commandText: string) => string | Promise<string>;
   onLocalTranscript?: (commandText: string, isFinal: boolean) => { handled: boolean; message?: string };
@@ -48,22 +52,35 @@ export const normalizeVi = (value: string) => value
 
 const stopPhrases = ['ngung', 'tam dung', 'thoi khong thao tac', 'ngu di'];
 
-const extractWakeRemainder = (transcript: string) => {
+const extractWakeRemainder = (transcript: string, wakeWord: string) => {
   const normalized = normalizeVi(transcript);
-  const match = /^(?:(?:da|oi)\s+)?tro\s+ly(?:\s+oi)?\b\s*(.*)$/u.exec(normalized);
-  if (!match) return null;
-  const wakePrefixLength = normalized.length - match[1].length;
+  const wakePrefix = normalizeVi(wakeWord) || normalizeVi(DEFAULT_WAKE_WORD);
+  const command = normalized.replace(/^(?:(?:da|oi)\s+)?/u, '');
+  if (command !== wakePrefix && !command.startsWith(`${wakePrefix} `)) return null;
+  const remainder = command.slice(wakePrefix.length).trim().replace(/^oi\b\s*/u, '');
+  const wakePrefixLength = normalized.length - remainder.length;
   let sourceOffset = 0;
   while (sourceOffset < transcript.length &&
     normalizeVi(transcript.slice(0, sourceOffset)).length < wakePrefixLength) sourceOffset += 1;
   return transcript.slice(sourceOffset).trim();
 };
 
+const isWakeAcknowledgement = (remainder: string) =>
+  /^(?:(?:em|ban|co) )?(?:nghe(?: khong)?|co nghe khong|khong)?$/u.test(normalizeVi(remainder));
+
 export function useTroLyWake({ onCommand, onLocalTranscript, getUnrecognizedMessage }: UseTroLyWakeOptions) {
   const [mode, setMode] = useState<TroLyVoiceMode>('off');
   const [heard, setHeard] = useState('');
   const [result, setResult] = useState('');
   const [error, setError] = useState('');
+  const [wakeWord, setWakeWordState] = useState(() => {
+    if (typeof window === 'undefined') return DEFAULT_WAKE_WORD;
+    try {
+      return window.localStorage.getItem(WAKE_WORD_STORAGE_KEY)?.trim() || DEFAULT_WAKE_WORD;
+    } catch {
+      return DEFAULT_WAKE_WORD;
+    }
+  });
   const modeRef = useRef<TroLyVoiceMode>('off');
   const activeRef = useRef(false);
   const recognitionRef = useRef<RecognitionLike | null>(null);
@@ -75,11 +92,11 @@ export function useTroLyWake({ onCommand, onLocalTranscript, getUnrecognizedMess
   const onCommandRef = useRef(onCommand);
   const onLocalTranscriptRef = useRef(onLocalTranscript);
   const getUnrecognizedMessageRef = useRef(getUnrecognizedMessage);
+  const wakeWordRef = useRef(wakeWord);
   const audioContextRef = useRef<AudioContext | null>(null);
   const speakRef = useRef<(text: string, nextMode?: TroLyVoiceMode) => void>(() => undefined);
   const wakeAndListenRef = useRef<(remainder?: string) => void>(() => undefined);
   const runCommandRef = useRef<(commandText: string) => void>(() => undefined);
-  const pendingWakeCommandRef = useRef('');
 
   useEffect(() => {
     onCommandRef.current = onCommand;
@@ -89,6 +106,20 @@ export function useTroLyWake({ onCommand, onLocalTranscript, getUnrecognizedMess
     onLocalTranscriptRef.current = onLocalTranscript;
     getUnrecognizedMessageRef.current = getUnrecognizedMessage;
   }, [getUnrecognizedMessage, onLocalTranscript]);
+
+  useEffect(() => {
+    const storedWakeWord = wakeWord.trim() || DEFAULT_WAKE_WORD;
+    wakeWordRef.current = storedWakeWord;
+    try {
+      window.localStorage.setItem(WAKE_WORD_STORAGE_KEY, storedWakeWord);
+    } catch {
+      setError('Không thể lưu từ khóa đánh thức trên thiết bị.');
+    }
+  }, [wakeWord]);
+
+  const setWakeWord = useCallback((value: string) => {
+    setWakeWordState(value.slice(0, 40));
+  }, []);
 
   const updateMode = useCallback((nextMode: TroLyVoiceMode) => {
     modeRef.current = nextMode;
@@ -172,15 +203,23 @@ export function useTroLyWake({ onCommand, onLocalTranscript, getUnrecognizedMess
           retryAttemptCountRef.current = 0;
           retryScheduledRef.current = false;
           setError(current => current.startsWith('Mất kết nối') ? '' : current);
-          const wakeRemainder = extractWakeRemainder(transcript);
+          const wakeRemainder = extractWakeRemainder(transcript, wakeWordRef.current);
           if (wakeRemainder === null) continue;
           stopRecognition();
-          wakeAndListenRef.current(wakeRemainder || undefined);
+          wakeAndListenRef.current(
+            !wakeRemainder || isWakeAcknowledgement(wakeRemainder) ? undefined : wakeRemainder
+          );
           return;
         }
 
         if (modeRef.current === 'listening_command') {
-          const wakeRemainder = extractWakeRemainder(transcript);
+          const wakeRemainder = extractWakeRemainder(transcript, wakeWordRef.current);
+          if (wakeRemainder !== null && isWakeAcknowledgement(wakeRemainder)) {
+            if (!resultItem.isFinal) continue;
+            stopRecognition();
+            speakRef.current(WAKE_ACKNOWLEDGEMENT, 'listening_command');
+            break;
+          }
           const cleanCommand = wakeRemainder === null ? transcript.trim() : wakeRemainder;
           if (!cleanCommand) continue;
           const spoken = normalizeVi(cleanCommand);
@@ -277,18 +316,6 @@ export function useTroLyWake({ onCommand, onLocalTranscript, getUnrecognizedMess
 
   const finishSpeech = useCallback((nextMode: TroLyVoiceMode) => {
     updateMode(nextMode);
-    const pendingCommand = pendingWakeCommandRef.current;
-    if (activeRef.current && nextMode === 'listening_command' && pendingCommand) {
-      pendingWakeCommandRef.current = '';
-      const localResult = onLocalTranscriptRef.current?.(pendingCommand, true);
-      if (localResult?.handled) {
-        setResult(localResult.message || '');
-        scheduleRecognitionRestart();
-        return;
-      }
-      runCommandRef.current(pendingCommand);
-      return;
-    }
     if (activeRef.current && nextMode !== 'off') scheduleRecognitionRestart();
   }, [scheduleRecognitionRestart, updateMode]);
 
@@ -316,9 +343,20 @@ export function useTroLyWake({ onCommand, onLocalTranscript, getUnrecognizedMess
 
   const wakeAndListen = useCallback((remainder?: string) => {
     playWakeTone();
-    pendingWakeCommandRef.current = remainder?.trim() || '';
-    speak('Trợ lý nghe, anh cần làm gì?', 'listening_command');
-  }, [playWakeTone, speak]);
+    const command = remainder?.trim();
+    if (command) {
+      updateMode('listening_command');
+      const localResult = onLocalTranscriptRef.current?.(command, true);
+      if (localResult?.handled) {
+        setResult(localResult.message || '');
+        scheduleRecognitionRestart();
+        return;
+      }
+      runCommandRef.current(command);
+      return;
+    }
+    speak(WAKE_ACKNOWLEDGEMENT, 'listening_command');
+  }, [playWakeTone, scheduleRecognitionRestart, speak, updateMode]);
 
   const runCommand = useCallback((commandText: string) => {
     if (processingRef.current) return;
@@ -386,6 +424,8 @@ export function useTroLyWake({ onCommand, onLocalTranscript, getUnrecognizedMess
     heard,
     result,
     error,
+    wakeWord,
+    setWakeWord,
     toggle,
     speak
   };

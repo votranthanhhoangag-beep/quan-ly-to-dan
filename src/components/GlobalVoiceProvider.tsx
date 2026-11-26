@@ -21,6 +21,8 @@ interface VoiceContextValue {
   error: string;
   heard: string;
   result: string;
+  wakeWord: string;
+  setWakeWord: (value: string) => void;
   toggle: () => void;
 }
 
@@ -106,6 +108,8 @@ export function GlobalVoiceProvider({ children }: { children: ReactNode }) {
         error: troLy.error,
         heard: troLy.heard,
         result: troLy.result,
+        wakeWord: troLy.wakeWord,
+        setWakeWord: troLy.setWakeWord,
         toggle: troLy.toggle
       }}
     >
@@ -142,6 +146,22 @@ export function GlobalVoiceButton() {
         <span aria-hidden="true">🎙️</span>
         <span>Trợ lý giọng nói · {labels[voice.mode]}</span>
       </button>
+      <details style={{ position: 'relative', fontSize: '11px' }}>
+        <summary style={{ cursor: 'pointer', color: '#334155' }}>Từ đánh thức</summary>
+        <label style={{ position: 'absolute', right: 0, top: '100%', zIndex: 30, display: 'grid', gap: '5px', width: '190px', padding: '9px', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#fff', boxShadow: '0 4px 10px rgb(15 23 42 / 15%)' }}>
+          Cụm từ gọi trợ lý
+          <input
+            type="text"
+            value={voice.wakeWord}
+            onChange={event => voice.setWakeWord(event.target.value)}
+            onBlur={event => voice.setWakeWord(event.target.value.trim() || 'trợ lý')}
+            aria-label="Cụm từ đánh thức trợ lý"
+            data-voice-ignore="true"
+            maxLength={40}
+            style={{ width: '100%', padding: '6px', border: '1px solid #cbd5e1', borderRadius: '4px' }}
+          />
+        </label>
+      </details>
       {voice.result && (
         <span role="status" aria-live="polite" className="erp-voice-status">
           {voice.result}
