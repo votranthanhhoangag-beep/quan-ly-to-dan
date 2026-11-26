@@ -25,6 +25,7 @@ const synonyms: Array<{ canonical: string; alternatives: string[] }> = [
   { canonical: 'ma hang', alternatives: ['ma hang', 'ma san pham', 'ma'] },
   { canonical: 'ma danh muc', alternatives: ['ma danh muc', 'ma'] },
   { canonical: 'ten hang', alternatives: ['ten hang', 'ten san pham'] },
+  { canonical: 'ten cong ty doi tac', alternatives: ['ten cong ty doi tac', 'ten cong ty', 'cong ty doi tac', 'doi tac'] },
   { canonical: 'ghi chu', alternatives: ['ghi chu', 'luu y', 'noi dung'] },
   { canonical: 'don gia', alternatives: ['don gia', 'gia'] },
   { canonical: 'so dien thoai', alternatives: ['so dien thoai', 'dien thoai', 'sdt'] }
@@ -147,6 +148,18 @@ const numberWords = new Set([
   'chin', 'muoi', 'tram', 'ngan', 'nghin', 'trieu', 'ty', 'ruoi', 'dong', 'vnd'
 ]);
 
+const speechFillers = new Set(['a', 'ah', 'da', 'em', 'la', 'oi', 'thi', 'uh', 'um', 'vang', 'vâng', 'ừm', 'ờ']);
+
+const cleanSpokenText = (value: string) => {
+  const words = value.trim().replace(/\s+/g, ' ').split(' ').filter(Boolean);
+  while (words.length && speechFillers.has(normalize(words[0]))) words.shift();
+  while (words.length && speechFillers.has(normalize(words[words.length - 1]))) words.pop();
+  return words.join(' ').replace(/^[,;:.!?]+|[,;:.!?]+$/g, '').trim();
+};
+
+const hasRecognizableText = (value: string) =>
+  normalize(value).split(' ').some(word => word && !speechFillers.has(word));
+
 const parseNumberValue = (field: AutoVoiceField, rawValue: string): number | undefined => {
   const value = rawValue.trim();
   if (!value) return undefined;
@@ -186,13 +199,15 @@ const findNamedField = (normalizedCommand: string, rawCommand: string, fields: A
   if (!candidates.length) return null;
   const longest = candidates[0].alias.length;
   const matches = candidates.filter(candidate => candidate.alias.length === longest);
-  const uniqueFields = Array.from(new Set(matches.map(match => match.field)));
+  const focusedMatches = matches.filter(match => match.field.element === document.activeElement);
+  const uniqueFields = Array.from(new Set((focusedMatches.length ? focusedMatches : matches)
+    .map(match => match.field)));
   if (uniqueFields.length !== 1) return { ambiguous: true as const };
-  const alias = matches[0].alias;
+  const alias = (focusedMatches.length ? focusedMatches : matches)[0].alias;
   let sourceOffset = 0;
   while (sourceOffset < rawCommand.length &&
     normalize(rawCommand.slice(0, sourceOffset)).length < alias.length) sourceOffset += 1;
-  const value = rawCommand.slice(sourceOffset).trim().replace(/^(?:là|la|:)\s*/iu, '');
+  const value = cleanSpokenText(rawCommand.slice(sourceOffset).trim().replace(/^(?:là|la|:)\s*/iu, ''));
   return { field: uniqueFields[0], value, ambiguous: false as const };
 };
 
@@ -251,7 +266,21 @@ export const processAutoFieldVoiceCommand = (
   }
 
   const assignment = findNamedField(command, rawCommand, fields);
-  if (!assignment) return { handled: false };
+  if (!assignment) {
+    const activeField = fields.find(field => field.element === document.activeElement);
+    if (!activeField || !['text', 'search-dropdown'].includes(activeField.kind) ||
+      /^(?:mo|chon|bam|di den|chuyen den|quan ly|bao cao|trang chu|ngung|tam dung|xoa|sua|them|luu|dong|huy)\b/u.test(command)) {
+      return { handled: false };
+    }
+    const value = cleanSpokenText(rawCommand);
+    if (!value || !hasRecognizableText(value)) {
+      return {
+        handled: true,
+        message: `Nghe chưa rõ — giữ nguyên ${activeField.label}, chờ lệnh tiếp theo.`
+      };
+    }
+    return applyTextValue(activeField, value);
+  }
   if (assignment.ambiguous) {
     return { handled: true, message: 'Nghe chưa rõ — tên ô khớp nhiều trường, giữ nguyên dữ liệu và chờ lệnh tiếp theo.' };
   }
@@ -266,16 +295,16 @@ export const processAutoFieldVoiceCommand = (
   }
 
   const field = assignment.field;
-  let value = assignment.value;
+  const value = assignment.value;
   if (field.kind === 'number') {
     const parsed = parseNumberValue(field, value);
     if (parsed === undefined) {
       return { handled: true, message: `Nghe chưa rõ — giá trị không hợp lệ cho ${field.label}, giữ nguyên và chờ lệnh tiếp theo.` };
     }
-    value = String(parsed);
+    return applyTextValue(field, String(parsed));
   } else if (field.kind === 'search-dropdown') {
-    focusField(field);
     if (field.element instanceof HTMLSelectElement) {
+      focusField(field);
       const query = normalize(value);
       const options = Array.from(field.element.options).filter(option =>
         normalize(option.textContent || option.value).includes(query));
@@ -287,22 +316,46 @@ export const processAutoFieldVoiceCommand = (
       }
       field.element.value = options[0].value;
       field.element.dispatchEvent(new Event('change', { bubbles: true }));
-    } else {
-      setInputValue(field.element, value);
+      lastAssignmentKey = assignmentKey;
+      lastAssignmentAt = now;
+      return { handled: true, message: `Đã chọn “${options[0].textContent?.trim() || value}”.` };
     }
-    lastAssignmentKey = assignmentKey;
-    lastAssignmentAt = now;
-    return { handled: true, message: `Đã lọc ${field.label} theo “${value}”.` };
+    return applyTextValue(field, value, `Đã lọc ${field.label} theo “${value}”.`);
   }
 
+  return applyTextValue(field, value);
+};
+
+const applyTextValue = (
+  field: AutoVoiceField,
+  value: string,
+  successMessage = `Đã điền ${field.label} ${value}.`
+): LocalVoiceResult => {
+  const assignmentKey = `${field.label}:${value}`;
+  const now = Date.now();
+  if (assignmentKey === lastAssignmentKey && now - lastAssignmentAt < 500) {
+    return { handled: true, message: successMessage };
+  }
   focusField(field);
   if (!(field.element instanceof HTMLInputElement || field.element instanceof HTMLTextAreaElement) ||
     !setInputValue(field.element, value)) {
-    return { handled: true, message: `Nghe chưa rõ — không thể cập nhật ${field.label}, giữ nguyên và chờ lệnh tiếp theo.` };
+    return {
+      handled: true,
+      message: `Nghe chưa rõ — không thể cập nhật ${field.label}, giữ nguyên và chờ lệnh tiếp theo.`
+    };
+  }
+  if (field.element instanceof HTMLInputElement && field.element.hasAttribute('list') &&
+    document.getElementById(field.element.getAttribute('list') || '') instanceof HTMLDataListElement &&
+    'showPicker' in field.element) {
+    try {
+      field.element.showPicker();
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === 'NotAllowedError')) throw error;
+    }
   }
   lastAssignmentKey = assignmentKey;
   lastAssignmentAt = now;
-  return { handled: true, message: `Đã điền ${field.label} ${value}.` };
+  return { handled: true, message: successMessage };
 };
 
 export const getFocusedVoiceFieldLabel = (fields: AutoVoiceField[]) =>
