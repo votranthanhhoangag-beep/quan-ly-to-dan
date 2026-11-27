@@ -6,8 +6,6 @@ import { useAuth } from '../context/AuthContext';
 import { filterPhoneDigits, isValidVietnamMobileNumber } from '../utils/vietnamPhone';
 import { getTodayDateString, isValidDebtDueDate } from '../utils/contractDebt';
 import { logDailyAction } from '../utils/logger';
-import VoiceFillControl from './VoiceFillControl';
-import { parseVietnameseFormSpeech } from '../utils/voiceFormParser';
 
 interface ExpenseFormRow {
   id: string;
@@ -437,64 +435,6 @@ export const ExpenseForm = () => {
       </header>
 
       <form {...formDraftProps} onSubmit={handleSubmit} style={{ display: 'grid', gap: '16px' }}>
-        <VoiceFillControl onTranscript={transcript => {
-          const parsed = parseVietnameseFormSpeech(transcript);
-          const filledFields: string[] = [];
-          if (parsed.personName) {
-            setSupplierName(parsed.personName);
-            filledFields.push('Cơ sở / đối tác');
-          }
-          const itemName = parsed.productName || parsed.category || parsed.productCode;
-          const matchedOption = itemName
-            ? catalogOptions.find(option =>
-              option.name.toLocaleLowerCase('vi') === itemName.toLocaleLowerCase('vi') ||
-              option.code.toLocaleLowerCase('vi') === itemName.toLocaleLowerCase('vi')
-            ) || catalogOptions.find(option =>
-              option.name.toLocaleLowerCase('vi').includes(itemName.toLocaleLowerCase('vi'))
-            )
-            : undefined;
-          if (itemName) filledFields.push(matchedOption ? `Khoản mục ${matchedOption.name}` : 'Tên khoản mục');
-
-          const row = items[0] || createExpenseRow();
-          const quantity = parsed.quantity ?? (parsed.totalAmount !== undefined ? 1 : Number(row.quantity) || 0);
-          const unitPrice = parsed.unitPrice ??
-            (parsed.totalAmount !== undefined && quantity > 0
-              ? parsed.totalAmount / quantity
-              : undefined);
-          if (parsed.quantity !== undefined || unitPrice !== undefined || itemName) {
-            if (parsed.paidAmount === undefined) setPaidAmountOverride(null);
-            setItems(current => {
-              const target = current[0] || row;
-              return [{
-                ...target,
-                name: matchedOption?.name || itemName || target.name,
-                sourceCode: matchedOption?.code || target.sourceCode,
-                sourceType: matchedOption?.type || target.sourceType,
-                sourceNote: matchedOption?.note || target.sourceNote,
-                unit: matchedOption?.unit || target.unit,
-                quantity: parsed.quantity !== undefined || parsed.totalAmount !== undefined
-                  ? String(quantity)
-                  : target.quantity,
-                unitPrice: unitPrice !== undefined
-                  ? formatAmountInput(String(Math.round(unitPrice)))
-                  : target.unitPrice
-              }, ...current.slice(1)];
-            });
-          }
-          if (parsed.quantity !== undefined) filledFields.push(`Số lượng ${parsed.quantity}`);
-          if (unitPrice !== undefined) filledFields.push(parsed.unitPrice !== undefined ? 'Đơn giá' : 'Đơn giá suy ra từ thành tiền');
-          if (parsed.paidAmount !== undefined) {
-            setPaidAmountOverride(formatAmountInput(String(Math.round(parsed.paidAmount))));
-            filledFields.push('Số tiền thanh toán');
-          }
-          if (parsed.note) {
-            setNote(parsed.note);
-            filledFields.push('Ghi chú');
-          }
-          return filledFields.length
-            ? `Đã điền: ${filledFields.join(', ')}. Vui lòng kiểm tra trước khi lưu.`
-            : 'Chưa nhận ra thông tin cần điền. Nói tên khoản mục, số lượng, đơn giá, thành tiền, đối tác hoặc ghi chú.';
-        }} />
         <section style={{ ...cardStyle, backgroundColor: '#f8fafc' }}>
           <h3 style={{ margin: '0 0 14px', color: '#1e293b', fontSize: '15px' }}>1. Thông Tin Cơ Sở / Đối Tác</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '12px' }}>

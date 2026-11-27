@@ -1,8 +1,6 @@
 import { Fragment, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useApp, type ContractItem, type ReceivedGoodsLog } from '../context/AppContext';
 import { usePersistentFormDraft } from '../hooks/usePersistentFormDraft';
-import VoiceFillControl from './VoiceFillControl';
-import { parseVietnameseFormSpeech } from '../utils/voiceFormParser';
 import {
   getContractFinancialSummary,
   getContractMaterialAmount,
@@ -514,54 +512,6 @@ export default function FrameExportManager() {
               {editingReceiptId ? '✏️ Sửa Phiếu Nhận Hàng' : '➕ Lập Phiếu Nhận Hàng Mới'}
             </h3>
             <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-              <VoiceFillControl onTranscript={transcript => {
-                const parsed = parseVietnameseFormSpeech(transcript);
-                const normalizedNames = [parsed.groupName, parsed.personName, parsed.productName]
-                  .filter((name): name is string => Boolean(name))
-                  .map(name => name.toLocaleLowerCase('vi').trim());
-                const matchesCode = (contract: ContractItem) =>
-                  contract.productCode.trim().toLocaleLowerCase('vi') === parsed.productCode?.toLocaleLowerCase('vi');
-                const matchesName = (contract: ContractItem) =>
-                  normalizedNames.some(name =>
-                    (contract.craftGroupLeader || '').toLocaleLowerCase('vi').includes(name) ||
-                    getProductName(contract).toLocaleLowerCase('vi').includes(name)
-                  );
-                const targetContract = (parsed.productCode && normalizedNames.length > 0
-                  ? subContracts.find(contract => matchesCode(contract) && matchesName(contract))
-                  : undefined) ||
-                  (parsed.productCode ? subContracts.find(matchesCode) : undefined) ||
-                  (normalizedNames.length > 0
-                    ? subContracts.find(matchesName)
-                    : undefined);
-                setRows(current => {
-                  const targetRow = current[0] || createRow();
-                  const nextRow: ReceiveFormRow = {
-                    ...targetRow,
-                    contractId: targetContract ? String(targetContract.id) : targetRow.contractId,
-                    quantity: parsed.quantity !== undefined ? String(parsed.quantity) : targetRow.quantity,
-                    paidAmount: parsed.paidAmount !== undefined ? String(Math.round(parsed.paidAmount)) : targetRow.paidAmount,
-                    itemTypeOption: parsed.unit === 'Bộ'
-                      ? 'BO'
-                      : parsed.unit === 'Cái'
-                        ? 'CAI'
-                        : targetContract?.itemTypeOption || targetRow.itemTypeOption,
-                    sizeQuantities: parsed.quantity !== undefined
-                      ? {}
-                      : targetRow.sizeQuantities
-                  };
-                  return [nextRow, ...current.slice(1)];
-                });
-                if (parsed.note) setNote(parsed.note);
-                const filledFields = [
-                  targetContract && `Hợp đồng ${targetContract.contractNo} / ${targetContract.craftGroupLeader || targetContract.productCode}`,
-                  parsed.quantity !== undefined && `Số lượng ${parsed.quantity}`,
-                  parsed.paidAmount !== undefined && 'Số tiền trả',
-                  parsed.note && 'Ghi chú'
-                ].filter(Boolean);
-                return filledFields.length
-                  ? `Đã điền dòng đầu: ${filledFields.join(', ')}. Vui lòng kiểm tra trước khi lưu.`
-                  : 'Chưa tìm thấy hợp đồng hoặc thông tin cần điền. Nói tên tổ, mã hàng, số lượng, số tiền trả hoặc ghi chú.';
-              }} />
               <button type="button" onClick={() => setRows(current => [...current, createRow()])} style={{ padding: '8px 12px', border: 0, borderRadius: '6px', backgroundColor: '#059669', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
                 + Thêm dòng hàng
               </button>

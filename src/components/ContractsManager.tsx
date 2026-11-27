@@ -1,7 +1,7 @@
 import React, { useCallback, useEffectEvent, useMemo, useState, useEffect, useRef } from 'react';
 import { useApp, type CategoryItem, type ContractItem } from '../context/AppContext';
 import { filterPhoneDigits, isValidVietnamMobileNumber } from '../utils/vietnamPhone';
-import { getLatestMaterialUnitPrice, matchesMaterialNameSearch } from '../utils/materialSearch';
+import { getHighestMaterialUnitPrice, getLatestMaterialUnitPrice, matchesMaterialNameSearch } from '../utils/materialSearch';
 import { usePersistentFormDraft } from '../hooks/usePersistentFormDraft';
 import { createUniqueId } from '../utils/uniqueId';
 import { useAuth } from '../context/AuthContext';
@@ -56,6 +56,7 @@ interface AccompanyingMaterialFormRow {
   unitPrice: string;
   isDropdownOpen: boolean;
   quantityManuallyEdited: boolean;
+  unitPriceManuallyEdited?: boolean;
 }
 
 const createAccompanyingMaterialRow = (): AccompanyingMaterialFormRow => ({
@@ -144,9 +145,12 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       : [],
     [products]
   );
-  const materialItems: CategoryItem[] = Array.isArray(materials)
-    ? materials.filter((item: unknown): item is CategoryItem => Boolean(item) && typeof item === 'object')
-    : [];
+  const materialItems: CategoryItem[] = useMemo(
+    () => Array.isArray(materials)
+      ? materials.filter((item: unknown): item is CategoryItem => Boolean(item) && typeof item === 'object')
+      : [],
+    [materials]
+  );
   const parentMaterialSuggestions = useMemo<CategoryItem[]>(() => {
     const suggestions = new Map<string, CategoryItem>();
     const addSuggestion = (id: number | string | undefined, code: unknown, name: unknown, unit?: unknown) => {
@@ -465,6 +469,27 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
   }, [activeTab, subContractActualReceived, subContractMaterials.map(row =>
     `${row.id}:${row.normPerUnit}`
   ).join('|')]);
+
+  useEffect(() => {
+    if (activeTab !== 'SUB') return;
+    setSubContractMaterials(rows => {
+      let changed = false;
+      const nextRows = rows.map(row => {
+        if (row.unitPriceManuallyEdited) return row;
+        const material = materialItems.find(item =>
+          (row.materialId !== null && row.materialId !== undefined && String(item.id) === String(row.materialId)) ||
+          (Boolean(row.materialCode) && normalizeProductSearch(item.code) === normalizeProductSearch(row.materialCode)) ||
+          (Boolean(row.materialName) && normalizeProductSearch(item.name) === normalizeProductSearch(row.materialName))
+        );
+        if (!material) return row;
+        const highestPrice = getHighestMaterialUnitPrice(material, slips, expenses);
+        if (highestPrice <= 0 || row.unitPrice === String(highestPrice)) return row;
+        changed = true;
+        return { ...row, unitPrice: String(highestPrice) };
+      });
+      return changed ? nextRows : rows;
+    });
+  }, [activeTab, materialItems, slips, expenses]);
 
   // Số lượng HĐ Tổ Đan & Tiến độ nhận khung
 
@@ -1557,7 +1582,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
           quantity: String(material.quantity),
           unitPrice: String(Number(material.unitPrice) || 0),
           isDropdownOpen: false,
-          quantityManuallyEdited: true
+          quantityManuallyEdited: true,
+          unitPriceManuallyEdited: false
         }))
         : [createAccompanyingMaterialRow()]);
       if (item.quantity) setContractQty(String(item.quantity));
@@ -2968,7 +2994,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                                   materialName: material.name.trim(),
                                   query: material.name.trim(),
                                   unit: material.unit || item.unit,
-                                  unitPrice: String(getLatestMaterialUnitPrice(material, slips, expenses) || ''),
+                                  unitPrice: String(getHighestMaterialUnitPrice(material, slips, expenses) || ''),
+                                  unitPriceManuallyEdited: false,
                                   isDropdownOpen: false
                                 }
                                 : item));
@@ -3026,7 +3053,11 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                     value={row.unitPrice}
                     onChange={event => setSubContractMaterials(rows => rows.map(item =>
                       item.id === row.id
-                        ? { ...item, unitPrice: event.target.value.replace(',', '.').replace(/[^\d.]/g, '') }
+                        ? {
+                          ...item,
+                          unitPrice: event.target.value.replace(',', '.').replace(/[^\d.]/g, ''),
+                          unitPriceManuallyEdited: true
+                        }
                         : item
                     ))}
                     style={{ width: '100%', padding: '9px', border: '1px solid #94a3b8', borderRadius: '5px', boxSizing: 'border-box' }}
