@@ -16,6 +16,24 @@ const normalizeMaterialIdentity = (value: unknown) => String(value || '')
   .replace(/[^a-zA-Z0-9]/g, '')
   .toLocaleLowerCase('vi');
 
+const parseMaterialNumber = (value: unknown) => {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  const raw = String(value || '').trim().replace(/[^\d,.-]/g, '');
+  if (!raw) return 0;
+  const separators = raw.match(/[.,]/g) || [];
+  if (!separators.length) {
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  const lastSeparator = Math.max(raw.lastIndexOf(','), raw.lastIndexOf('.'));
+  const decimalDigits = raw.length - lastSeparator - 1;
+  const normalized = decimalDigits === 3
+    ? raw.replace(/[.,]/g, '')
+    : `${raw.slice(0, lastSeparator).replace(/[.,]/g, '')}.${raw.slice(lastSeparator + 1)}`;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 export const normalizeMaterialSearch = (value: unknown) => String(value || '')
   .toLocaleLowerCase('vi')
   .normalize('NFD')
@@ -47,9 +65,13 @@ const getMaterialPurchaseLines = (
     const lineCode = normalizeMaterialIdentity(line.materialCode);
     if (materialCode && lineCode === materialCode) return true;
     const lineName = normalizeMaterialIdentity(line.materialName);
-    return Boolean(materialName && (
+    if (materialName && (
       lineName === materialName ||
       (materialName.length >= 3 && lineName.includes(materialName))
+    )) return true;
+    return Boolean(materialCode && materialName && (
+      (lineCode.startsWith(materialCode) && lineCode.includes(materialName)) ||
+      (lineName.startsWith(materialCode) && lineName.includes(materialName))
     ));
   };
   const priceLines: Array<{ date: string; line: MaterialPriceLine }> = [];
@@ -90,9 +112,9 @@ export const getLatestMaterialUnitPrice = (
 ) => {
   const priceLines = getMaterialPurchaseLines(material, slips, expenses)
     .map(({ date, line }) => {
-      const quantity = Number(line.quantity) || 0;
-      const amount = Number(line.amount) || 0;
-      const unitPrice = Number(line.unitPrice) || (quantity > 0 ? amount / quantity : 0);
+      const quantity = parseMaterialNumber(line.quantity);
+      const amount = parseMaterialNumber(line.amount);
+      const unitPrice = parseMaterialNumber(line.unitPrice) || (quantity > 0 ? amount / quantity : 0);
       return { date, unitPrice };
     })
     .filter(({ unitPrice }) => unitPrice > 0 && Number.isFinite(unitPrice));
@@ -104,8 +126,8 @@ export const getHighestMaterialUnitPrice = (
   slips: SlipItem[],
   expenses: ExpenseItem[]
 ) => getMaterialPurchaseLines(material, slips, expenses).reduce((highest, { line }) => {
-  const quantity = Number(line.quantity) || 0;
-  const amount = Number(line.amount) || 0;
-  const unitPrice = amount > 0 && quantity > 0 ? amount / quantity : Number(line.unitPrice) || 0;
-  return Number.isFinite(unitPrice) ? Math.max(highest, unitPrice) : highest;
+  const quantity = parseMaterialNumber(line.quantity);
+  const amount = parseMaterialNumber(line.amount);
+  const unitPrice = parseMaterialNumber(line.unitPrice) || (quantity > 0 ? amount / quantity : 0);
+  return unitPrice > 0 && Number.isFinite(unitPrice) ? Math.max(highest, unitPrice) : highest;
 }, 0);

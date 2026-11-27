@@ -121,6 +121,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     materials,
     contracts,
     slips = [],
+    inventoryLogs = [],
     knittingExportSlips = [],
     expenses = [],
     depositSlips = [],
@@ -150,6 +151,12 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
       ? materials.filter((item: unknown): item is CategoryItem => Boolean(item) && typeof item === 'object')
       : [],
     [materials]
+  );
+  const purchaseSlipItems = useMemo(
+    () => Array.isArray(inventoryLogs) && inventoryLogs.length > 0
+      ? inventoryLogs
+      : Array.isArray(slips) ? slips : [],
+    [inventoryLogs, slips]
   );
   const parentMaterialSuggestions = useMemo<CategoryItem[]>(() => {
     const suggestions = new Map<string, CategoryItem>();
@@ -482,14 +489,14 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
           (Boolean(row.materialName) && normalizeProductSearch(item.name) === normalizeProductSearch(row.materialName))
         );
         if (!material) return row;
-        const highestPrice = getHighestMaterialUnitPrice(material, slips, expenses);
+        const highestPrice = getHighestMaterialUnitPrice(material, purchaseSlipItems, expenses);
         if (highestPrice <= 0 || row.unitPrice === String(highestPrice)) return row;
         changed = true;
         return { ...row, unitPrice: String(highestPrice) };
       });
       return changed ? nextRows : rows;
     });
-  }, [activeTab, materialItems, slips, expenses]);
+  }, [activeTab, materialItems, purchaseSlipItems, expenses]);
 
   // Số lượng HĐ Tổ Đan & Tiến độ nhận khung
 
@@ -2994,7 +3001,7 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
                                   materialName: material.name.trim(),
                                   query: material.name.trim(),
                                   unit: material.unit || item.unit,
-                                  unitPrice: String(getHighestMaterialUnitPrice(material, slips, expenses) || ''),
+                                  unitPrice: String(getHighestMaterialUnitPrice(material, purchaseSlipItems, expenses) || ''),
                                   unitPriceManuallyEdited: false,
                                   isDropdownOpen: false
                                 }
