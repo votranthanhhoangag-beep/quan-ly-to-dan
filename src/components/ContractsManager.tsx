@@ -1,7 +1,7 @@
 import React, { useCallback, useEffectEvent, useMemo, useState, useEffect, useRef } from 'react';
 import { useApp, type CategoryItem, type ContractItem } from '../context/AppContext';
 import { filterPhoneDigits, isValidVietnamMobileNumber } from '../utils/vietnamPhone';
-import { getHighestMaterialUnitPrice, getLatestMaterialUnitPrice, matchesMaterialNameSearch } from '../utils/materialSearch';
+import { getHighestMaterialUnitPrice, getLatestMaterialUnitPrice, matchesMaterialIdentity, matchesMaterialNameSearch } from '../utils/materialSearch';
 import { usePersistentFormDraft } from '../hooks/usePersistentFormDraft';
 import { createUniqueId } from '../utils/uniqueId';
 import { useAuth } from '../context/AuthContext';
@@ -482,12 +482,8 @@ export const ContractsManager: React.FC<ContractsManagerProps> = ({
     setSubContractMaterials(rows => {
       let changed = false;
       const nextRows = rows.map(row => {
-        if (row.unitPriceManuallyEdited) return row;
-        const material = materialItems.find(item =>
-          (row.materialId !== null && row.materialId !== undefined && String(item.id) === String(row.materialId)) ||
-          (Boolean(row.materialCode) && normalizeProductSearch(item.code) === normalizeProductSearch(row.materialCode)) ||
-          (Boolean(row.materialName) && normalizeProductSearch(item.name) === normalizeProductSearch(row.materialName))
-        );
+        if (row.unitPriceManuallyEdited || parseDecimalInput(row.unitPrice) > 0) return row;
+        const material = materialItems.find(item => matchesMaterialIdentity(item, row));
         if (!material) return row;
         const highestPrice = getHighestMaterialUnitPrice(material, purchaseSlipItems, expenses);
         if (highestPrice <= 0 || row.unitPrice === String(highestPrice)) return row;

@@ -1,7 +1,7 @@
 import type { CategoryItem, ExpenseItem, SlipItem } from '../context/AppContext';
 
 type MaterialPriceLine = {
-  materialId?: number;
+  materialId?: number | string | null;
   materialCode?: string;
   materialName?: string;
   quantity?: number;
@@ -13,8 +13,39 @@ type MaterialPriceLine = {
 const normalizeMaterialIdentity = (value: unknown) => String(value || '')
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '')
+  .replace(/đ/gi, 'd')
   .replace(/[^a-zA-Z0-9]/g, '')
   .toLocaleLowerCase('vi');
+
+const getMaterialIdentityAliases = (...values: unknown[]) => {
+  const aliases = new Set<string>();
+  values.forEach(value => {
+    const text = String(value || '').trim();
+    const normalized = normalizeMaterialIdentity(text);
+    if (normalized) aliases.add(normalized);
+    text.split(/\s+[-–—]\s+/).forEach(part => {
+      const alias = normalizeMaterialIdentity(part);
+      if (alias) aliases.add(alias);
+    });
+  });
+  return aliases;
+};
+
+export const matchesMaterialIdentity = (
+  material: CategoryItem,
+  line: Pick<MaterialPriceLine, 'materialId' | 'materialCode' | 'materialName'>
+) => {
+  if (
+    line.materialId !== undefined &&
+    line.materialId !== null &&
+    String(line.materialId) !== '0' &&
+    String(line.materialId) === String(material.id)
+  ) return true;
+
+  const materialAliases = getMaterialIdentityAliases(material.code, material.name);
+  const lineAliases = getMaterialIdentityAliases(line.materialCode, line.materialName);
+  return Array.from(lineAliases).some(alias => materialAliases.has(alias));
+};
 
 const parseMaterialNumber = (value: unknown) => {
   if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
@@ -58,25 +89,9 @@ const getMaterialPurchaseLines = (
   slips: SlipItem[],
   expenses: ExpenseItem[]
 ): Array<{ date: string; line: MaterialPriceLine }> => {
-  const materialCode = normalizeMaterialIdentity(material.code);
-  const materialName = normalizeMaterialIdentity(material.name);
-  const matches = (line: MaterialPriceLine) => {
-    if (line.materialId !== undefined && String(line.materialId) === String(material.id)) return true;
-    const lineCode = normalizeMaterialIdentity(line.materialCode);
-    if (materialCode && lineCode === materialCode) return true;
-    const lineName = normalizeMaterialIdentity(line.materialName);
-    if (materialName && (
-      lineName === materialName ||
-      (materialName.length >= 3 && lineName.includes(materialName))
-    )) return true;
-    return Boolean(materialCode && materialName && (
-      (lineCode.startsWith(materialCode) && lineCode.includes(materialName)) ||
-      (lineName.startsWith(materialCode) && lineName.includes(materialName))
-    ));
-  };
   const priceLines: Array<{ date: string; line: MaterialPriceLine }> = [];
   const addLine = (line: MaterialPriceLine, date: string) => {
-    if (matches(line)) priceLines.push({ date, line });
+    if (matchesMaterialIdentity(material, line)) priceLines.push({ date, line });
   };
 
   (Array.isArray(slips) ? slips : []).forEach(slip => {
@@ -114,7 +129,9 @@ export const getLatestMaterialUnitPrice = (
     .map(({ date, line }) => {
       const quantity = parseMaterialNumber(line.quantity);
       const amount = parseMaterialNumber(line.amount);
-      const unitPrice = parseMaterialNumber(line.unitPrice) || (quantity > 0 ? amount / quantity : 0);
+      const unitPrice = amount > 0 && quantity > 0
+        ? amount / quantity
+        : parseMaterialNumber(line.unitPrice);
       return { date, unitPrice };
     })
     .filter(({ unitPrice }) => unitPrice > 0 && Number.isFinite(unitPrice));
@@ -128,6 +145,8 @@ export const getHighestMaterialUnitPrice = (
 ) => getMaterialPurchaseLines(material, slips, expenses).reduce((highest, { line }) => {
   const quantity = parseMaterialNumber(line.quantity);
   const amount = parseMaterialNumber(line.amount);
-  const unitPrice = parseMaterialNumber(line.unitPrice) || (quantity > 0 ? amount / quantity : 0);
+  const unitPrice = amount > 0 && quantity > 0
+    ? amount / quantity
+    : parseMaterialNumber(line.unitPrice);
   return unitPrice > 0 && Number.isFinite(unitPrice) ? Math.max(highest, unitPrice) : highest;
 }, 0);
